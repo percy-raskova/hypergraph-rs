@@ -93,3 +93,84 @@ fn test_index_to_edge_prod_shape() {
     assert_eq!(index_to_edge_prod(3, 4, 3), vec![0, 0, 3]);
     assert_eq!(index_to_edge_prod(0, 4, 3), vec![0, 0, 0]);
 }
+
+use hypergraph_rs::generators::{
+    complement, complete_hypergraph, empty_hypergraph, trivial_hypergraph,
+};
+use hypergraph_rs::Hypergraph;
+
+#[test]
+fn test_empty_hypergraph() {
+    let h = empty_hypergraph();
+    assert_eq!(h.num_nodes(), 0);
+    assert_eq!(h.num_edges(), 0);
+}
+
+#[test]
+fn test_trivial_hypergraph() {
+    let h = trivial_hypergraph(5);
+    assert_eq!(h.num_nodes(), 5);
+    assert_eq!(h.num_edges(), 0);
+    assert!(h.has_node("0"));
+    assert!(h.has_node("4"));
+}
+
+#[test]
+fn test_complete_hypergraph_single_order() {
+    // order=2 -> all 3-subsets of 4 nodes = comb(4,3) = 4 edges
+    let h = complete_hypergraph(4, Some(2), None, false).unwrap();
+    assert_eq!(h.num_nodes(), 4);
+    assert_eq!(h.num_edges(), 4);
+    for e in h.edge_ids() {
+        assert_eq!(h.members(&e).unwrap().len(), 3);
+    }
+}
+
+#[test]
+fn test_complete_hypergraph_max_order_no_singletons() {
+    // max_order=2, no singletons -> subsets of size 2 and 3 of 4 nodes
+    // = comb(4,2)+comb(4,3) = 6 + 4 = 10 edges
+    let h = complete_hypergraph(4, None, Some(2), false).unwrap();
+    assert_eq!(h.num_edges(), 10);
+}
+
+#[test]
+fn test_complete_hypergraph_max_order_with_singletons() {
+    // sizes 1,2,3 of 4 nodes = 4 + 6 + 4 = 14
+    let h = complete_hypergraph(4, None, Some(2), true).unwrap();
+    assert_eq!(h.num_edges(), 14);
+}
+
+#[test]
+fn test_complete_hypergraph_rejects_both_none() {
+    assert!(complete_hypergraph(4, None, None, false).is_err());
+}
+
+#[test]
+fn test_complete_hypergraph_rejects_both_some() {
+    assert!(complete_hypergraph(4, Some(2), Some(3), false).is_err());
+}
+
+#[test]
+fn test_complement_disjoint_edge_sets() {
+    // H on 4 nodes with one 3-edge {0,1,2}; complement (max size 3) contains
+    // every subset of size 1..=3 except {0,1,2}.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_nodes_from((0..4).map(|i| (i.to_string(), serde_json::Value::Null)));
+    h.add_edge(
+        vec!["0".into(), "1".into(), "2".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    let hc = complement(&h);
+    assert_eq!(hc.num_nodes(), 4);
+    // no edge in hc has the same member-set as {0,1,2}
+    let has_012 = hc.edge_ids().iter().any(|e| {
+        let mut m = hc.members(e).unwrap();
+        m.sort();
+        m == vec!["0".to_string(), "1".to_string(), "2".to_string()]
+    });
+    assert!(!has_012, "complement must exclude the original edge");
+    assert!(hc.num_edges() > 0);
+}

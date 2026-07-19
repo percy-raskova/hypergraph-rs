@@ -12,8 +12,9 @@ pub mod random;
 pub mod uniform;
 pub mod simplicial;
 
-// TASK 3: uncomment when classic.rs lands
-// pub use classic::{complement, complete_hypergraph, empty_hypergraph, trivial_hypergraph};
+pub use classic::{
+    complement, complete_hypergraph, empty_hypergraph, trivial_hypergraph, GeneratorError,
+};
 // TASK 4: uncomment when lattice.rs lands
 // pub use lattice::ring_lattice;
 // TASK 5: uncomment when simple.rs lands
