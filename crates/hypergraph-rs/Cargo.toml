@@ -15,8 +15,8 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 rand.workspace = true
-rand_pcg.workspace = true
-rand_core.workspace = true
+rand_pcg = { workspace = true, optional = true }
+rand_core = { workspace = true, optional = true }
 ndarray.workspace = true
 sprs.workspace = true
 
@@ -24,7 +24,7 @@ sprs.workspace = true
 default = ["algorithms", "generators", "stats", "readwrite", "layout", "viz"]
 all = ["default", "dynamics", "communities", "convert", "network"]
 algorithms = []
-generators = []
+generators = ["dep:rand_pcg", "dep:rand_core"]
 stats = []
 readwrite = []
 layout = []
