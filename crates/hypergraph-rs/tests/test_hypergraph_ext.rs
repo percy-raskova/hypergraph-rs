@@ -101,3 +101,53 @@ fn test_dual_drops_isolate_nodes() {
     assert!(!d.has_edge("lonely"));
     assert!(d.has_edge("a"));
 }
+
+use hypergraph_rs::SwapError;
+
+#[test]
+fn test_double_edge_swap_basic() {
+    // XGI docstring example: H([[1,2,3],[3,4]]); swap(1,4,e0,e1) -> [{2,3,4},{1,3}]
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), v()).unwrap();
+    h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v()).unwrap();
+    h.double_edge_swap("1", "4", "e0", "e1").unwrap();
+    let mut m0 = h.members("e0").unwrap();
+    m0.sort();
+    assert_eq!(m0, vec!["2".to_string(), "3".to_string(), "4".to_string()]);
+    let mut m1 = h.members("e1").unwrap();
+    m1.sort();
+    assert_eq!(m1, vec!["1".to_string(), "3".to_string()]);
+}
+
+#[test]
+fn test_double_edge_swap_node_not_in_edge_errors() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), v()).unwrap();
+    h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v()).unwrap();
+    // node "9" is not a member of e0
+    let r = h.double_edge_swap("9", "3", "e0", "e1");
+    assert!(matches!(r, Err(SwapError::IdNotFound { .. })));
+}
+
+#[test]
+fn test_double_edge_swap_size_not_preserved_errors() {
+    let mut h: Hypergraph = Hypergraph::new();
+    // 2 is in BOTH edges; moving 1 into e1 collides with nothing, but moving 2's
+    // counterpart would shrink. Construct a genuine collision: swap 1 and 2 where
+    // 2 is already in e0.
+    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), v()).unwrap();
+    h.add_edge(vec!["2".into(), "3".into()], Some("e1".into()), v()).unwrap();
+    // swap n1=1 (in e0) and n2=2 (in e1): e0 would become {2,2}->{2} (shrink)
+    let r = h.double_edge_swap("1", "2", "e0", "e1");
+    assert!(matches!(r, Err(SwapError::SizeNotPreserved)));
+    // graph unchanged
+    assert_eq!(h.members("e0").unwrap().len(), 2);
+}
+
+#[test]
+fn test_double_edge_swap_missing_edge_errors() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into()], Some("e0".into()), v()).unwrap();
+    let r = h.double_edge_swap("1", "1", "e0", "nope");
+    assert!(matches!(r, Err(SwapError::IdNotFound { .. })));
+}

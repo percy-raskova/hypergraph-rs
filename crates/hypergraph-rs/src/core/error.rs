@@ -23,3 +23,16 @@ pub enum EdgeError {
     #[error("cannot add an empty edge")]
     EmptyMembers,
 }
+
+/// Error raised by `double_edge_swap`.
+#[derive(Debug, Clone, Error, PartialEq)]
+pub enum SwapError {
+    /// A specified node or edge was not found, or the node is not a member of
+    /// the named edge.
+    #[error("id {id} not found (or node not a member of the named edge)")]
+    IdNotFound { id: String },
+    /// The swap would not preserve edge sizes (the incoming node is already a
+    /// member of the target edge).
+    #[error("swap does not preserve edge sizes")]
+    SizeNotPreserved,
+}

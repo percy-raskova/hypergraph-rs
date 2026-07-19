@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use serde_json::Value;
 
-use super::error::{EdgeError, NodeError};
+use super::error::{EdgeError, NodeError, SwapError};
 use super::kinds::{MembershipEdge, NodeKind};
 
 /// A hypergraph, represented as a bipartite graph.
@@ -535,6 +535,88 @@ impl<N, E, M> Hypergraph<N, E, M> {
     /// Read-only view of the graph-level attribute dict (XGI's `H.graph`).
     pub fn graph_attrs(&self) -> &serde_json::Map<String, serde_json::Value> {
         &self.graph_attrs
+    }
+
+    /// Attach `node_id` to `edge_id` (both bipartite directions). No-op if the
+    /// membership already exists. Both ids must already exist.
+    fn attach_member(&mut self, edge_id: &str, node_id: &str)
+    where
+        M: Default + Clone,
+    {
+        let a = self.agent_ids[node_id];
+        let he = self.hyperedge_ids[edge_id];
+        if self.inner.find_edge(a, he).is_none() {
+            let m = MembershipEdge { member_data: M::default() };
+            self.inner.add_edge(a, he, m.clone());
+            self.inner.add_edge(he, a, m);
+        }
+    }
+
+    /// Detach `node_id` from `edge_id` (both bipartite directions). No-op if
+    /// the membership is absent.
+    fn detach_member(&mut self, edge_id: &str, node_id: &str) {
+        let a = self.agent_ids[node_id];
+        let he = self.hyperedge_ids[edge_id];
+        if let Some(e) = self.inner.find_edge(a, he) {
+            self.inner.remove_edge(e);
+        }
+        if let Some(e) = self.inner.find_edge(he, a) {
+            self.inner.remove_edge(e);
+        }
+    }
+
+    /// Swap the edge memberships of two nodes between two edges.
+    /// XGI parity: `H.double_edge_swap(n1, n2, e1, e2)` (hypergraph.py:918-992).
+    pub fn double_edge_swap(
+        &mut self,
+        n_id1: &str,
+        n_id2: &str,
+        e_id1: &str,
+        e_id2: &str,
+    ) -> Result<(), SwapError>
+    where
+        M: Default + Clone,
+    {
+        self.assert_not_frozen();
+
+        let members1 = self
+            .members(e_id1)
+            .ok_or(SwapError::IdNotFound { id: e_id1.to_string() })?;
+        let members2 = self
+            .members(e_id2)
+            .ok_or(SwapError::IdNotFound { id: e_id2.to_string() })?;
+        if !members1.iter().any(|m| m == n_id1) {
+            return Err(SwapError::IdNotFound { id: n_id1.to_string() });
+        }
+        if !members2.iter().any(|m| m == n_id2) {
+            return Err(SwapError::IdNotFound { id: n_id2.to_string() });
+        }
+
+        // Compute the post-swap member sets and verify size preservation BEFORE
+        // mutating (XGI hypergraph.py:980-986).
+        use std::collections::BTreeSet;
+        let new1: BTreeSet<String> = members1
+            .iter()
+            .filter(|m| *m != n_id1)
+            .cloned()
+            .chain(std::iter::once(n_id2.to_string()))
+            .collect();
+        let new2: BTreeSet<String> = members2
+            .iter()
+            .filter(|m| *m != n_id2)
+            .cloned()
+            .chain(std::iter::once(n_id1.to_string()))
+            .collect();
+        if new1.len() != members1.len() || new2.len() != members2.len() {
+            return Err(SwapError::SizeNotPreserved);
+        }
+
+        // Commit: e1 loses n1 gains n2; e2 loses n2 gains n1.
+        self.detach_member(e_id1, n_id1);
+        self.attach_member(e_id1, n_id2);
+        self.detach_member(e_id2, n_id2);
+        self.attach_member(e_id2, n_id1);
+        Ok(())
     }
 }
 
