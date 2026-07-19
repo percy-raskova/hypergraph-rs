@@ -98,3 +98,46 @@ fn test_rustworkx_delegated_count_matches_handrolled() {
     // it must agree with the hand-rolled component extraction.
     assert_eq!(number_connected_components(&h), connected_components(&h).len());
 }
+
+use hypergraph_rs::algorithms::shortest_path::{
+    shortest_path_length, single_source_shortest_path_length,
+};
+
+#[test]
+fn test_single_source_distances() {
+    // Path-ish: e0={a,b}, e1={b,c}. a->b=1, a->c=2 (via shared node b).
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let d = single_source_shortest_path_length(&h, "a").unwrap();
+    assert_eq!(d["a"], 0.0);
+    assert_eq!(d["b"], 1.0);
+    assert_eq!(d["c"], 2.0);
+}
+
+#[test]
+fn test_unreachable_is_infinity() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["c".into(), "d".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let d = single_source_shortest_path_length(&h, "a").unwrap();
+    assert_eq!(d["b"], 1.0);
+    assert!(d["c"].is_infinite());
+}
+
+#[test]
+fn test_missing_source_none() {
+    let h: Hypergraph = Hypergraph::new();
+    assert!(single_source_shortest_path_length(&h, "nope").is_none());
+}
+
+#[test]
+fn test_shortest_path_length_all_sources() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    let all = shortest_path_length(&h);
+    assert_eq!(all.len(), 2); // one per node
+    let (src, dists) = &all[0];
+    assert_eq!(src, "a");
+    assert_eq!(dists["b"], 1.0);
+}
