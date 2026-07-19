@@ -36,6 +36,9 @@ pub struct Hypergraph<N = serde_json::Value, E = serde_json::Value, M = serde_js
 
     /// Graph-level attributes (XGI's `H.graph` dict).
     graph_attrs: serde_json::Map<String, serde_json::Value>,
+
+    /// Whether this hypergraph is frozen (mutation methods panic when true).
+    frozen: bool,
 }
 
 impl<N, E, M> Default for Hypergraph<N, E, M> {
@@ -53,6 +56,15 @@ impl<N, E, M> Hypergraph<N, E, M> {
             hyperedge_ids: IndexMap::new(),
             edge_uid_counter: 0,
             graph_attrs: serde_json::Map::new(),
+            frozen: false,
+        }
+    }
+
+    /// Panic if the hypergraph is frozen. Called at the top of every
+    /// mutation method. XGI parity: frozen-method guard (hypergraph.py:1550).
+    fn assert_not_frozen(&self) {
+        if self.frozen {
+            panic!("Frozen hypergraph can't be modified");
         }
     }
 
@@ -71,6 +83,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
     ///
     /// XGI parity: `H.add_node(node, **attr)`.
     pub fn add_node(&mut self, node_id: &str, attrs: N) -> bool {
+        self.assert_not_frozen();
         if self.agent_ids.contains_key(node_id) {
             return false;
         }
@@ -99,6 +112,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
         N: Default,
         M: Default + Clone,
     {
+        self.assert_not_frozen();
         if members.is_empty() {
             return Err(EdgeError::EmptyMembers);
         }
@@ -206,6 +220,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
     /// Remove a node from the hypergraph.
     /// XGI parity: `H.remove_node(n, strong=False, remove_empty=True)`.
     pub fn remove_node(&mut self, node_id: &str, strong: bool) -> Result<(), NodeError> {
+        self.assert_not_frozen();
         let agent_idx = *self.agent_ids.get(node_id).ok_or(NodeError::NotFound {
             node_id: node_id.to_string(),
         })?;
@@ -245,6 +260,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
     /// Remove a hyperedge from the hypergraph.
     /// XGI parity: `H.remove_edge(e)`.
     pub fn remove_edge(&mut self, edge_id: &str) -> Result<(), EdgeError> {
+        self.assert_not_frozen();
         let he_idx = *self.hyperedge_ids.get(edge_id).ok_or(EdgeError::NotFound {
             edge_id: edge_id.to_string(),
         })?;
@@ -305,10 +321,36 @@ impl<N, E, M> Hypergraph<N, E, M> {
     /// never touches `_edge_uid` (verified 0.10.2: auto-ids continue the
     /// pre-clear sequence).
     pub fn clear(&mut self) {
+        self.assert_not_frozen();
         self.inner = StableDiGraph::new();
         self.agent_ids.clear();
         self.hyperedge_ids.clear();
         self.graph_attrs.clear();
+    }
+
+    /// Remove all edges, keeping nodes.
+    ///
+    /// XGI parity: `H.clear_edges()` — the edge-uid counter is NOT reset
+    /// (XGI's `clear_edges` never touches `_edge_uid`, verified 0.10.2).
+    pub fn clear_edges(&mut self) {
+        self.assert_not_frozen();
+        let hyperedge_indices: Vec<NodeIndex> = self.hyperedge_ids.values().copied().collect();
+        for he_idx in hyperedge_indices {
+            self.inner.remove_node(he_idx);
+        }
+        self.hyperedge_ids.clear();
+    }
+
+    /// Freeze the hypergraph, preventing modification.
+    /// XGI parity: `H.freeze()`.
+    pub fn freeze(&mut self) {
+        self.frozen = true;
+    }
+
+    /// Check if the hypergraph is frozen.
+    /// XGI parity: `H.is_frozen`.
+    pub fn is_frozen(&self) -> bool {
+        self.frozen
     }
 
     /// Return an independent deep copy. XGI parity: `H.copy()`.
@@ -324,6 +366,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
             hyperedge_ids: self.hyperedge_ids.clone(),
             edge_uid_counter: self.edge_uid_counter,
             graph_attrs: self.graph_attrs.clone(),
+            frozen: false,
         }
     }
 
@@ -354,6 +397,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
         E: Default,
         M: Default + Clone,
     {
+        self.assert_not_frozen();
         // Auto-create edge if missing
         if !self.hyperedge_ids.contains_key(edge_id) {
             let he_idx = self.inner.add_node(NodeKind::Hyperedge(E::default()));
@@ -390,6 +434,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
         node_id: &str,
         remove_empty: bool,
     ) -> Result<(), NodeError> {
+        self.assert_not_frozen();
         let he_idx = *self.hyperedge_ids.get(edge_id).ok_or(NodeError::NotFound {
             node_id: edge_id.to_string(),
         })?;

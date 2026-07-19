@@ -573,3 +573,37 @@ fn test_set_edge_attributes_from_pairs() {
     assert_eq!(h.edge_attrs("e1").unwrap()["weight"], 5);
     assert_eq!(h.edge_attrs("e2").unwrap()["weight"], 10);
 }
+
+#[test]
+fn test_clear_edges_keeps_nodes() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".to_string(), "b".to_string()], Some("e1".to_string()), serde_json::json!({"w": 1})).unwrap();
+    h.add_node("lonely", serde_json::json!({"x": 1}));
+    h.clear_edges();
+    assert_eq!(h.num_nodes(), 3); // a, b, lonely all kept
+    assert_eq!(h.num_edges(), 0);
+    // Node attrs preserved
+    assert_eq!(h.node_attrs("lonely").unwrap()["x"], 1);
+    // No memberships
+    assert!(h.memberships("a").unwrap().is_empty());
+}
+
+#[test]
+fn test_freeze_prevents_mutation() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", serde_json::Value::Null);
+    h.freeze();
+    assert!(h.is_frozen());
+    // Mutation should panic
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mut h = h;
+        h.add_node("b", serde_json::Value::Null);
+    }));
+    assert!(result.is_err(), "add_node should panic when frozen");
+}
+
+#[test]
+fn test_is_frozen_false_by_default() {
+    let h: Hypergraph = Hypergraph::new();
+    assert!(!h.is_frozen());
+}
