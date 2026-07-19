@@ -107,7 +107,10 @@ impl<N, E, M> Default for SimplicialComplex<N, E, M> {
 impl<N, E, M> SimplicialComplex<N, E, M> {
     /// Create an empty simplicial complex.
     pub fn new() -> Self {
-        Self { inner: Hypergraph::new(), face_lattice: OnceCell::new() }
+        Self {
+            inner: Hypergraph::new(),
+            face_lattice: OnceCell::new(),
+        }
     }
 
     /// Number of nodes. XGI parity: `S.num_nodes`.
@@ -160,8 +163,12 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
     pub fn has_simplex(&self, members: &[String]) -> bool {
         let want: BTreeSet<String> = members.iter().cloned().collect();
         self.inner.edge_ids().iter().any(|e| {
-            let got: BTreeSet<String> =
-                self.inner.members(e).unwrap_or_default().into_iter().collect();
+            let got: BTreeSet<String> = self
+                .inner
+                .members(e)
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
             got == want
         })
     }
@@ -231,7 +238,8 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
     /// The lazily-computed face lattice (immediate-face relation), rebuilt on
     /// first access after a mutation.
     pub fn face_lattice(&self) -> &FaceLattice {
-        self.face_lattice.get_or_init(|| self.compute_face_lattice())
+        self.face_lattice
+            .get_or_init(|| self.compute_face_lattice())
     }
 
     fn compute_face_lattice(&self) -> FaceLattice {
@@ -241,8 +249,12 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
             .edge_ids()
             .into_iter()
             .map(|e| {
-                let s: BTreeSet<String> =
-                    self.inner.members(&e).unwrap_or_default().into_iter().collect();
+                let s: BTreeSet<String> = self
+                    .inner
+                    .members(&e)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect();
                 (e, s)
             })
             .collect();
@@ -250,9 +262,7 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         for (eid, me) in &sets {
             let faces: Vec<String> = sets
                 .iter()
-                .filter(|(fid, mf)| {
-                    fid != eid && mf.len() + 1 == me.len() && mf.is_subset(me)
-                })
+                .filter(|(fid, mf)| fid != eid && mf.len() + 1 == me.len() && mf.is_subset(me))
                 .map(|(fid, _)| fid.clone())
                 .collect();
             immediate_faces.insert(eid.clone(), faces);
@@ -287,8 +297,12 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         E: Default,
         M: Default + Clone,
     {
-        let existing: Vec<Vec<String>> =
-            self.inner.edge_ids().iter().filter_map(|e| self.inner.members(e)).collect();
+        let existing: Vec<Vec<String>> = self
+            .inner
+            .edge_ids()
+            .iter()
+            .filter_map(|e| self.inner.members(e))
+            .collect();
         for members in existing {
             for face in subfaces(&as_sorted_set(&members)) {
                 if !face.is_empty() && !self.has_simplex(&face) {
@@ -304,18 +318,28 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
     /// (simplicialcomplex.py:726-756).
     pub fn remove_simplex_id(&mut self, idx: &str) -> Result<(), SimplexError> {
         if !self.inner.has_edge(idx) {
-            return Err(SimplexError::NotFound { idx: idx.to_string() });
+            return Err(SimplexError::NotFound {
+                idx: idx.to_string(),
+            });
         }
-        let target: BTreeSet<String> =
-            self.inner.members(idx).unwrap_or_default().into_iter().collect();
+        let target: BTreeSet<String> = self
+            .inner
+            .members(idx)
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
         // Supfaces: simplices whose member-set is a strict superset of target.
         let supfaces: Vec<String> = self
             .inner
             .edge_ids()
             .into_iter()
             .filter(|e| {
-                let m: BTreeSet<String> =
-                    self.inner.members(e).unwrap_or_default().into_iter().collect();
+                let m: BTreeSet<String> = self
+                    .inner
+                    .members(e)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect();
                 m.len() > target.len() && target.is_subset(&m)
             })
             .collect();
@@ -345,7 +369,10 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         E: Clone,
         M: Clone,
     {
-        Self { inner: self.inner.copy(), face_lattice: OnceCell::new() }
+        Self {
+            inner: self.inner.copy(),
+            face_lattice: OnceCell::new(),
+        }
     }
 
     /// Freeze against modification (via the inner hypergraph's frozen guard).

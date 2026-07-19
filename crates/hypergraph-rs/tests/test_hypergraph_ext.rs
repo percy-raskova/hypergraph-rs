@@ -7,9 +7,12 @@ fn v() -> serde_json::Value {
 #[test]
 fn test_remove_edges_from_bulk() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), v()).unwrap();
-    h.add_edge(vec!["b".into(), "c".into()], Some("e2".into()), v()).unwrap();
-    h.add_edge(vec!["c".into(), "d".into()], Some("e3".into()), v()).unwrap();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), v())
+        .unwrap();
+    h.add_edge(vec!["b".into(), "c".into()], Some("e2".into()), v())
+        .unwrap();
+    h.add_edge(vec!["c".into(), "d".into()], Some("e3".into()), v())
+        .unwrap();
     h.remove_edges_from(&["e1".to_string(), "e3".to_string()]);
     assert_eq!(h.num_edges(), 1);
     assert!(h.has_edge("e2"));
@@ -19,7 +22,8 @@ fn test_remove_edges_from_bulk() {
 #[test]
 fn test_remove_edges_from_ignores_missing() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into()], Some("e1".into()), v()).unwrap();
+    h.add_edge(vec!["a".into()], Some("e1".into()), v())
+        .unwrap();
     h.remove_edges_from(&["e1".to_string(), "nope".to_string()]);
     assert_eq!(h.num_edges(), 0);
 }
@@ -27,7 +31,12 @@ fn test_remove_edges_from_ignores_missing() {
 #[test]
 fn test_remove_nodes_from_bulk() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), v()).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        v(),
+    )
+    .unwrap();
     h.remove_nodes_from(&["a".to_string(), "c".to_string()]);
     assert!(!h.has_node("a"));
     assert!(!h.has_node("c"));
@@ -50,7 +59,8 @@ fn test_update_adds_nodes_and_edges() {
 #[test]
 fn test_isolate_node_ids() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), v()).unwrap();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), v())
+        .unwrap();
     h.add_node("lonely", v());
     assert_eq!(h.isolate_node_ids(), vec!["lonely".to_string()]);
 }
@@ -58,8 +68,10 @@ fn test_isolate_node_ids() {
 #[test]
 fn test_singleton_edge_ids() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), v()).unwrap();
-    h.add_edge(vec!["c".into()], Some("e2".into()), v()).unwrap();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), v())
+        .unwrap();
+    h.add_edge(vec!["c".into()], Some("e2".into()), v())
+        .unwrap();
     assert_eq!(h.singleton_edge_ids(), vec!["e2".to_string()]);
 }
 
@@ -67,15 +79,28 @@ fn test_singleton_edge_ids() {
 fn test_graph_attrs_accessor() {
     let mut h: Hypergraph = Hypergraph::new();
     h.set_graph_attr("name", serde_json::json!("wayne"));
-    assert_eq!(h.graph_attrs().get("name"), Some(&serde_json::json!("wayne")));
+    assert_eq!(
+        h.graph_attrs().get("name"),
+        Some(&serde_json::json!("wayne"))
+    );
     assert_eq!(h.graph_attrs().len(), 1);
 }
 
 #[test]
 fn test_dual_swaps_nodes_and_edges() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::json!({"w": 1})).unwrap();
-    h.add_edge(vec!["b".into(), "c".into()], Some("e2".into()), serde_json::json!({"w": 2})).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::json!({"w": 1}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".into(), "c".into()],
+        Some("e2".into()),
+        serde_json::json!({"w": 2}),
+    )
+    .unwrap();
 
     let d = h.dual();
     // original edges e1, e2 become dual nodes carrying the edge attrs
@@ -94,7 +119,8 @@ fn test_dual_swaps_nodes_and_edges() {
 #[test]
 fn test_dual_drops_isolate_nodes() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into()], Some("e1".into()), v()).unwrap();
+    h.add_edge(vec!["a".into()], Some("e1".into()), v())
+        .unwrap();
     h.add_node("lonely", v());
     let d = h.dual();
     // "lonely" has no memberships -> would be an empty dual-edge -> dropped
@@ -108,8 +134,14 @@ use hypergraph_rs::SwapError;
 fn test_double_edge_swap_basic() {
     // XGI docstring example: H([[1,2,3],[3,4]]); swap(1,4,e0,e1) -> [{2,3,4},{1,3}]
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), v()).unwrap();
-    h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v()).unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("e0".into()),
+        v(),
+    )
+    .unwrap();
+    h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v())
+        .unwrap();
     h.double_edge_swap("1", "4", "e0", "e1").unwrap();
     let mut m0 = h.members("e0").unwrap();
     m0.sort();
@@ -122,8 +154,10 @@ fn test_double_edge_swap_basic() {
 #[test]
 fn test_double_edge_swap_node_not_in_edge_errors() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), v()).unwrap();
-    h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v()).unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), v())
+        .unwrap();
+    h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v())
+        .unwrap();
     // node "9" is not a member of e0
     let r = h.double_edge_swap("9", "3", "e0", "e1");
     assert!(matches!(r, Err(SwapError::IdNotFound { .. })));
@@ -135,8 +169,10 @@ fn test_double_edge_swap_size_not_preserved_errors() {
     // 2 is in BOTH edges; moving 1 into e1 collides with nothing, but moving 2's
     // counterpart would shrink. Construct a genuine collision: swap 1 and 2 where
     // 2 is already in e0.
-    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), v()).unwrap();
-    h.add_edge(vec!["2".into(), "3".into()], Some("e1".into()), v()).unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), v())
+        .unwrap();
+    h.add_edge(vec!["2".into(), "3".into()], Some("e1".into()), v())
+        .unwrap();
     // swap n1=1 (in e0) and n2=2 (in e1): e0 would become {2,2}->{2} (shrink)
     let r = h.double_edge_swap("1", "2", "e0", "e1");
     assert!(matches!(r, Err(SwapError::SizeNotPreserved)));
@@ -147,7 +183,8 @@ fn test_double_edge_swap_size_not_preserved_errors() {
 #[test]
 fn test_double_edge_swap_missing_edge_errors() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into()], Some("e0".into()), v()).unwrap();
+    h.add_edge(vec!["1".into()], Some("e0".into()), v())
+        .unwrap();
     let r = h.double_edge_swap("1", "1", "e0", "nope");
     assert!(matches!(r, Err(SwapError::IdNotFound { .. })));
 }
@@ -155,8 +192,14 @@ fn test_double_edge_swap_missing_edge_errors() {
 #[test]
 fn test_random_edge_shuffle_preserves_sizes() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), v()).unwrap();
-    h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v()).unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("e0".into()),
+        v(),
+    )
+    .unwrap();
+    h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v())
+        .unwrap();
     let s0 = h.members("e0").unwrap().len();
     let s1 = h.members("e1").unwrap().len();
     h.random_edge_shuffle(Some("e0"), Some("e1"), 42).unwrap();
@@ -167,13 +210,31 @@ fn test_random_edge_shuffle_preserves_sizes() {
 #[test]
 fn test_random_edge_shuffle_preserves_combined_node_multiset() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), v()).unwrap();
-    h.add_edge(vec!["3".into(), "4".into(), "5".into()], Some("e1".into()), v()).unwrap();
-    let before: std::collections::BTreeSet<String> =
-        h.members("e0").unwrap().into_iter().chain(h.members("e1").unwrap()).collect();
+    h.add_edge(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("e0".into()),
+        v(),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["3".into(), "4".into(), "5".into()],
+        Some("e1".into()),
+        v(),
+    )
+    .unwrap();
+    let before: std::collections::BTreeSet<String> = h
+        .members("e0")
+        .unwrap()
+        .into_iter()
+        .chain(h.members("e1").unwrap())
+        .collect();
     h.random_edge_shuffle(Some("e0"), Some("e1"), 7).unwrap();
-    let after: std::collections::BTreeSet<String> =
-        h.members("e0").unwrap().into_iter().chain(h.members("e1").unwrap()).collect();
+    let after: std::collections::BTreeSet<String> = h
+        .members("e0")
+        .unwrap()
+        .into_iter()
+        .chain(h.members("e1").unwrap())
+        .collect();
     assert_eq!(before, after);
 }
 
@@ -181,8 +242,14 @@ fn test_random_edge_shuffle_preserves_combined_node_multiset() {
 fn test_random_edge_shuffle_is_reproducible() {
     let build = || {
         let mut h: Hypergraph = Hypergraph::new();
-        h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), v()).unwrap();
-        h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v()).unwrap();
+        h.add_edge(
+            vec!["1".into(), "2".into(), "3".into()],
+            Some("e0".into()),
+            v(),
+        )
+        .unwrap();
+        h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v())
+            .unwrap();
         h
     };
     let mut h1 = build();
@@ -199,7 +266,8 @@ fn test_random_edge_shuffle_is_reproducible() {
 #[test]
 fn test_random_edge_shuffle_needs_two_edges() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into()], Some("e0".into()), v()).unwrap();
+    h.add_edge(vec!["1".into()], Some("e0".into()), v())
+        .unwrap();
     assert!(h.random_edge_shuffle(None, None, 1).is_err());
 }
 
@@ -208,9 +276,24 @@ use hypergraph_rs::{MergeRename, MergeRule};
 #[test]
 fn test_merge_duplicate_edges_rename_first() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into()], Some("0".into()), serde_json::json!({"color": "blue"})).unwrap();
-    h.add_edge(vec!["1".into(), "2".into()], Some("1".into()), serde_json::json!({"color": "red"})).unwrap();
-    h.add_edge(vec!["3".into(), "4".into(), "5".into()], Some("3".into()), v()).unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("0".into()),
+        serde_json::json!({"color": "blue"}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("1".into()),
+        serde_json::json!({"color": "red"}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["3".into(), "4".into(), "5".into()],
+        Some("3".into()),
+        v(),
+    )
+    .unwrap();
     h.merge_duplicate_edges(MergeRename::First, MergeRule::First, None);
     // {1,2} duplicates (ids 0,1) merge into id "0" with first's attrs
     assert!(h.has_edge("0"));
@@ -223,9 +306,12 @@ fn test_merge_duplicate_edges_rename_first() {
 #[test]
 fn test_merge_duplicate_edges_multiplicity() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into()], Some("0".into()), v()).unwrap();
-    h.add_edge(vec!["1".into(), "2".into()], Some("1".into()), v()).unwrap();
-    h.add_edge(vec!["1".into(), "2".into()], Some("2".into()), v()).unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("0".into()), v())
+        .unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("1".into()), v())
+        .unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("2".into()), v())
+        .unwrap();
     h.merge_duplicate_edges(MergeRename::First, MergeRule::First, Some("mult"));
     assert_eq!(h.edge_attrs("0").unwrap()["mult"], 3);
     assert_eq!(h.num_edges(), 1);
@@ -234,8 +320,18 @@ fn test_merge_duplicate_edges_multiplicity() {
 #[test]
 fn test_merge_duplicate_edges_intersection() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["3".into(), "4".into()], Some("0".into()), serde_json::json!({"color": "purple"})).unwrap();
-    h.add_edge(vec!["3".into(), "4".into()], Some("1".into()), serde_json::json!({"color": "purple", "name": "test"})).unwrap();
+    h.add_edge(
+        vec!["3".into(), "4".into()],
+        Some("0".into()),
+        serde_json::json!({"color": "purple"}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["3".into(), "4".into()],
+        Some("1".into()),
+        serde_json::json!({"color": "purple", "name": "test"}),
+    )
+    .unwrap();
     h.merge_duplicate_edges(MergeRename::First, MergeRule::Intersection, None);
     // color agrees -> kept; name differs (missing in one) -> null
     assert_eq!(h.edge_attrs("0").unwrap()["color"], "purple");
@@ -245,20 +341,23 @@ fn test_merge_duplicate_edges_intersection() {
 #[test]
 fn test_cleanup_removes_isolates_singletons_and_multiedges() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into()], Some("0".into()), v()).unwrap();
-    h.add_edge(vec!["1".into(), "2".into()], Some("1".into()), v()).unwrap(); // duplicate
-    h.add_edge(vec!["3".into()], Some("2".into()), v()).unwrap();             // singleton
-    h.add_node("lonely", v());                                                // isolate
+    h.add_edge(vec!["1".into(), "2".into()], Some("0".into()), v())
+        .unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("1".into()), v())
+        .unwrap(); // duplicate
+    h.add_edge(vec!["3".into()], Some("2".into()), v()).unwrap(); // singleton
+    h.add_node("lonely", v()); // isolate
     h.cleanup(false, false, false);
-    assert!(!h.has_node("lonely"));       // isolate removed
-    assert!(!h.has_edge("2"));            // singleton removed
-    assert_eq!(h.num_edges(), 1);         // duplicate merged
+    assert!(!h.has_node("lonely")); // isolate removed
+    assert!(!h.has_edge("2")); // singleton removed
+    assert_eq!(h.num_edges(), 1); // duplicate merged
 }
 
 #[test]
 fn test_cleaned_leaves_original_untouched() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into()], Some("0".into()), v()).unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("0".into()), v())
+        .unwrap();
     h.add_node("lonely", v());
     let c = h.cleaned(false, true, true); // remove isolates only
     assert!(!c.has_node("lonely"));

@@ -18,7 +18,10 @@ use super::kinds::{DiMembershipEdge, DiRole, NodeKind};
 /// Deduplicate a Vec of ids, preserving first-seen order.
 fn dedup_preserve(items: Vec<String>) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
-    items.into_iter().filter(|x| seen.insert(x.clone())).collect()
+    items
+        .into_iter()
+        .filter(|x| seen.insert(x.clone()))
+        .collect()
 }
 
 /// A directed hypergraph. XGI parity: `xgi.DiHypergraph`.
@@ -132,7 +135,9 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         let edge_id = match &idx {
             Some(id) => {
                 if self.hyperedge_ids.contains_key(id) {
-                    return Err(EdgeError::AlreadyExists { edge_id: id.clone() });
+                    return Err(EdgeError::AlreadyExists {
+                        edge_id: id.clone(),
+                    });
                 }
                 id.clone()
             }
@@ -159,7 +164,10 @@ impl<N, E, M> DiHypergraph<N, E, M> {
             self.inner.add_edge(
                 a,
                 he,
-                DiMembershipEdge { member_data: M::default(), role: DiRole::Tail },
+                DiMembershipEdge {
+                    member_data: M::default(),
+                    role: DiRole::Tail,
+                },
             );
         }
         for node in &dedup_preserve(head) {
@@ -168,7 +176,10 @@ impl<N, E, M> DiHypergraph<N, E, M> {
             self.inner.add_edge(
                 a,
                 he,
-                DiMembershipEdge { member_data: M::default(), role: DiRole::Head },
+                DiMembershipEdge {
+                    member_data: M::default(),
+                    role: DiRole::Head,
+                },
             );
         }
 
@@ -187,12 +198,18 @@ impl<N, E, M> DiHypergraph<N, E, M> {
 
     /// Map a hyperedge NodeIndex back to its id (linear scan, Phase 1 pattern).
     fn edge_id_of(&self, idx: NodeIndex) -> Option<String> {
-        self.hyperedge_ids.iter().find(|(_, &i)| i == idx).map(|(k, _)| k.clone())
+        self.hyperedge_ids
+            .iter()
+            .find(|(_, &i)| i == idx)
+            .map(|(k, _)| k.clone())
     }
 
     /// Map an agent NodeIndex back to its id (linear scan, Phase 1 pattern).
     fn node_id_of(&self, idx: NodeIndex) -> Option<String> {
-        self.agent_ids.iter().find(|(_, &i)| i == idx).map(|(k, _)| k.clone())
+        self.agent_ids
+            .iter()
+            .find(|(_, &i)| i == idx)
+            .map(|(k, _)| k.clone())
     }
 
     /// (tail, head) node ids of an edge. XGI parity: `DH.edges.dimembers(e)`
@@ -263,10 +280,9 @@ impl<N, E, M> DiHypergraph<N, E, M> {
     /// Remove an edge. XGI parity: `DH.remove_edge(idx)` (dihypergraph.py:834-860).
     pub fn remove_edge(&mut self, edge_id: &str) -> Result<(), EdgeError> {
         self.assert_not_frozen();
-        let he = *self
-            .hyperedge_ids
-            .get(edge_id)
-            .ok_or(EdgeError::NotFound { edge_id: edge_id.to_string() })?;
+        let he = *self.hyperedge_ids.get(edge_id).ok_or(EdgeError::NotFound {
+            edge_id: edge_id.to_string(),
+        })?;
         self.inner.remove_node(he);
         self.hyperedge_ids.shift_remove(edge_id);
         Ok(())
@@ -283,13 +299,11 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         remove_empty: bool,
     ) -> Result<(), NodeError> {
         self.assert_not_frozen();
-        let a = *self
-            .agent_ids
-            .get(node_id)
-            .ok_or(NodeError::NotFound { node_id: node_id.to_string() })?;
+        let a = *self.agent_ids.get(node_id).ok_or(NodeError::NotFound {
+            node_id: node_id.to_string(),
+        })?;
         let (in_e, out_e) = self.dimemberships(node_id).unwrap_or_default();
-        let incident: std::collections::BTreeSet<String> =
-            in_e.into_iter().chain(out_e).collect();
+        let incident: std::collections::BTreeSet<String> = in_e.into_iter().chain(out_e).collect();
 
         if strong {
             for eid in &incident {
@@ -304,8 +318,11 @@ impl<N, E, M> DiHypergraph<N, E, M> {
             // Drop now-empty edges.
             for eid in &incident {
                 if let Some(he) = self.hyperedge_ids.get(eid).copied() {
-                    let empty =
-                        self.inner.edges_directed(he, Direction::Incoming).next().is_none();
+                    let empty = self
+                        .inner
+                        .edges_directed(he, Direction::Incoming)
+                        .next()
+                        .is_none();
                     if empty && remove_empty {
                         self.inner.remove_node(he);
                         self.hyperedge_ids.shift_remove(eid);
@@ -351,8 +368,14 @@ impl<N, E, M> DiHypergraph<N, E, M> {
             .edges_directed(he, Direction::Incoming)
             .any(|er| er.source() == a && er.weight().role == role);
         if !exists {
-            self.inner
-                .add_edge(a, he, DiMembershipEdge { member_data: M::default(), role });
+            self.inner.add_edge(
+                a,
+                he,
+                DiMembershipEdge {
+                    member_data: M::default(),
+                    role,
+                },
+            );
         }
         Ok(())
     }
@@ -372,11 +395,12 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         let he = *self
             .hyperedge_ids
             .get(edge_id)
-            .ok_or(NodeError::EdgeNotFound { edge_id: edge_id.to_string() })?;
-        let a = *self
-            .agent_ids
-            .get(node_id)
-            .ok_or(NodeError::NotFound { node_id: node_id.to_string() })?;
+            .ok_or(NodeError::EdgeNotFound {
+                edge_id: edge_id.to_string(),
+            })?;
+        let a = *self.agent_ids.get(node_id).ok_or(NodeError::NotFound {
+            node_id: node_id.to_string(),
+        })?;
         let target = self
             .inner
             .edges_directed(he, Direction::Incoming)
@@ -392,7 +416,12 @@ impl<N, E, M> DiHypergraph<N, E, M> {
                 });
             }
         }
-        if remove_empty && self.inner.edges_directed(he, Direction::Incoming).next().is_none()
+        if remove_empty
+            && self
+                .inner
+                .edges_directed(he, Direction::Incoming)
+                .next()
+                .is_none()
         {
             self.inner.remove_node(he);
             self.hyperedge_ids.shift_remove(edge_id);
@@ -448,7 +477,10 @@ impl<N, E, M> DiHypergraph<N, E, M> {
 
     /// Node ids with degree 0. XGI parity: `DH.nodes.isolates()`.
     pub fn isolate_node_ids(&self) -> Vec<String> {
-        self.node_ids().into_iter().filter(|n| self.degree(n) == 0).collect()
+        self.node_ids()
+            .into_iter()
+            .filter(|n| self.degree(n) == 0)
+            .collect()
     }
 
     /// Remove all nodes and edges (keeps the uid counter, like Phase 1).

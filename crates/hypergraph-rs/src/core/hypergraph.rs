@@ -525,11 +525,8 @@ impl<N, E, M> Hypergraph<N, E, M> {
 
     /// Add nodes then edges. XGI parity: `H.update(edges=, nodes=)`
     /// (hypergraph.py:1210-1229).
-    pub fn update(
-        &mut self,
-        nodes: Vec<(String, N)>,
-        edges: Vec<(Vec<String>, Option<String>, E)>,
-    ) where
+    pub fn update(&mut self, nodes: Vec<(String, N)>, edges: Vec<(Vec<String>, Option<String>, E)>)
+    where
         N: Default,
         M: Default + Clone,
     {
@@ -542,7 +539,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
     pub fn isolate_node_ids(&self) -> Vec<String> {
         self.node_ids()
             .into_iter()
-            .filter(|n| self.memberships(n).map_or(false, |m| m.is_empty()))
+            .filter(|n| self.memberships(n).is_some_and(|m| m.is_empty()))
             .collect()
     }
 
@@ -551,7 +548,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
     pub fn singleton_edge_ids(&self) -> Vec<String> {
         self.edge_ids()
             .into_iter()
-            .filter(|e| self.members(e).map_or(false, |m| m.len() == 1))
+            .filter(|e| self.members(e).is_some_and(|m| m.len() == 1))
             .collect()
     }
 
@@ -569,7 +566,9 @@ impl<N, E, M> Hypergraph<N, E, M> {
         let a = self.agent_ids[node_id];
         let he = self.hyperedge_ids[edge_id];
         if self.inner.find_edge(a, he).is_none() {
-            let m = MembershipEdge { member_data: M::default() };
+            let m = MembershipEdge {
+                member_data: M::default(),
+            };
             self.inner.add_edge(a, he, m.clone());
             self.inner.add_edge(he, a, m);
         }
@@ -602,17 +601,21 @@ impl<N, E, M> Hypergraph<N, E, M> {
     {
         self.assert_not_frozen();
 
-        let members1 = self
-            .members(e_id1)
-            .ok_or(SwapError::IdNotFound { id: e_id1.to_string() })?;
-        let members2 = self
-            .members(e_id2)
-            .ok_or(SwapError::IdNotFound { id: e_id2.to_string() })?;
+        let members1 = self.members(e_id1).ok_or(SwapError::IdNotFound {
+            id: e_id1.to_string(),
+        })?;
+        let members2 = self.members(e_id2).ok_or(SwapError::IdNotFound {
+            id: e_id2.to_string(),
+        })?;
         if !members1.iter().any(|m| m == n_id1) {
-            return Err(SwapError::IdNotFound { id: n_id1.to_string() });
+            return Err(SwapError::IdNotFound {
+                id: n_id1.to_string(),
+            });
         }
         if !members2.iter().any(|m| m == n_id2) {
-            return Err(SwapError::IdNotFound { id: n_id2.to_string() });
+            return Err(SwapError::IdNotFound {
+                id: n_id2.to_string(),
+            });
         }
 
         // Compute the post-swap member sets and verify size preservation BEFORE
@@ -679,12 +682,16 @@ impl<N, E, M> Hypergraph<N, E, M> {
         use std::collections::BTreeSet;
         let s1: BTreeSet<String> = self
             .members(&id1)
-            .ok_or(EdgeError::NotFound { edge_id: id1.clone() })?
+            .ok_or(EdgeError::NotFound {
+                edge_id: id1.clone(),
+            })?
             .into_iter()
             .collect();
         let s2: BTreeSet<String> = self
             .members(&id2)
-            .ok_or(EdgeError::NotFound { edge_id: id2.clone() })?
+            .ok_or(EdgeError::NotFound {
+                edge_id: id2.clone(),
+            })?
             .into_iter()
             .collect();
 
@@ -872,7 +879,9 @@ impl Hypergraph<Value, Value, Value> {
         match rule {
             MergeRule::First => {
                 let min_id = dup_ids.iter().min().cloned().unwrap_or_default();
-                self.edge_attrs(&min_id).cloned().unwrap_or_else(|| serde_json::json!({}))
+                self.edge_attrs(&min_id)
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!({}))
             }
             MergeRule::Union | MergeRule::Intersection => {
                 use std::collections::BTreeSet;

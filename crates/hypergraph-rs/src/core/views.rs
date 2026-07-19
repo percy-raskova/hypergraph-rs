@@ -41,7 +41,10 @@ pub struct NodeView<'a, N, E, M> {
 impl<N, E, M> Hypergraph<N, E, M> {
     /// A view over all nodes (insertion order). XGI parity: `H.nodes`.
     pub fn nodes(&self) -> NodeView<'_, N, E, M> {
-        NodeView { graph: self, ids: self.node_ids() }
+        NodeView {
+            graph: self,
+            ids: self.node_ids(),
+        }
     }
 }
 
@@ -84,8 +87,16 @@ impl<'a, N, E, M> NodeView<'a, N, E, M> {
 
     /// Sub-view of degree-0 nodes. XGI parity: `H.nodes.isolates()`.
     pub fn isolates(&self) -> NodeView<'a, N, E, M> {
-        let ids = self.ids.iter().filter(|n| self.degree(n) == 0).cloned().collect();
-        NodeView { graph: self.graph, ids }
+        let ids = self
+            .ids
+            .iter()
+            .filter(|n| self.degree(n) == 0)
+            .cloned()
+            .collect();
+        NodeView {
+            graph: self.graph,
+            ids,
+        }
     }
 
     /// Sub-view of nodes in no edge of size >= 2. XGI parity:
@@ -105,7 +116,10 @@ impl<'a, N, E, M> NodeView<'a, N, E, M> {
             .filter(|n| !in_big_edges.contains(*n))
             .cloned()
             .collect();
-        NodeView { graph: self.graph, ids }
+        NodeView {
+            graph: self.graph,
+            ids,
+        }
     }
 
     /// Sub-view of nodes whose degree satisfies `mode` vs `val`.
@@ -117,7 +131,10 @@ impl<'a, N, E, M> NodeView<'a, N, E, M> {
             .filter(|n| mode.matches(self.degree(n), val))
             .cloned()
             .collect();
-        NodeView { graph: self.graph, ids }
+        NodeView {
+            graph: self.graph,
+            ids,
+        }
     }
 
     /// Sub-view of nodes with `lo <= degree <= hi`.
@@ -132,7 +149,10 @@ impl<'a, N, E, M> NodeView<'a, N, E, M> {
             })
             .cloned()
             .collect();
-        NodeView { graph: self.graph, ids }
+        NodeView {
+            graph: self.graph,
+            ids,
+        }
     }
 }
 
@@ -145,7 +165,10 @@ pub struct EdgeView<'a, N, E, M> {
 impl<N, E, M> Hypergraph<N, E, M> {
     /// A view over all edges (insertion order). XGI parity: `H.edges`.
     pub fn edges(&self) -> EdgeView<'_, N, E, M> {
-        EdgeView { graph: self, ids: self.edge_ids() }
+        EdgeView {
+            graph: self,
+            ids: self.edge_ids(),
+        }
     }
 }
 
@@ -209,7 +232,10 @@ impl<'a, N, E, M> EdgeView<'a, N, E, M> {
             .filter(|e| mode.matches(self.size(e), val))
             .cloned()
             .collect();
-        EdgeView { graph: self.graph, ids }
+        EdgeView {
+            graph: self.graph,
+            ids,
+        }
     }
 
     /// Sub-view of edges whose order satisfies `mode` vs `val`.
@@ -220,7 +246,10 @@ impl<'a, N, E, M> EdgeView<'a, N, E, M> {
             .filter(|e| mode.matches(self.order(e), val))
             .cloned()
             .collect();
-        EdgeView { graph: self.graph, ids }
+        EdgeView {
+            graph: self.graph,
+            ids,
+        }
     }
 
     /// Sub-view of edges that duplicate an earlier one (same member-set).
@@ -243,8 +272,16 @@ impl<'a, N, E, M> EdgeView<'a, N, E, M> {
             }
         }
         // Preserve insertion order among the flagged ids.
-        let ids = self.ids.iter().filter(|e| dups.contains(e)).cloned().collect();
-        EdgeView { graph: self.graph, ids }
+        let ids = self
+            .ids
+            .iter()
+            .filter(|e| dups.contains(e))
+            .cloned()
+            .collect();
+        EdgeView {
+            graph: self.graph,
+            ids,
+        }
     }
 
     /// Sub-view of edges whose member-set equals `members`.
@@ -256,13 +293,20 @@ impl<'a, N, E, M> EdgeView<'a, N, E, M> {
             .ids
             .iter()
             .filter(|e| {
-                let got: BTreeSet<String> =
-                    self.graph.members(e).unwrap_or_default().into_iter().collect();
+                let got: BTreeSet<String> = self
+                    .graph
+                    .members(e)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect();
                 got == want
             })
             .cloned()
             .collect();
-        EdgeView { graph: self.graph, ids }
+        EdgeView {
+            graph: self.graph,
+            ids,
+        }
     }
 
     /// Sub-view of maximal edges (not a subset of any other edge).
@@ -275,8 +319,12 @@ impl<'a, N, E, M> EdgeView<'a, N, E, M> {
             .ids
             .iter()
             .map(|e| {
-                let s: BTreeSet<String> =
-                    self.graph.members(e).unwrap_or_default().into_iter().collect();
+                let s: BTreeSet<String> = self
+                    .graph
+                    .members(e)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect();
                 (e.clone(), s)
             })
             .collect();
@@ -300,6 +348,9 @@ impl<'a, N, E, M> EdgeView<'a, N, E, M> {
             })
             .cloned()
             .collect();
-        EdgeView { graph: self.graph, ids }
+        EdgeView {
+            graph: self.graph,
+            ids,
+        }
     }
 }
