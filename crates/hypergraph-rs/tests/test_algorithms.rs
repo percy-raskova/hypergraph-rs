@@ -141,3 +141,64 @@ fn test_shortest_path_length_all_sources() {
     assert_eq!(src, "a");
     assert_eq!(dists["b"], 1.0);
 }
+
+use hypergraph_rs::algorithms::clustering::{
+    clustering_coefficient, local_clustering_coefficient, two_node_clustering_coefficient,
+};
+
+fn triangle() -> Hypergraph {
+    // Three size-2 edges over {0,1,2} form a closed triangle, plus the size-3
+    // edge {0,1,2} itself — matches XGI's `random_hypergraph(3,[1,1])`
+    // docstring fixture (the source of the 0.5 two-node-CC golden below).
+    // Without the triple edge, `_uv_cc`(union) evaluates to 1/3, not 0.5.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["0".into(), "1".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["0".into(), "2".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["0".into(), "1".into(), "2".into()],
+        Some("e3".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h
+}
+
+#[test]
+fn test_clustering_coefficient_triangle_is_one() {
+    let h = triangle();
+    let cc = clustering_coefficient(&h);
+    for n in ["0", "1", "2"] {
+        assert!((cc[n] - 1.0).abs() < 1e-9);
+    }
+}
+
+#[test]
+fn test_clustering_coefficient_no_neighbors_is_zero() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("lonely", serde_json::Value::Null);
+    let cc = clustering_coefficient(&h);
+    assert_eq!(cc["lonely"], 0.0);
+}
+
+#[test]
+fn test_two_node_clustering_coefficient_triangle() {
+    let h = triangle();
+    let cc = two_node_clustering_coefficient(&h, "union");
+    // XGI docstring golden (`random_hypergraph(3,[1,1])`, which also contains
+    // the triple {0,1,2}): 0.5 each. Without the triple edge, union-CC is 1/3.
+    for n in ["0", "1", "2"] {
+        assert!((cc[n] - 0.5).abs() < 1e-9);
+    }
+}
+
+#[test]
+fn test_local_clustering_coefficient_defined() {
+    let h = triangle();
+    let cc = local_clustering_coefficient(&h);
+    assert_eq!(cc.len(), 3);
+    // each node is in 3 edges here -> value present & finite
+    for n in ["0", "1", "2"] {
+        assert!(cc[n].is_finite());
+    }
+}
