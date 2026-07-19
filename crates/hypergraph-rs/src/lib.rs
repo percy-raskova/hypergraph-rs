@@ -8,7 +8,8 @@
 pub mod core;
 
 pub use core::dihypergraph::DiHypergraph;
-pub use core::error::{EdgeError, NodeError, SwapError};
+pub use core::error::{EdgeError, NodeError, SimplexError, SwapError};
 pub use core::hypergraph::{Hypergraph, MergeRename, MergeRule};
 pub use core::kinds::{DiMembershipEdge, DiRole, MembershipEdge, NodeKind};
+pub use core::simplicialcomplex::{FaceLattice, SimplicialComplex};
 pub use core::views::{EdgeView, FilterMode, NodeView};

@@ -43,3 +43,14 @@ pub enum SwapError {
     #[error("swap does not preserve edge sizes")]
     SizeNotPreserved,
 }
+
+/// Error raised by `SimplicialComplex` operations.
+#[derive(Debug, Clone, Error, PartialEq)]
+pub enum SimplexError {
+    /// A `Hypergraph` method that is not available on a `SimplicialComplex`.
+    #[error("{method} is not available for SimplicialComplex; use {alternative}")]
+    NotAvailable { method: String, alternative: String },
+    /// The simplex id was not found.
+    #[error("simplex {idx} is not in the simplicial complex")]
+    NotFound { idx: String },
+}
