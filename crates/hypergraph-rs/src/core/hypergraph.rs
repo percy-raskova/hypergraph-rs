@@ -45,6 +45,26 @@ pub struct Hypergraph<N = serde_json::Value, E = serde_json::Value, M = serde_js
     frozen: bool,
 }
 
+/// How to name a merged edge (subset of XGI's `rename`; `"tuple"` deferred).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MergeRename {
+    /// Reuse the smallest (sorted) duplicate id.
+    First,
+    /// Assign a fresh auto-generated id.
+    New,
+}
+
+/// How to combine attrs of merged edges (XGI's `merge_rule`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MergeRule {
+    /// Take the smallest-id duplicate's attrs.
+    First,
+    /// For each key, a JSON array of the distinct values (missing -> null).
+    Union,
+    /// For each key, the shared value or null if the duplicates disagree.
+    Intersection,
+}
+
 impl<N, E, M> Default for Hypergraph<N, E, M> {
     fn default() -> Self {
         Self::new()
@@ -778,6 +798,144 @@ impl Hypergraph<Value, Value, Value> {
             d.set_graph_attr(&k, val);
         }
         d
+    }
+}
+
+impl Hypergraph<Value, Value, Value> {
+    /// Merge edges that have identical member-sets.
+    /// XGI parity: `H.merge_duplicate_edges(rename, merge_rule, multiplicity)`
+    /// (hypergraph.py:1257-1419). `rename="tuple"` is deferred (deviation #6);
+    /// union produces a JSON array, not a Python set.
+    pub fn merge_duplicate_edges(
+        &mut self,
+        rename: MergeRename,
+        merge_rule: MergeRule,
+        multiplicity: Option<&str>,
+    ) {
+        self.assert_not_frozen();
+        use std::collections::BTreeMap;
+
+        // Group edge ids by their sorted member-set (deterministic).
+        let mut groups: BTreeMap<Vec<String>, Vec<String>> = BTreeMap::new();
+        for eid in self.edge_ids() {
+            let mut mem = self.members(&eid).unwrap_or_default();
+            mem.sort();
+            groups.entry(mem).or_default().push(eid);
+        }
+
+        let mut to_remove: Vec<String> = Vec::new();
+        let mut to_add: Vec<(Vec<String>, String, Value)> = Vec::new();
+        for (members, dup_ids) in &groups {
+            if dup_ids.len() <= 1 {
+                continue;
+            }
+            to_remove.extend(dup_ids.iter().cloned());
+            let new_id = match rename {
+                MergeRename::First => {
+                    let mut sorted = dup_ids.clone();
+                    sorted.sort();
+                    sorted[0].clone()
+                }
+                MergeRename::New => {
+                    let id = self.edge_uid_counter.to_string();
+                    self.edge_uid_counter += 1;
+                    id
+                }
+            };
+            let mut new_attrs = self.merged_edge_attrs(dup_ids, merge_rule);
+            if let Some(mkey) = multiplicity {
+                // merged_edge_attrs(MergeRule::First) can yield a non-object
+                // (e.g. Value::Null, our default empty attrs) — coerce before
+                // inserting the multiplicity key (2026-07-19 preflight defect
+                // P2-D1: Null.as_object_mut() silently dropped the insert).
+                if !new_attrs.is_object() {
+                    new_attrs = serde_json::json!({});
+                }
+                new_attrs
+                    .as_object_mut()
+                    .unwrap()
+                    .insert(mkey.to_string(), serde_json::json!(dup_ids.len()));
+            }
+            to_add.push((members.clone(), new_id, new_attrs));
+        }
+
+        for eid in &to_remove {
+            let _ = self.remove_edge(eid);
+        }
+        for (members, id, attrs) in to_add {
+            let _ = self.add_edge(members, Some(id), attrs);
+        }
+    }
+
+    /// Combine the attrs of a group of duplicate edges per `merge_rule`.
+    fn merged_edge_attrs(&self, dup_ids: &[String], rule: MergeRule) -> Value {
+        match rule {
+            MergeRule::First => {
+                let min_id = dup_ids.iter().min().cloned().unwrap_or_default();
+                self.edge_attrs(&min_id).cloned().unwrap_or_else(|| serde_json::json!({}))
+            }
+            MergeRule::Union | MergeRule::Intersection => {
+                use std::collections::BTreeSet;
+                let mut keys: BTreeSet<String> = BTreeSet::new();
+                for id in dup_ids {
+                    if let Some(obj) = self.edge_attrs(id).and_then(|a| a.as_object()) {
+                        keys.extend(obj.keys().cloned());
+                    }
+                }
+                let mut out = serde_json::Map::new();
+                for k in keys {
+                    let mut distinct: Vec<Value> = Vec::new();
+                    for id in dup_ids {
+                        let val = self
+                            .edge_attrs(id)
+                            .and_then(|a| a.get(&k))
+                            .cloned()
+                            .unwrap_or(Value::Null);
+                        if !distinct.contains(&val) {
+                            distinct.push(val);
+                        }
+                    }
+                    let merged = match rule {
+                        MergeRule::Union => Value::Array(distinct),
+                        _ => {
+                            if distinct.len() == 1 {
+                                distinct.into_iter().next().unwrap()
+                            } else {
+                                Value::Null
+                            }
+                        }
+                    };
+                    out.insert(k, merged);
+                }
+                Value::Object(out)
+            }
+        }
+    }
+
+    /// Remove undesirable artifacts in place. XGI parity: `H.cleanup(...)`
+    /// (hypergraph.py:1468-1518). `connected` and `relabel` are deferred
+    /// (need Phase 3 algorithms + a utils module — deviation #6). Boolean
+    /// params mean *allow*: `isolates=false` removes isolate nodes.
+    pub fn cleanup(&mut self, isolates: bool, singletons: bool, multiedges: bool) {
+        self.assert_not_frozen();
+        if !multiedges {
+            self.merge_duplicate_edges(MergeRename::First, MergeRule::First, None);
+        }
+        if !singletons {
+            let s = self.singleton_edge_ids();
+            self.remove_edges_from(&s);
+        }
+        if !isolates {
+            let i = self.isolate_node_ids();
+            self.remove_nodes_from(&i);
+        }
+    }
+
+    /// Return a cleaned copy, leaving `self` untouched.
+    pub fn cleaned(&self, isolates: bool, singletons: bool, multiedges: bool) -> Self {
+        let mut c = self.copy();
+        c.cleanup(isolates, singletons, multiedges);
+        c
     }
 }
 
