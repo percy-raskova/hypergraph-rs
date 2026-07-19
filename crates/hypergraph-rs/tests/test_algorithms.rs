@@ -291,3 +291,51 @@ fn test_clique_eigenvector_disconnected_is_nan() {
     let c = clique_eigenvector_centrality(&h, 1e-6, 1000);
     assert!(c["a"].is_nan());
 }
+
+use hypergraph_rs::algorithms::simpliciality::{
+    edit_simpliciality, face_edit_simpliciality, mean_face_edit_distance,
+    simplicial_edit_distance, simplicial_fraction,
+};
+
+fn full_simplex() -> Hypergraph {
+    // Down-closed on {a,b,c} for sizes >= 2: {a,b},{a,c},{b,c},{a,b,c}
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e3".into()), serde_json::Value::Null).unwrap();
+    h
+}
+
+#[test]
+fn test_simplicial_fraction_full_simplex_is_one() {
+    let h = full_simplex();
+    let sf = simplicial_fraction(&h, 2, true);
+    assert!((sf - 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn test_edit_distance_full_simplex_is_zero() {
+    let h = full_simplex();
+    let d = simplicial_edit_distance(&h, 2, true, true);
+    assert!(d.abs() < 1e-9);
+    assert!((edit_simpliciality(&h, 2, true) - 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn test_edit_distance_missing_face_positive() {
+    // {a,b,c} present but {b,c} missing => not a full simplex.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    let d = simplicial_edit_distance(&h, 2, true, true);
+    assert!(d > 0.0);
+}
+
+#[test]
+fn test_face_edit_simpliciality_full_simplex_is_one() {
+    let h = full_simplex();
+    assert!((face_edit_simpliciality(&h, 2, true) - 1.0).abs() < 1e-9);
+    assert!(mean_face_edit_distance(&h, 2, true, true).abs() < 1e-9);
+}
