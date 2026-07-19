@@ -1,7 +1,7 @@
 //! Incidence, adjacency, intersection-profile, degree, and clique-motif matrices.
 
 use indexmap::IndexMap;
-use ndarray::Array2;
+use ndarray::{Array1, Array2, Axis};
 use sprs::{CsMat, TriMat};
 
 use super::filtered_edge_ids;
@@ -108,4 +108,37 @@ pub fn adjacency_matrix<N, E, M>(
 /// XGI parity: `xgi.clique_motif_matrix(H)` (`hypergraph_matrix.py:268-299`).
 pub fn clique_motif_matrix<N, E, M>(h: &Hypergraph<N, E, M>) -> (Array2<f64>, Vec<String>) {
     adjacency_matrix(h, None, 1, true)
+}
+
+/// Intersection profile `P = Iᵀ·I` (edges × edges). `P[a,b]` is the number of
+/// nodes shared by edges `a` and `b`; the diagonal is each edge's size.
+///
+/// XGI parity: `xgi.intersection_profile(H, order)`
+/// (`hypergraph_matrix.py:207-233`). Row ids are edge ids.
+pub fn intersection_profile<N, E, M>(
+    h: &Hypergraph<N, E, M>,
+    order: Option<usize>,
+) -> (Array2<f64>, Vec<String>) {
+    let (inc, _node_ids, edge_ids) = incidence_matrix(h, order);
+    if inc.shape() == [0, 0] {
+        return (Array2::zeros((0, 0)), Vec::new());
+    }
+    let p = inc.t().dot(&inc);
+    (p, edge_ids)
+}
+
+/// Degree vector `K` (one entry per node) = incidence row sums.
+///
+/// XGI parity: `xgi.degree_matrix(H, order)` (`hypergraph_matrix.py:236-265`).
+/// When there are no (filtered) edges, returns `zeros(num_nodes)`.
+pub fn degree_matrix<N, E, M>(
+    h: &Hypergraph<N, E, M>,
+    order: Option<usize>,
+) -> (Array1<f64>, Vec<String>) {
+    let (inc, node_ids, _edge_ids) = incidence_matrix(h, order);
+    if inc.shape() == [0, 0] {
+        return (Array1::zeros(h.num_nodes()), h.node_ids());
+    }
+    let k = inc.sum_axis(Axis(1));
+    (k, node_ids)
 }

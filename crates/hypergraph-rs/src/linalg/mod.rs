@@ -8,7 +8,8 @@
 mod hypergraph_matrix;
 
 pub use hypergraph_matrix::{
-    adjacency_matrix, clique_motif_matrix, incidence_matrix, incidence_matrix_sparse,
+    adjacency_matrix, clique_motif_matrix, degree_matrix, incidence_matrix,
+    incidence_matrix_sparse, intersection_profile,
 };
 
 use crate::Hypergraph;

@@ -1,8 +1,9 @@
 use hypergraph_rs::linalg::{
-    adjacency_matrix, clique_motif_matrix, incidence_matrix, incidence_matrix_sparse,
+    adjacency_matrix, clique_motif_matrix, degree_matrix, incidence_matrix,
+    incidence_matrix_sparse, intersection_profile,
 };
 use hypergraph_rs::Hypergraph;
-use ndarray::array;
+use ndarray::{array, Array1};
 
 fn sample() -> Hypergraph {
     // Nodes added first (1..=7) to pin row order; XGI docstring example.
@@ -127,4 +128,38 @@ fn test_clique_motif_equals_weighted_adjacency() {
     let (w, _) = clique_motif_matrix(&h);
     let (a, _) = adjacency_matrix(&h, None, 1, true);
     assert_eq!(w, a);
+}
+
+#[test]
+fn test_intersection_profile_diagonal_is_edge_size() {
+    let h = sample();
+    let (p, edge_rows) = intersection_profile(&h, None);
+    assert_eq!(edge_rows, vec!["e0", "e1", "e2"]);
+    // diagonal[j] = |members of edge j|
+    assert_eq!(p[[0, 0]], 4.0); // e0 has 4 members
+    assert_eq!(p[[1, 1]], 1.0); // e1 has 1
+    assert_eq!(p[[2, 2]], 3.0); // e2 has 3
+    // e0 ∩ e2 = {7} => 1
+    assert_eq!(p[[0, 2]], 1.0);
+    // e0 ∩ e1 = {} => 0
+    assert_eq!(p[[0, 1]], 0.0);
+}
+
+#[test]
+fn test_degree_matrix_counts_memberships() {
+    let h = sample();
+    let (k, node_rows) = degree_matrix(&h, None);
+    assert_eq!(node_rows, vec!["1", "2", "3", "4", "5", "6", "7"]);
+    let expected: Array1<f64> = Array1::from(vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0]);
+    assert_eq!(k, expected); // node 7 is in e0 and e2
+}
+
+#[test]
+fn test_degree_matrix_empty_is_zeros_over_nodes() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", serde_json::Value::Null);
+    h.add_node("b", serde_json::Value::Null);
+    let (k, rows) = degree_matrix(&h, None);
+    assert_eq!(k, Array1::from(vec![0.0, 0.0]));
+    assert_eq!(rows, vec!["a", "b"]);
 }
