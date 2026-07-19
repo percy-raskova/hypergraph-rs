@@ -428,6 +428,51 @@ impl<N, E, M> Hypergraph<N, E, M> {
     }
 }
 
+impl<M> Hypergraph<serde_json::Value, serde_json::Value, M> {
+    /// Set node attributes from (id, attr_map) pairs.
+    /// XGI parity: `H.set_node_attributes(values, name=None)`.
+    /// Silently skips missing node IDs (XGI warns).
+    pub fn set_node_attributes(
+        &mut self,
+        values: impl IntoIterator<Item = (String, serde_json::Map<String, serde_json::Value>)>,
+    ) {
+        for (node_id, attrs) in values {
+            if let Some(node_attrs) = self.node_attrs_mut(&node_id) {
+                if !node_attrs.is_object() {
+                    *node_attrs = serde_json::Value::Object(serde_json::Map::new());
+                }
+                if let Some(obj) = node_attrs.as_object_mut() {
+                    for (k, v) in attrs {
+                        obj.insert(k, v);
+                    }
+                }
+            }
+            // Silently skip missing nodes (XGI warns)
+        }
+    }
+
+    /// Set edge attributes from (id, attr_map) pairs.
+    /// XGI parity: `H.set_edge_attributes(values, name=None)`.
+    /// Silently skips missing edge IDs (XGI warns).
+    pub fn set_edge_attributes(
+        &mut self,
+        values: impl IntoIterator<Item = (String, serde_json::Map<String, serde_json::Value>)>,
+    ) {
+        for (edge_id, attrs) in values {
+            if let Some(edge_attrs) = self.edge_attrs_mut(&edge_id) {
+                if !edge_attrs.is_object() {
+                    *edge_attrs = serde_json::Value::Object(serde_json::Map::new());
+                }
+                if let Some(obj) = edge_attrs.as_object_mut() {
+                    for (k, v) in attrs {
+                        obj.insert(k, v);
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl<N: PartialEq, E: PartialEq, M: PartialEq> PartialEq for Hypergraph<N, E, M> {
     /// Two hypergraphs are equal if they have the same nodes, edges,
     /// memberships, and attributes. XGI parity: `H1 == H2`.
