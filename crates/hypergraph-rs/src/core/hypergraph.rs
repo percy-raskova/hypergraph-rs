@@ -1,7 +1,7 @@
 //! The core `Hypergraph` data structure.
 
-use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use indexmap::IndexMap;
+use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use super::error::{EdgeError, NodeError};
 use super::kinds::{MembershipEdge, NodeKind};
@@ -120,7 +120,9 @@ impl<N, E, M> Hypergraph<N, E, M> {
         let edge_id = match &idx {
             Some(id) => {
                 if self.hyperedge_ids.contains_key(id) {
-                    return Err(EdgeError::AlreadyExists { edge_id: id.clone() });
+                    return Err(EdgeError::AlreadyExists {
+                        edge_id: id.clone(),
+                    });
                 }
                 id.clone()
             }
@@ -155,7 +157,9 @@ impl<N, E, M> Hypergraph<N, E, M> {
 
         for member in &unique_members {
             let agent_idx = self.agent_ids[member];
-            let membership = MembershipEdge { member_data: M::default() };
+            let membership = MembershipEdge {
+                member_data: M::default(),
+            };
             self.inner.add_edge(agent_idx, he_idx, membership.clone());
             self.inner.add_edge(he_idx, agent_idx, membership);
         }
@@ -242,9 +246,10 @@ impl<N, E, M> Hypergraph<N, E, M> {
                 if let Some(e) = self.inner.find_edge(he_idx, agent_idx) {
                     self.inner.remove_edge(e);
                 }
-                let has_members = self.inner.neighbors(he_idx).any(|n| {
-                    matches!(self.inner.node_weight(n), Some(NodeKind::Agent(_)))
-                });
+                let has_members = self
+                    .inner
+                    .neighbors(he_idx)
+                    .any(|n| matches!(self.inner.node_weight(n), Some(NodeKind::Agent(_))));
                 if !has_members {
                     self.inner.remove_node(he_idx);
                     self.hyperedge_ids.shift_remove(eid);
@@ -386,7 +391,10 @@ impl<N, E, M> Hypergraph<N, E, M> {
         N: Default,
         M: Default + Clone,
     {
-        edges.into_iter().map(|(m, i, a)| self.add_edge(m, i, a)).collect()
+        edges
+            .into_iter()
+            .map(|(m, i, a)| self.add_edge(m, i, a))
+            .collect()
     }
 
     /// Add a node to an existing edge. Auto-creates both if missing.
@@ -419,7 +427,9 @@ impl<N, E, M> Hypergraph<N, E, M> {
         let he_idx = self.hyperedge_ids[edge_id];
         // Check if membership already exists
         if self.inner.find_edge(agent_idx, he_idx).is_none() {
-            let membership = MembershipEdge { member_data: M::default() };
+            let membership = MembershipEdge {
+                member_data: M::default(),
+            };
             self.inner.add_edge(agent_idx, he_idx, membership.clone());
             self.inner.add_edge(he_idx, agent_idx, membership);
         }
@@ -461,9 +471,10 @@ impl<N, E, M> Hypergraph<N, E, M> {
 
         // Check if edge is now empty
         if remove_empty {
-            let has_members = self.inner.neighbors(he_idx).any(|n| {
-                matches!(self.inner.node_weight(n), Some(NodeKind::Agent(_)))
-            });
+            let has_members = self
+                .inner
+                .neighbors(he_idx)
+                .any(|n| matches!(self.inner.node_weight(n), Some(NodeKind::Agent(_))));
             if !has_members {
                 self.inner.remove_node(he_idx);
                 self.hyperedge_ids.shift_remove(edge_id);
@@ -522,14 +533,18 @@ impl<N: PartialEq, E: PartialEq, M: PartialEq> PartialEq for Hypergraph<N, E, M>
     /// Two hypergraphs are equal if they have the same nodes, edges,
     /// memberships, and attributes. XGI parity: `H1 == H2`.
     fn eq(&self, other: &Self) -> bool {
-        if self.agent_ids.len() != other.agent_ids.len() { return false; }
+        if self.agent_ids.len() != other.agent_ids.len() {
+            return false;
+        }
         for (nid, _) in &self.agent_ids {
             match (self.node_attrs(nid), other.node_attrs(nid)) {
                 (Some(a), Some(b)) if a == b => {}
                 _ => return false,
             }
         }
-        if self.hyperedge_ids.len() != other.hyperedge_ids.len() { return false; }
+        if self.hyperedge_ids.len() != other.hyperedge_ids.len() {
+            return false;
+        }
         for (eid, _) in &self.hyperedge_ids {
             match (self.edge_attrs(eid), other.edge_attrs(eid)) {
                 (Some(a), Some(b)) if a == b => {}
@@ -537,8 +552,11 @@ impl<N: PartialEq, E: PartialEq, M: PartialEq> PartialEq for Hypergraph<N, E, M>
             }
             let mut m1 = self.members(eid).unwrap_or_default();
             let mut m2 = other.members(eid).unwrap_or_default();
-            m1.sort(); m2.sort();
-            if m1 != m2 { return false; }
+            m1.sort();
+            m2.sort();
+            if m1 != m2 {
+                return false;
+            }
         }
         self.graph_attrs == other.graph_attrs
     }
@@ -553,10 +571,14 @@ where
     /// XGI parity: `__repr__` returns `Hypergraph([{members}, ...])`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Hypergraph(")?;
-        let edges: Vec<String> = self.hyperedge_ids.keys().map(|eid| {
-            let members = self.members(eid).unwrap_or_default();
-            format!("{{{}}}", members.join(", "))
-        }).collect();
+        let edges: Vec<String> = self
+            .hyperedge_ids
+            .keys()
+            .map(|eid| {
+                let members = self.members(eid).unwrap_or_default();
+                format!("{{{}}}", members.join(", "))
+            })
+            .collect();
         write!(f, "[{}])", edges.join(", "))
     }
 }
