@@ -65,3 +65,91 @@ fn test_dihypergraph_add_edge_duplicate_idx_errors() {
     assert!(matches!(r, Err(EdgeError::AlreadyExists { .. })));
     assert_eq!(dh.num_edges(), 1);
 }
+
+use hypergraph_rs::DiRole;
+
+fn sorted(mut v: Vec<String>) -> Vec<String> {
+    v.sort();
+    v
+}
+
+#[test]
+fn test_dihypergraph_dimembers_head_tail() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into(), "2".into()], vec!["3".into(), "4".into()], Some("e0".into()), v()).unwrap();
+    let (tail, head) = dh.dimembers("e0").unwrap();
+    assert_eq!(sorted(tail), vec!["1".to_string(), "2".to_string()]);
+    assert_eq!(sorted(head), vec!["3".to_string(), "4".to_string()]);
+    assert_eq!(sorted(dh.tail("e0").unwrap()), vec!["1".to_string(), "2".to_string()]);
+    assert_eq!(sorted(dh.head("e0").unwrap()), vec!["3".to_string(), "4".to_string()]);
+    assert_eq!(sorted(dh.members("e0").unwrap()), vec!["1".to_string(), "2".to_string(), "3".to_string(), "4".to_string()]);
+}
+
+#[test]
+fn test_dihypergraph_dimemberships() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    // node "2" is a receiver (head) of e0 and a sender (tail) of e1
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    dh.add_edge(vec!["2".into()], vec!["3".into()], Some("e1".into()), v()).unwrap();
+    let (in_edges, out_edges) = dh.dimemberships("2").unwrap();
+    assert_eq!(in_edges, vec!["e0".to_string()]);   // receiver in e0
+    assert_eq!(out_edges, vec!["e1".to_string()]);  // sender in e1
+    assert_eq!(sorted(dh.memberships("2").unwrap()), vec!["e0".to_string(), "e1".to_string()]);
+}
+
+#[test]
+fn test_dihypergraph_remove_edge() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    dh.remove_edge("e0").unwrap();
+    assert!(!dh.has_edge("e0"));
+    assert!(dh.has_node("1"));
+    assert!(dh.memberships("1").unwrap().is_empty());
+}
+
+#[test]
+fn test_dihypergraph_remove_node_weak() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into(), "2".into()], vec!["3".into()], Some("e0".into()), v()).unwrap();
+    dh.remove_node("1", false, true).unwrap();
+    assert!(!dh.has_node("1"));
+    assert!(dh.has_edge("e0"));
+    assert_eq!(sorted(dh.tail("e0").unwrap()), vec!["2".to_string()]);
+}
+
+#[test]
+fn test_dihypergraph_remove_node_weak_removes_empty_edge() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec![], Some("e0".into()), v()).unwrap();
+    dh.remove_node("1", false, true).unwrap();
+    assert!(!dh.has_edge("e0")); // edge became empty -> removed
+}
+
+#[test]
+fn test_dihypergraph_remove_node_strong() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    dh.add_edge(vec!["1".into()], vec!["3".into()], Some("e1".into()), v()).unwrap();
+    dh.remove_node("1", true, true).unwrap();
+    assert!(!dh.has_edge("e0"));
+    assert!(!dh.has_edge("e1"));
+    assert!(dh.has_node("2"));
+}
+
+#[test]
+fn test_dihypergraph_add_node_to_edge() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    dh.add_node_to_edge("e0", "9", DiRole::Head).unwrap();
+    assert_eq!(sorted(dh.head("e0").unwrap()), vec!["2".to_string(), "9".to_string()]);
+}
+
+#[test]
+fn test_dihypergraph_remove_node_from_edge() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into(), "2".into()], vec!["3".into()], Some("e0".into()), v()).unwrap();
+    dh.remove_node_from_edge("e0", "1", DiRole::Tail, true).unwrap();
+    assert_eq!(sorted(dh.tail("e0").unwrap()), vec!["2".to_string()]);
+    // removing a node not in the named role errors
+    assert!(dh.remove_node_from_edge("e0", "1", DiRole::Tail, true).is_err());
+}

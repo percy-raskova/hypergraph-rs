@@ -8,6 +8,10 @@ pub enum NodeError {
     /// The node ID was not found in the hypergraph.
     #[error("node {node_id} does not exist")]
     NotFound { node_id: String },
+    /// The named edge (not node) was not found — returned by methods that
+    /// take both an edge id and a node id (e.g. `remove_node_from_edge`).
+    #[error("edge {edge_id} not found")]
+    EdgeNotFound { edge_id: String },
 }
 
 /// Error raised when an edge operation fails.

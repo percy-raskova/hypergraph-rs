@@ -9,8 +9,10 @@
 
 use indexmap::IndexMap;
 use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
+use rustworkx_core::petgraph::visit::EdgeRef;
+use rustworkx_core::petgraph::Direction;
 
-use super::error::EdgeError;
+use super::error::{EdgeError, NodeError};
 use super::kinds::{DiMembershipEdge, DiRole, NodeKind};
 
 /// Deduplicate a Vec of ids, preserving first-seen order.
@@ -171,5 +173,230 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         }
 
         Ok(edge_id)
+    }
+
+    /// All node ids, insertion order. XGI parity: `list(DH.nodes)`.
+    pub fn node_ids(&self) -> Vec<String> {
+        self.agent_ids.keys().cloned().collect()
+    }
+
+    /// All edge ids, insertion order. XGI parity: `list(DH.edges)`.
+    pub fn edge_ids(&self) -> Vec<String> {
+        self.hyperedge_ids.keys().cloned().collect()
+    }
+
+    /// Map a hyperedge NodeIndex back to its id (linear scan, Phase 1 pattern).
+    fn edge_id_of(&self, idx: NodeIndex) -> Option<String> {
+        self.hyperedge_ids.iter().find(|(_, &i)| i == idx).map(|(k, _)| k.clone())
+    }
+
+    /// Map an agent NodeIndex back to its id (linear scan, Phase 1 pattern).
+    fn node_id_of(&self, idx: NodeIndex) -> Option<String> {
+        self.agent_ids.iter().find(|(_, &i)| i == idx).map(|(k, _)| k.clone())
+    }
+
+    /// (tail, head) node ids of an edge. XGI parity: `DH.edges.dimembers(e)`
+    /// = (edge["in"], edge["out"]) (views.py:1017-1071).
+    pub fn dimembers(&self, edge_id: &str) -> Option<(Vec<String>, Vec<String>)> {
+        let he = *self.hyperedge_ids.get(edge_id)?;
+        let mut tail = Vec::new();
+        let mut head = Vec::new();
+        for er in self.inner.edges_directed(he, Direction::Incoming) {
+            if let Some(nid) = self.node_id_of(er.source()) {
+                match er.weight().role {
+                    DiRole::Tail => tail.push(nid),
+                    DiRole::Head => head.push(nid),
+                }
+            }
+        }
+        Some((tail, head))
+    }
+
+    /// Tail (sender) node ids. XGI parity: `DH.edges.tail(e)`.
+    pub fn tail(&self, edge_id: &str) -> Option<Vec<String>> {
+        self.dimembers(edge_id).map(|(t, _)| t)
+    }
+
+    /// Head (receiver) node ids. XGI parity: `DH.edges.head(e)`.
+    pub fn head(&self, edge_id: &str) -> Option<Vec<String>> {
+        self.dimembers(edge_id).map(|(_, h)| h)
+    }
+
+    /// Union of tail and head. XGI parity: `DH.edges.members(e)`.
+    pub fn members(&self, edge_id: &str) -> Option<Vec<String>> {
+        self.dimembers(edge_id).map(|(t, h)| {
+            let mut set: std::collections::BTreeSet<String> = t.into_iter().collect();
+            set.extend(h);
+            set.into_iter().collect()
+        })
+    }
+
+    /// (in, out) edge ids for a node: `in` = edges where the node is a head
+    /// (receiver), `out` = edges where it is a tail (sender). XGI parity:
+    /// `DH.nodes.dimemberships(n)` = (node["in"], node["out"])
+    /// (views.py:889-918).
+    pub fn dimemberships(&self, node_id: &str) -> Option<(Vec<String>, Vec<String>)> {
+        let a = *self.agent_ids.get(node_id)?;
+        let mut in_edges = Vec::new();
+        let mut out_edges = Vec::new();
+        for er in self.inner.edges_directed(a, Direction::Outgoing) {
+            if let Some(eid) = self.edge_id_of(er.target()) {
+                match er.weight().role {
+                    DiRole::Head => in_edges.push(eid),
+                    DiRole::Tail => out_edges.push(eid),
+                }
+            }
+        }
+        Some((in_edges, out_edges))
+    }
+
+    /// All edge ids the node belongs to (head or tail). XGI parity:
+    /// `DH.nodes.memberships(n)`.
+    pub fn memberships(&self, node_id: &str) -> Option<Vec<String>> {
+        self.dimemberships(node_id).map(|(i, o)| {
+            let mut set: std::collections::BTreeSet<String> = i.into_iter().collect();
+            set.extend(o);
+            set.into_iter().collect()
+        })
+    }
+
+    /// Remove an edge. XGI parity: `DH.remove_edge(idx)` (dihypergraph.py:834-860).
+    pub fn remove_edge(&mut self, edge_id: &str) -> Result<(), EdgeError> {
+        self.assert_not_frozen();
+        let he = *self
+            .hyperedge_ids
+            .get(edge_id)
+            .ok_or(EdgeError::NotFound { edge_id: edge_id.to_string() })?;
+        self.inner.remove_node(he);
+        self.hyperedge_ids.shift_remove(edge_id);
+        Ok(())
+    }
+
+    /// Remove a node. Weak removal detaches the node from its edges and drops
+    /// edges that become empty (when `remove_empty`); strong removal drops all
+    /// containing edges. XGI parity: `DH.remove_node(n, strong, remove_empty)`
+    /// (dihypergraph.py:385-436).
+    pub fn remove_node(
+        &mut self,
+        node_id: &str,
+        strong: bool,
+        remove_empty: bool,
+    ) -> Result<(), NodeError> {
+        self.assert_not_frozen();
+        let a = *self
+            .agent_ids
+            .get(node_id)
+            .ok_or(NodeError::NotFound { node_id: node_id.to_string() })?;
+        let (in_e, out_e) = self.dimemberships(node_id).unwrap_or_default();
+        let incident: std::collections::BTreeSet<String> =
+            in_e.into_iter().chain(out_e).collect();
+
+        if strong {
+            for eid in &incident {
+                let _ = self.remove_edge(eid);
+            }
+        } else {
+            // Detach: remove all of the agent's outgoing membership edges.
+            let eidxs: Vec<_> = self.inner.edges(a).map(|er| er.id()).collect();
+            for e in eidxs {
+                self.inner.remove_edge(e);
+            }
+            // Drop now-empty edges.
+            for eid in &incident {
+                if let Some(he) = self.hyperedge_ids.get(eid).copied() {
+                    let empty =
+                        self.inner.edges_directed(he, Direction::Incoming).next().is_none();
+                    if empty && remove_empty {
+                        self.inner.remove_node(he);
+                        self.hyperedge_ids.shift_remove(eid);
+                    }
+                }
+            }
+        }
+
+        self.inner.remove_node(a);
+        self.agent_ids.shift_remove(node_id);
+        Ok(())
+    }
+
+    /// Add a node to an edge in the given role. Auto-creates both if missing.
+    /// XGI parity: `DH.add_node_to_edge(edge, node, direction)`
+    /// (dihypergraph.py:794-832).
+    pub fn add_node_to_edge(
+        &mut self,
+        edge_id: &str,
+        node_id: &str,
+        role: DiRole,
+    ) -> Result<(), EdgeError>
+    where
+        N: Default,
+        E: Default,
+        M: Default + Clone,
+    {
+        self.assert_not_frozen();
+        if !self.hyperedge_ids.contains_key(edge_id) {
+            let he = self.inner.add_node(NodeKind::Hyperedge(E::default()));
+            self.hyperedge_ids.insert(edge_id.to_string(), he);
+            if let Ok(n) = edge_id.parse::<u64>() {
+                if n >= self.edge_uid_counter {
+                    self.edge_uid_counter = n + 1;
+                }
+            }
+        }
+        self.ensure_agent(node_id);
+        let a = self.agent_ids[node_id];
+        let he = self.hyperedge_ids[edge_id];
+        let exists = self
+            .inner
+            .edges_directed(he, Direction::Incoming)
+            .any(|er| er.source() == a && er.weight().role == role);
+        if !exists {
+            self.inner
+                .add_edge(a, he, DiMembershipEdge { member_data: M::default(), role });
+        }
+        Ok(())
+    }
+
+    /// Remove a node from an edge's given role. Errors if the edge/node is
+    /// missing or the node is not in that role-set; drops the edge if empty and
+    /// `remove_empty`. XGI parity: `DH.remove_node_from_edge(edge, node,
+    /// direction, remove_empty)` (dihypergraph.py:891-943).
+    pub fn remove_node_from_edge(
+        &mut self,
+        edge_id: &str,
+        node_id: &str,
+        role: DiRole,
+        remove_empty: bool,
+    ) -> Result<(), NodeError> {
+        self.assert_not_frozen();
+        let he = *self
+            .hyperedge_ids
+            .get(edge_id)
+            .ok_or(NodeError::EdgeNotFound { edge_id: edge_id.to_string() })?;
+        let a = *self
+            .agent_ids
+            .get(node_id)
+            .ok_or(NodeError::NotFound { node_id: node_id.to_string() })?;
+        let target = self
+            .inner
+            .edges_directed(he, Direction::Incoming)
+            .find(|er| er.source() == a && er.weight().role == role)
+            .map(|er| er.id());
+        match target {
+            Some(e) => {
+                self.inner.remove_edge(e);
+            }
+            None => {
+                return Err(NodeError::NotFound {
+                    node_id: format!("node {node_id} not in {role:?} of edge {edge_id}"),
+                });
+            }
+        }
+        if remove_empty && self.inner.edges_directed(he, Direction::Incoming).next().is_none()
+        {
+            self.inner.remove_node(he);
+            self.hyperedge_ids.shift_remove(edge_id);
+        }
+        Ok(())
     }
 }
