@@ -2,6 +2,7 @@
 
 use indexmap::IndexMap;
 use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
+use serde_json::Value;
 
 use super::error::{EdgeError, NodeError};
 use super::kinds::{MembershipEdge, NodeKind};
@@ -579,6 +580,39 @@ impl<M> Hypergraph<serde_json::Value, serde_json::Value, M> {
                 }
             }
         }
+    }
+}
+
+impl Hypergraph<Value, Value, Value> {
+    /// The dual: nodes become edges and edges become nodes.
+    /// XGI parity: `H.dual()` (hypergraph.py:1446-1466). Isolate nodes are
+    /// dropped (they would map to empty dual-edges, which our strict add_edge
+    /// cannot represent — deviation #8).
+    pub fn dual(&self) -> Self {
+        let mut d = Self::new();
+
+        // Original edges -> dual nodes (id = edge id, attrs = edge attrs).
+        // Done FIRST so their attrs survive the auto-node-creation in add_edge.
+        for eid in self.edge_ids() {
+            let attrs = self.edge_attrs(&eid).cloned().unwrap_or(Value::Null);
+            d.add_node(&eid, attrs);
+        }
+
+        // Original nodes -> dual edges (id = node id, members = memberships).
+        for nid in self.node_ids() {
+            let memberships = self.memberships(&nid).unwrap_or_default();
+            if memberships.is_empty() {
+                continue; // isolate node -> empty dual-edge -> skipped
+            }
+            let attrs = self.node_attrs(&nid).cloned().unwrap_or(Value::Null);
+            let _ = d.add_edge(memberships, Some(nid.clone()), attrs);
+        }
+
+        // Graph attrs.
+        for (k, val) in self.graph_attrs().clone() {
+            d.set_graph_attr(&k, val);
+        }
+        d
     }
 }
 
