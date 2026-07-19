@@ -163,3 +163,69 @@ fn test_degree_matrix_empty_is_zeros_over_nodes() {
     assert_eq!(k, Array1::from(vec![0.0, 0.0]));
     assert_eq!(rows, vec!["a", "b"]);
 }
+
+use hypergraph_rs::linalg::{laplacian, multiorder_laplacian, normalized_hypergraph_laplacian};
+use hypergraph_rs::linalg::LinalgError;
+
+fn approx(a: f64, b: f64) -> bool {
+    (a - b).abs() < 1e-9
+}
+
+#[test]
+fn test_laplacian_order1_is_graph_laplacian() {
+    // Triangle: three pairwise edges over {a,b,c}. L = 2I - A (order 1, weighted).
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    let (l, rows) = laplacian(&h, 1, false);
+    assert_eq!(rows, vec!["a", "b", "c"]);
+    // Each node has degree 2; L diagonal = 2, off-diagonal = -1.
+    assert!(approx(l[[0, 0]], 2.0));
+    assert!(approx(l[[0, 1]], -1.0));
+    // Row sums of a graph Laplacian are 0.
+    for i in 0..3 {
+        assert!(approx(l.row(i).sum(), 0.0));
+    }
+}
+
+#[test]
+fn test_laplacian_empty() {
+    let h: Hypergraph = Hypergraph::new();
+    let (l, rows) = laplacian(&h, 1, false);
+    assert_eq!(l.shape(), &[0, 0]);
+    assert!(rows.is_empty());
+}
+
+#[test]
+fn test_multiorder_laplacian_shape() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let (l, rows) = multiorder_laplacian(&h, &[1, 2], &[1.0, 1.0], false);
+    assert_eq!(rows.len(), 3);
+    assert_eq!(l.shape(), &[3, 3]);
+    // Multiorder Laplacian rows still sum to ~0.
+    for i in 0..3 {
+        assert!(approx(l.row(i).sum(), 0.0));
+    }
+}
+
+#[test]
+fn test_normalized_laplacian_isolated_node_errors() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_node("isolated", serde_json::Value::Null);
+    let result = normalized_hypergraph_laplacian(&h, false);
+    assert_eq!(result, Err(LinalgError::IsolatedNodes));
+}
+
+#[test]
+fn test_normalized_laplacian_ok() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let (l, rows) = normalized_hypergraph_laplacian(&h, false).unwrap();
+    assert_eq!(rows, vec!["a", "b", "c"]);
+    assert_eq!(l.shape(), &[3, 3]);
+}

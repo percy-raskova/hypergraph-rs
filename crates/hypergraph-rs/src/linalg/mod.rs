@@ -6,11 +6,13 @@
 //! (`xgi/linalg/hypergraph_matrix.py`).
 
 mod hypergraph_matrix;
+mod laplacian;
 
 pub use hypergraph_matrix::{
     adjacency_matrix, clique_motif_matrix, degree_matrix, incidence_matrix,
     incidence_matrix_sparse, intersection_profile,
 };
+pub use laplacian::{laplacian, multiorder_laplacian, normalized_hypergraph_laplacian};
 
 use crate::Hypergraph;
 use thiserror::Error;
