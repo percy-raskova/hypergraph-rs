@@ -252,4 +252,40 @@ impl<N, E, M> Hypergraph<N, E, M> {
         self.hyperedge_ids.shift_remove(edge_id);
         Ok(())
     }
+
+    /// Read a node's attributes. XGI parity: `H.nodes[n]`.
+    pub fn node_attrs(&self, node_id: &str) -> Option<&N> {
+        let idx = self.agent_ids.get(node_id)?;
+        match self.inner.node_weight(*idx)? {
+            NodeKind::Agent(attrs) => Some(attrs),
+            _ => None,
+        }
+    }
+
+    /// Mutably access a node's attributes.
+    pub fn node_attrs_mut(&mut self, node_id: &str) -> Option<&mut N> {
+        let idx = *self.agent_ids.get(node_id)?;
+        match self.inner.node_weight_mut(idx)? {
+            NodeKind::Agent(attrs) => Some(attrs),
+            _ => None,
+        }
+    }
+
+    /// Read a hyperedge's attributes. XGI parity: `H.edges[e]`.
+    pub fn edge_attrs(&self, edge_id: &str) -> Option<&E> {
+        let idx = self.hyperedge_ids.get(edge_id)?;
+        match self.inner.node_weight(*idx)? {
+            NodeKind::Hyperedge(attrs) => Some(attrs),
+            _ => None,
+        }
+    }
+
+    /// Mutably access a hyperedge's attributes.
+    pub fn edge_attrs_mut(&mut self, edge_id: &str) -> Option<&mut E> {
+        let idx = *self.hyperedge_ids.get(edge_id)?;
+        match self.inner.node_weight_mut(idx)? {
+            NodeKind::Hyperedge(attrs) => Some(attrs),
+            _ => None,
+        }
+    }
 }
