@@ -148,4 +148,10 @@ impl<N, E, M> Hypergraph<N, E, M> {
 
         Ok(edge_id)
     }
+
+    /// Check if a hyperedge exists.
+    /// XGI parity: `id in H.edges`.
+    pub fn has_edge(&self, edge_id: &str) -> bool {
+        self.hyperedge_ids.contains_key(edge_id)
+    }
 }
