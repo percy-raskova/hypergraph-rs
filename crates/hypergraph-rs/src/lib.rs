@@ -5,6 +5,8 @@
 //! [`rustworkx_core::petgraph::stable_graph::StableDiGraph`] with two node
 //! kinds (`Agent` and `Hyperedge`) connected by `MembershipEdge` edges.
 
+#[cfg(feature = "algorithms")]
+pub mod algorithms;
 pub mod core;
 pub mod linalg;
 

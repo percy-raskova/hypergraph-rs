@@ -4,7 +4,9 @@ use indexmap::IndexMap;
 use rand::RngExt;
 use rand_core::SeedableRng;
 use rand_pcg::Pcg64Mcg;
+use rustworkx_core::petgraph::graph::{NodeIndex as GraphNodeIndex, UnGraph};
 use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
+use rustworkx_core::petgraph::visit::NodeIndexable;
 use serde_json::Value;
 
 use super::error::{EdgeError, NodeError, SwapError};
@@ -727,6 +729,79 @@ impl<N, E, M> Hypergraph<N, E, M> {
             self.attach_member(&id2, node);
         }
         Ok(())
+    }
+
+    /// The undirected 1-skeleton (pairwise projection): a node for every agent
+    /// (weight = its id, added in `node_ids()` order so `NodeIndex::new(i)`
+    /// corresponds to `node_ids()[i]`), and an edge (weight `1.0`) between two
+    /// agents that co-occur in at least one hyperedge.
+    ///
+    /// Undirected (deviation from spec §4.1's `Graph`): the connectivity,
+    /// shortest-path, and clustering algorithms operate on this graph.
+    pub fn skeleton(&self) -> UnGraph<String, f64> {
+        let mut g = UnGraph::<String, f64>::new_undirected();
+        let node_ids = self.node_ids();
+        let mut idx_of: IndexMap<String, GraphNodeIndex> = IndexMap::new();
+        for n in &node_ids {
+            let ix = g.add_node(n.clone());
+            idx_of.insert(n.clone(), ix);
+        }
+        let mut seen: std::collections::HashSet<(usize, usize)> = std::collections::HashSet::new();
+        for e in self.edge_ids() {
+            let members = self.members(&e).unwrap_or_default();
+            // Bounded: |members| choose 2.
+            for a in 0..members.len() {
+                for b in (a + 1)..members.len() {
+                    let ia = idx_of[&members[a]];
+                    let ib = idx_of[&members[b]];
+                    let key = if g.to_index(ia) < g.to_index(ib) {
+                        (g.to_index(ia), g.to_index(ib))
+                    } else {
+                        (g.to_index(ib), g.to_index(ia))
+                    };
+                    if seen.insert(key) {
+                        g.add_edge(ia, ib, 1.0);
+                    }
+                }
+            }
+        }
+        g
+    }
+
+    /// The neighbours of a node: all nodes that share at least one hyperedge
+    /// with it, excluding itself, in insertion order (deduped). `None` if the
+    /// node is absent. XGI parity: `H.nodes.neighbors(n)`.
+    pub fn node_neighbors(&self, node_id: &str) -> Option<Vec<String>> {
+        let edges = self.memberships(node_id)?;
+        let mut result: Vec<String> = Vec::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for e in edges {
+            for m in self.members(&e).unwrap_or_default() {
+                if m != node_id && seen.insert(m.clone()) {
+                    result.push(m);
+                }
+            }
+        }
+        Some(result)
+    }
+
+    /// The degree of a node = number of edges it belongs to. With
+    /// `order = Some(d)`, counts only edges of that order (size `d+1`).
+    /// `None` if the node is absent. XGI parity: `H.degree(n, order)`.
+    pub fn node_degree(&self, node_id: &str, order: Option<usize>) -> Option<usize> {
+        let edges = self.memberships(node_id)?;
+        Some(match order {
+            None => edges.len(),
+            Some(d) => edges
+                .iter()
+                .filter(|e| self.edge_size(e) == Some(d + 1))
+                .count(),
+        })
+    }
+
+    /// The size (number of members) of an edge. `None` if the edge is absent.
+    pub fn edge_size(&self, edge_id: &str) -> Option<usize> {
+        self.members(edge_id).map(|m| m.len())
     }
 }
 
