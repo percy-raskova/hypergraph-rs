@@ -135,3 +135,171 @@ impl<'a, N, E, M> NodeView<'a, N, E, M> {
         NodeView { graph: self.graph, ids }
     }
 }
+
+/// A read-only view over the edges of a hypergraph.
+pub struct EdgeView<'a, N, E, M> {
+    graph: &'a Hypergraph<N, E, M>,
+    ids: Vec<String>,
+}
+
+impl<N, E, M> Hypergraph<N, E, M> {
+    /// A view over all edges (insertion order). XGI parity: `H.edges`.
+    pub fn edges(&self) -> EdgeView<'_, N, E, M> {
+        EdgeView { graph: self, ids: self.edge_ids() }
+    }
+}
+
+impl<'a, N, E, M> EdgeView<'a, N, E, M> {
+    /// The tracked edge ids, in insertion order.
+    pub fn ids(&self) -> &[String] {
+        &self.ids
+    }
+
+    /// The number of edges tracked.
+    pub fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    /// Whether the view is empty.
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+
+    /// Whether `edge_id` is tracked by this view.
+    pub fn contains(&self, edge_id: &str) -> bool {
+        self.ids.iter().any(|e| e == edge_id)
+    }
+
+    /// The edge's attributes. XGI parity: `H.edges[e]`.
+    pub fn attrs(&self, edge_id: &str) -> Option<&'a E> {
+        self.graph.edge_attrs(edge_id)
+    }
+
+    /// The number of members. XGI parity: `H.edges.size` (edgestats.py:148).
+    pub fn size(&self, edge_id: &str) -> usize {
+        self.graph.members(edge_id).map_or(0, |m| m.len())
+    }
+
+    /// The order (size − 1). XGI parity: `H.edges.order` (edgestats.py:108).
+    /// Saturates at 0 (our edges are never empty in normal use).
+    pub fn order(&self, edge_id: &str) -> usize {
+        self.size(edge_id).saturating_sub(1)
+    }
+
+    /// The member node ids. XGI parity: `H.edges.members(e)` (views.py:706-747).
+    pub fn members(&self, edge_id: &str) -> Option<Vec<String>> {
+        self.graph.members(edge_id)
+    }
+
+    /// Sub-view of size-1 edges. XGI parity: `H.edges.singletons()`.
+    pub fn singletons(&self) -> EdgeView<'a, N, E, M> {
+        self.filterby_size(1, FilterMode::Eq)
+    }
+
+    /// Sub-view of size-0 edges. XGI parity: `H.edges.empty()`.
+    pub fn empty(&self) -> EdgeView<'a, N, E, M> {
+        self.filterby_size(0, FilterMode::Eq)
+    }
+
+    /// Sub-view of edges whose size satisfies `mode` vs `val`.
+    pub fn filterby_size(&self, val: usize, mode: FilterMode) -> EdgeView<'a, N, E, M> {
+        let ids = self
+            .ids
+            .iter()
+            .filter(|e| mode.matches(self.size(e), val))
+            .cloned()
+            .collect();
+        EdgeView { graph: self.graph, ids }
+    }
+
+    /// Sub-view of edges whose order satisfies `mode` vs `val`.
+    pub fn filterby_order(&self, val: usize, mode: FilterMode) -> EdgeView<'a, N, E, M> {
+        let ids = self
+            .ids
+            .iter()
+            .filter(|e| mode.matches(self.order(e), val))
+            .cloned()
+            .collect();
+        EdgeView { graph: self.graph, ids }
+    }
+
+    /// Sub-view of edges that duplicate an earlier one (same member-set).
+    /// The first (sorted) id of each group is kept; the rest are duplicates.
+    /// XGI parity: `H.edges.duplicates()` (views.py:409-465).
+    pub fn duplicates(&self) -> EdgeView<'a, N, E, M> {
+        use std::collections::BTreeMap;
+        let mut groups: BTreeMap<Vec<String>, Vec<String>> = BTreeMap::new();
+        for eid in &self.ids {
+            let mut mem = self.graph.members(eid).unwrap_or_default();
+            mem.sort();
+            groups.entry(mem).or_default().push(eid.clone());
+        }
+        let mut dups: Vec<String> = Vec::new();
+        for members_ids in groups.values() {
+            if members_ids.len() > 1 {
+                let mut sorted = members_ids.clone();
+                sorted.sort();
+                dups.extend(sorted.into_iter().skip(1));
+            }
+        }
+        // Preserve insertion order among the flagged ids.
+        let ids = self.ids.iter().filter(|e| dups.contains(e)).cloned().collect();
+        EdgeView { graph: self.graph, ids }
+    }
+
+    /// Sub-view of edges whose member-set equals `members`.
+    /// XGI parity: `H.edges.lookup(members)` (views.py:467-509).
+    pub fn lookup(&self, members: &[String]) -> EdgeView<'a, N, E, M> {
+        use std::collections::BTreeSet;
+        let want: BTreeSet<String> = members.iter().cloned().collect();
+        let ids = self
+            .ids
+            .iter()
+            .filter(|e| {
+                let got: BTreeSet<String> =
+                    self.graph.members(e).unwrap_or_default().into_iter().collect();
+                got == want
+            })
+            .cloned()
+            .collect();
+        EdgeView { graph: self.graph, ids }
+    }
+
+    /// Sub-view of maximal edges (not a subset of any other edge).
+    /// `strict=false` keeps maximal multiedges; `strict=true` excludes any edge
+    /// that is a subset of or equal to another. XGI parity: `H.edges.maximal()`
+    /// (views.py:777-847).
+    pub fn maximal(&self, strict: bool) -> EdgeView<'a, N, E, M> {
+        use std::collections::BTreeSet;
+        let sets: Vec<(String, BTreeSet<String>)> = self
+            .ids
+            .iter()
+            .map(|e| {
+                let s: BTreeSet<String> =
+                    self.graph.members(e).unwrap_or_default().into_iter().collect();
+                (e.clone(), s)
+            })
+            .collect();
+
+        let ids = self
+            .ids
+            .iter()
+            .filter(|e| {
+                let me = &sets.iter().find(|(id, _)| id == *e).unwrap().1;
+                // Keep e unless some OTHER edge f makes it non-maximal.
+                !sets.iter().any(|(fid, mf)| {
+                    if fid == *e {
+                        return false;
+                    }
+                    if strict {
+                        me.is_subset(mf) // subset OR equal disqualifies (strict)
+                    } else {
+                        me.is_subset(mf) && me.len() < mf.len() // strict subset only
+                    }
+                })
+            })
+            .cloned()
+            .collect();
+        EdgeView { graph: self.graph, ids }
+    }
+}
