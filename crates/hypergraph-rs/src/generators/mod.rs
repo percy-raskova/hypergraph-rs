@@ -15,8 +15,7 @@ pub mod simplicial;
 pub use classic::{
     complement, complete_hypergraph, empty_hypergraph, trivial_hypergraph, GeneratorError,
 };
-// TASK 4: uncomment when lattice.rs lands
-// pub use lattice::ring_lattice;
+pub use lattice::ring_lattice;
 // TASK 5: uncomment when simple.rs lands
 // pub use simple::{star_clique, sunflower};
 // TASK 6: uncomment when random.rs lands

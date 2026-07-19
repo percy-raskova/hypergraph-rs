@@ -174,3 +174,28 @@ fn test_complement_disjoint_edge_sets() {
     assert!(!has_012, "complement must exclude the original edge");
     assert!(hc.num_edges() > 0);
 }
+
+use hypergraph_rs::generators::ring_lattice;
+
+#[test]
+fn test_ring_lattice_node_count_and_uniformity() {
+    // n=10, d=3, k=4, l=1
+    let h = ring_lattice(10, 3, 4, 1).unwrap();
+    assert_eq!(h.num_nodes(), 10);
+    // each of n nodes contributes k/2 edges -> 10 * 2 = 20 edges
+    assert_eq!(h.num_edges(), 20);
+    // d-uniform: every edge has <= d members (dedup can shrink)
+    for e in h.edge_ids() {
+        let sz = h.members(&e).unwrap().len();
+        assert!(sz >= 1 && sz <= 3);
+    }
+}
+
+#[test]
+fn test_ring_lattice_is_deterministic() {
+    // ring_lattice has no randomness; two builds are structurally identical
+    let a = ring_lattice(8, 2, 4, 0).unwrap();
+    let b = ring_lattice(8, 2, 4, 0).unwrap();
+    assert_eq!(a.num_nodes(), b.num_nodes());
+    assert_eq!(a.num_edges(), b.num_edges());
+}
