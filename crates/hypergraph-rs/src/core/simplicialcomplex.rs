@@ -264,4 +264,98 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
     fn invalidate(&mut self) {
         self.face_lattice = OnceCell::new();
     }
+
+    /// Add many simplices (each via `add_simplex`, so each closes under faces).
+    /// XGI parity: `S.add_simplices_from(ebunch)` — 3-tuple form
+    /// (simplicialcomplex.py:373-636).
+    pub fn add_simplices_from(&mut self, simplices: Vec<(Vec<String>, Option<String>, E)>)
+    where
+        N: Default,
+        E: Default,
+        M: Default + Clone,
+    {
+        for (members, idx, attrs) in simplices {
+            let _ = self.add_simplex(members, idx, attrs);
+        }
+    }
+
+    /// Add all missing subfaces of every existing simplex.
+    /// XGI parity: `S.close()` (simplicialcomplex.py:638-662).
+    pub fn close(&mut self)
+    where
+        N: Default,
+        E: Default,
+        M: Default + Clone,
+    {
+        let existing: Vec<Vec<String>> =
+            self.inner.edge_ids().iter().filter_map(|e| self.inner.members(e)).collect();
+        for members in existing {
+            for face in subfaces(&as_sorted_set(&members)) {
+                if !face.is_empty() && !self.has_simplex(&face) {
+                    let _ = self.inner.add_edge(face, None, E::default());
+                }
+            }
+        }
+        self.invalidate();
+    }
+
+    /// Remove a simplex AND every simplex that strictly contains it (its
+    /// supfaces), preserving closure. XGI parity: `S.remove_simplex_id(idx)`
+    /// (simplicialcomplex.py:726-756).
+    pub fn remove_simplex_id(&mut self, idx: &str) -> Result<(), SimplexError> {
+        if !self.inner.has_edge(idx) {
+            return Err(SimplexError::NotFound { idx: idx.to_string() });
+        }
+        let target: BTreeSet<String> =
+            self.inner.members(idx).unwrap_or_default().into_iter().collect();
+        // Supfaces: simplices whose member-set is a strict superset of target.
+        let supfaces: Vec<String> = self
+            .inner
+            .edge_ids()
+            .into_iter()
+            .filter(|e| {
+                let m: BTreeSet<String> =
+                    self.inner.members(e).unwrap_or_default().into_iter().collect();
+                m.len() > target.len() && target.is_subset(&m)
+            })
+            .collect();
+        for s in supfaces {
+            let _ = self.inner.remove_edge(&s);
+        }
+        let _ = self.inner.remove_edge(idx);
+        self.invalidate();
+        Ok(())
+    }
+
+    /// Remove several simplices by id (each with its supfaces).
+    pub fn remove_simplex_ids_from(&mut self, ids: &[String]) {
+        for idx in ids {
+            // A supface removal earlier may already have removed this id; skip.
+            if self.inner.has_edge(idx) {
+                let _ = self.remove_simplex_id(idx);
+            }
+        }
+    }
+
+    /// An independent deep copy (face lattice recomputed lazily).
+    /// XGI parity: `S.copy()`.
+    pub fn copy(&self) -> Self
+    where
+        N: Clone,
+        E: Clone,
+        M: Clone,
+    {
+        Self { inner: self.inner.copy(), face_lattice: OnceCell::new() }
+    }
+
+    /// Freeze against modification (via the inner hypergraph's frozen guard).
+    /// XGI parity: `S.freeze()`.
+    pub fn freeze(&mut self) {
+        self.inner.freeze();
+    }
+
+    /// Whether the complex is frozen. XGI parity: `S.is_frozen`.
+    pub fn is_frozen(&self) -> bool {
+        self.inner.is_frozen()
+    }
 }
