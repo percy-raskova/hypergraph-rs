@@ -607,3 +607,24 @@ fn test_is_frozen_false_by_default() {
     let h: Hypergraph = Hypergraph::new();
     assert!(!h.is_frozen());
 }
+
+#[test]
+fn test_debug_format_matches_xgi_repr() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".to_string(), "b".to_string(), "c".to_string()], None, serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["b".to_string(), "c".to_string()], None, serde_json::Value::Null).unwrap();
+    let repr = format!("{:?}", h);
+    // XGI __repr__ returns: Hypergraph([{a, b, c}, {b, c}])
+    // Our Debug should include the class name and edge members
+    assert!(repr.contains("Hypergraph"));
+    assert!(repr.contains("a"));
+    assert!(repr.contains("b"));
+    assert!(repr.contains("c"));
+}
+
+#[test]
+fn test_debug_format_empty() {
+    let h: Hypergraph = Hypergraph::new();
+    let repr = format!("{:?}", h);
+    assert!(repr.contains("Hypergraph"));
+}

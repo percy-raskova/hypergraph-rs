@@ -543,3 +543,20 @@ impl<N: PartialEq, E: PartialEq, M: PartialEq> PartialEq for Hypergraph<N, E, M>
         self.graph_attrs == other.graph_attrs
     }
 }
+
+impl<N, E, M> std::fmt::Debug for Hypergraph<N, E, M>
+where
+    N: std::fmt::Debug,
+    E: std::fmt::Debug,
+    M: std::fmt::Debug,
+{
+    /// XGI parity: `__repr__` returns `Hypergraph([{members}, ...])`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Hypergraph(")?;
+        let edges: Vec<String> = self.hyperedge_ids.keys().map(|eid| {
+            let members = self.members(eid).unwrap_or_default();
+            format!("{{{}}}", members.join(", "))
+        }).collect();
+        write!(f, "[{}])", edges.join(", "))
+    }
+}
