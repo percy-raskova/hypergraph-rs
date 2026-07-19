@@ -9,6 +9,7 @@ pub mod core;
 
 pub use core::dihypergraph::DiHypergraph;
 pub use core::error::{EdgeError, NodeError, SimplexError, SwapError};
+pub use core::globalviews::subhypergraph;
 pub use core::hypergraph::{Hypergraph, MergeRename, MergeRule};
 pub use core::kinds::{DiMembershipEdge, DiRole, MembershipEdge, NodeKind};
 pub use core::simplicialcomplex::{FaceLattice, SimplicialComplex};
