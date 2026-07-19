@@ -142,10 +142,31 @@ pub fn simplicial_fraction<N, E, M>(
 
 /// Simplicial edit distance (normalized): fraction of missing subfaces needed
 /// to make `H` a simplicial complex. XGI parity: `simplicial_edit_distance`
-/// (`simpliciality.py:79-182`). Simplified to the non-redundant count — the
-/// redundant-face correction (`:157-172`) is a de-duplication that does not
-/// change the value when maximal faces are member-disjoint; the general
-/// correction is tracked in Open Questions.
+/// (`simpliciality.py:79-182`), including the redundant-missing-face
+/// correction (`:156-172`): a missing subface that is a subset of two or
+/// more maximal faces is otherwise double-counted once per maximal face that
+/// contains it. For each maximal face (in our own `maximal_edges()` order),
+/// XGI subtracts the *union* (deduplicated) of missing subfaces of its
+/// intersection with every EARLIER maximal face — by XGI's own linear scan
+/// order — whenever that intersection has `>= min_size` members.
+///
+/// We reuse `maximal_edges()`'s order rather than reproducing XGI's exact
+/// edge-insertion order. This is safe because the correction's *total*
+/// across the whole hypergraph is order-independent: consider a missing
+/// subface `s` (size `>= min_size`) that is a common subface of exactly `k`
+/// maximal faces. Any two of those `k` faces automatically intersect in a
+/// superset of `s` (so the `>= min_size` gate always fires for that pair,
+/// regardless of ordering). Visiting the `k` faces in ANY linear order, the
+/// first one contributes no subtraction for `s` (no earlier face to pair
+/// with), and each of the remaining `k - 1` faces contributes exactly one
+/// subtraction for `s` — the per-face union dedups repeated contributions
+/// from multiple earlier faces sharing `s`, so it's never subtracted twice
+/// from the same face. The total subtraction for `s` is therefore always
+/// `k - 1`, independent of which of the `k` faces is visited first, second,
+/// etc. — i.e. independent of the linear order chosen. `s`'s raw
+/// (uncorrected) count is exactly `k` (once per containing maximal face), so
+/// the corrected count is `k - (k - 1) = 1`, matching XGI's total regardless
+/// of maximal-face ordering.
 pub fn simplicial_edit_distance<N, E, M>(
     h: &Hypergraph<N, E, M>,
     min_size: usize,
@@ -162,10 +183,32 @@ pub fn simplicial_edit_distance<N, E, M>(
     if max_faces.is_empty() {
         return f64::NAN;
     }
-    let ms: usize = max_faces
-        .iter()
-        .map(|e| count_missing_subfaces(&fs, e, min_size))
-        .sum();
+    let mut ms: i128 = 0;
+    for (i, e) in max_faces.iter().enumerate() {
+        let mf = count_missing_subfaces(&fs, e, min_size) as i128;
+        let e_set: HashSet<&String> = e.iter().collect();
+        let mut redundant: HashSet<Vec<String>> = HashSet::new();
+        for e2 in &max_faces[..i] {
+            let e2_set: HashSet<&String> = e2.iter().collect();
+            let inter: Vec<String> = e_set.intersection(&e2_set).map(|s| (*s).clone()).collect();
+            // XGI: `maxH.edges.neighbors(id1)` (share >= 1 node) gated by
+            // `len(c) >= min_size` (simpliciality.py:158-161).
+            if inter.is_empty() || inter.len() < min_size {
+                continue;
+            }
+            // Missing subfaces of the intersection, sizes min_size..=len —
+            // i.e. `_missing_subfaces` (strict subsets) plus the intersection
+            // itself if absent (simpliciality.py:162,167-168), in one pass.
+            for sub in powerset(&inter, min_size, inter.len()) {
+                if !fs.contains(&sub) {
+                    let mut key = sub;
+                    key.sort();
+                    redundant.insert(key);
+                }
+            }
+        }
+        ms += mf - redundant.len() as i128;
+    }
     if !normalize {
         return ms as f64;
     }
@@ -175,7 +218,7 @@ pub fn simplicial_edit_distance<N, E, M>(
         .filter(|e| h.edge_size(e).map(|sz| sz >= min_size).unwrap_or(false))
         .count();
     let mf = max_faces.len();
-    let denom = s as i128 - mf as i128 + ms as i128;
+    let denom = s as i128 - mf as i128 + ms;
     if denom > 0 {
         ms as f64 / denom as f64
     } else {

@@ -95,6 +95,38 @@ fn test_density_and_incidence_density_nonempty() {
     assert!((incidence_density(&h, None, None, false) - 1.0).abs() < 1e-12);
 }
 
+#[test]
+#[should_panic(expected = "order must be smaller than the number of nodes")]
+fn test_incidence_density_order_out_of_range_panics() {
+    // XGI parity: incidence_density raises ValueError when order >= num_nodes
+    // (properties.py:480-482), same as density (properties.py:412-414).
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    // n=2 nodes, order=2 is out of range (must be < n).
+    let _ = incidence_density(&h, Some(2), None, false);
+}
+
+#[test]
+#[should_panic(expected = "max_order must be smaller than the number of nodes")]
+fn test_incidence_density_max_order_out_of_range_panics() {
+    // XGI parity: incidence_density raises ValueError when max_order >= num_nodes
+    // (properties.py:474-475), same as density (properties.py:401-403).
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    // n=2 nodes, max_order=2 is out of range (must be < n).
+    let _ = incidence_density(&h, None, Some(2), false);
+}
+
 use hypergraph_rs::algorithms::connected::{
     connected_components, is_connected, largest_connected_component, node_connected_component,
     number_connected_components,
@@ -524,6 +556,49 @@ fn test_edit_distance_missing_face_positive() {
     .unwrap();
     let d = simplicial_edit_distance(&h, 2, true, true);
     assert!(d > 0.0);
+}
+
+#[test]
+fn test_edit_distance_redundant_missing_face_correction() {
+    // Two overlapping maximal faces {1,2,3,4} and {3,4,5,6} (intersection
+    // {3,4}, size 2 == min_size) plus a non-maximal edge {1,2} (present, so
+    // it does not itself count as missing). Oracle computed by running the
+    // real XGI 0.10.2 (babylon venv, read-only):
+    //   xgi.Hypergraph({"e0": [1,2,3,4], "e1": [3,4,5,6], "e2": [1,2]})
+    //   xgi.simplicial_edit_distance(H, min_size=2, exclude_min_size=True,
+    //                                 normalize=False) == 18
+    //   xgi.simplicial_edit_distance(H, min_size=2, exclude_min_size=True,
+    //                                 normalize=True) == 0.9473684210526315
+    // Without the redundant-missing-face correction (simpliciality.py:
+    // 156-172), the raw count is 19 (the shared missing subface {3,4} gets
+    // double-counted once for each of the two maximal faces) and the
+    // normalized value is 0.95 — both distinguishable from the oracle.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["1".into(), "2".into(), "3".into(), "4".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["3".into(), "4".into(), "5".into(), "6".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    let raw = simplicial_edit_distance(&h, 2, true, false);
+    assert!((raw - 18.0).abs() < 1e-9, "raw = {raw}, expected 18.0");
+    let norm = simplicial_edit_distance(&h, 2, true, true);
+    assert!(
+        (norm - 0.9473684210526315).abs() < 1e-9,
+        "norm = {norm}, expected 0.9473684210526315"
+    );
 }
 
 #[test]

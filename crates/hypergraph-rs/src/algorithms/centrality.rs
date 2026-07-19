@@ -19,6 +19,17 @@ fn l1(v: &[f64]) -> f64 {
 /// Katz centrality via the truncated power series
 /// `mat = Σ αⁱ Aⁱ⁺¹`, then `c = mat · (1/n · 1)`, L1-normalized.
 /// XGI parity: `katz_centrality(H, cutoff)` (`centrality.py:218-296`).
+///
+/// Deliberate deviation: XGI unconditionally does `c *= 1 / norm(c, 1)`
+/// (`centrality.py:294`), which divides by zero (producing inf/nan) when
+/// every node's raw score is zero. This function guards on `norm != 0.0`
+/// and leaves an all-zero vector unnormalized in that case. This is strictly
+/// saner than propagating inf/nan, and the branch is unreachable for any
+/// hypergraph with at least one edge (the `m == 0` case is short-circuited
+/// above and returns zeros directly; with `m >= 1` and `alpha > 0`, the
+/// clique-motif matrix `A` has no negative entries and `mat` accumulates
+/// strictly non-negative contributions from `A`, so `c = mat · (1/n · 1)`
+/// cannot be identically zero).
 pub fn katz_centrality<N, E, M>(h: &Hypergraph<N, E, M>, cutoff: usize) -> IndexMap<String, f64> {
     let n = h.num_nodes();
     let mut result: IndexMap<String, f64> = IndexMap::new();

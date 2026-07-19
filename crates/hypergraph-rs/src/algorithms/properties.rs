@@ -198,6 +198,14 @@ pub fn incidence_density<N, E, M>(
     if h.num_edges() < 1 {
         return 0.0;
     }
+    if let Some(mo) = max_order {
+        if order.is_none() {
+            assert!(mo < n, "max_order must be smaller than the number of nodes");
+        }
+    }
+    if let Some(o) = order {
+        assert!(o < n, "order must be smaller than the number of nodes");
+    }
     let keep: Vec<String> = h
         .edge_ids()
         .into_iter()
