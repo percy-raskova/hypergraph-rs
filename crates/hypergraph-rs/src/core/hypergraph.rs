@@ -346,3 +346,29 @@ impl<N, E, M> Hypergraph<N, E, M> {
         edges.into_iter().map(|(m, i, a)| self.add_edge(m, i, a)).collect()
     }
 }
+
+impl<N: PartialEq, E: PartialEq, M: PartialEq> PartialEq for Hypergraph<N, E, M> {
+    /// Two hypergraphs are equal if they have the same nodes, edges,
+    /// memberships, and attributes. XGI parity: `H1 == H2`.
+    fn eq(&self, other: &Self) -> bool {
+        if self.agent_ids.len() != other.agent_ids.len() { return false; }
+        for (nid, _) in &self.agent_ids {
+            match (self.node_attrs(nid), other.node_attrs(nid)) {
+                (Some(a), Some(b)) if a == b => {}
+                _ => return false,
+            }
+        }
+        if self.hyperedge_ids.len() != other.hyperedge_ids.len() { return false; }
+        for (eid, _) in &self.hyperedge_ids {
+            match (self.edge_attrs(eid), other.edge_attrs(eid)) {
+                (Some(a), Some(b)) if a == b => {}
+                _ => return false,
+            }
+            let mut m1 = self.members(eid).unwrap_or_default();
+            let mut m2 = other.members(eid).unwrap_or_default();
+            m1.sort(); m2.sort();
+            if m1 != m2 { return false; }
+        }
+        self.graph_attrs == other.graph_attrs
+    }
+}
