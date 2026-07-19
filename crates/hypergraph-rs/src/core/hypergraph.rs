@@ -1,6 +1,9 @@
 //! The core `Hypergraph` data structure.
 
 use indexmap::IndexMap;
+use rand::RngExt;
+use rand_core::SeedableRng;
+use rand_pcg::Pcg64Mcg;
 use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use serde_json::Value;
 
@@ -616,6 +619,86 @@ impl<N, E, M> Hypergraph<N, E, M> {
         self.attach_member(e_id1, n_id2);
         self.detach_member(e_id2, n_id2);
         self.attach_member(e_id2, n_id1);
+        Ok(())
+    }
+
+    /// Randomly redistribute nodes between two hyperedges, preserving both
+    /// sizes. XGI parity: `H.random_edge_shuffle(e1, e2, seed)`
+    /// (hypergraph.py:994-1078). Requires an explicit seed (deviation #3);
+    /// the rand_pcg sequence does not match numpy, so only structural
+    /// invariants are guaranteed across implementations.
+    pub fn random_edge_shuffle(
+        &mut self,
+        e_id1: Option<&str>,
+        e_id2: Option<&str>,
+        seed: u64,
+    ) -> Result<(), EdgeError>
+    where
+        M: Default + Clone,
+    {
+        self.assert_not_frozen();
+        if self.hyperedge_ids.len() < 2 {
+            return Err(EdgeError::TooFewEdges);
+        }
+        let mut rng = Pcg64Mcg::seed_from_u64(seed);
+
+        // Resolve the two edge ids (given, or two distinct random).
+        let (id1, id2) = match (e_id1, e_id2) {
+            (Some(a), Some(b)) => (a.to_string(), b.to_string()),
+            _ => {
+                let ids = self.edge_ids();
+                let i = rng.random_range(0..ids.len());
+                let mut j = rng.random_range(0..ids.len() - 1);
+                if j >= i {
+                    j += 1;
+                }
+                (ids[i].clone(), ids[j].clone())
+            }
+        };
+
+        use std::collections::BTreeSet;
+        let s1: BTreeSet<String> = self
+            .members(&id1)
+            .ok_or(EdgeError::NotFound { edge_id: id1.clone() })?
+            .into_iter()
+            .collect();
+        let s2: BTreeSet<String> = self
+            .members(&id2)
+            .ok_or(EdgeError::NotFound { edge_id: id2.clone() })?
+            .into_iter()
+            .collect();
+
+        let both: BTreeSet<String> = s1.intersection(&s2).cloned().collect();
+        let only1: BTreeSet<String> = s1.difference(&both).cloned().collect();
+        let only2: BTreeSet<String> = s2.difference(&both).cloned().collect();
+
+        // Bucket in a deterministic base order (BTreeSet -> sorted).
+        let mut bucket: Vec<String> = only1.union(&only2).cloned().collect();
+        let k = only1.len();
+        let n = bucket.len();
+        // Partial Fisher-Yates: bounded by k (computed above), never exceeds n.
+        for i in 0..k {
+            let j = i + rng.random_range(0..(n - i));
+            bucket.swap(i, j);
+        }
+        let new_only1: BTreeSet<String> = bucket[..k].iter().cloned().collect();
+        let new_e1: BTreeSet<String> = new_only1.union(&both).cloned().collect();
+        let new_only2: BTreeSet<String> = bucket[k..].iter().cloned().collect();
+        let new_e2: BTreeSet<String> = new_only2.union(&both).cloned().collect();
+
+        // Rewire: detach all old members, attach the new ones (ids/attrs kept).
+        for node in &s1 {
+            self.detach_member(&id1, node);
+        }
+        for node in &s2 {
+            self.detach_member(&id2, node);
+        }
+        for node in &new_e1 {
+            self.attach_member(&id1, node);
+        }
+        for node in &new_e2 {
+            self.attach_member(&id2, node);
+        }
         Ok(())
     }
 }

@@ -151,3 +151,54 @@ fn test_double_edge_swap_missing_edge_errors() {
     let r = h.double_edge_swap("1", "1", "e0", "nope");
     assert!(matches!(r, Err(SwapError::IdNotFound { .. })));
 }
+
+#[test]
+fn test_random_edge_shuffle_preserves_sizes() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), v()).unwrap();
+    h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v()).unwrap();
+    let s0 = h.members("e0").unwrap().len();
+    let s1 = h.members("e1").unwrap().len();
+    h.random_edge_shuffle(Some("e0"), Some("e1"), 42).unwrap();
+    assert_eq!(h.members("e0").unwrap().len(), s0);
+    assert_eq!(h.members("e1").unwrap().len(), s1);
+}
+
+#[test]
+fn test_random_edge_shuffle_preserves_combined_node_multiset() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), v()).unwrap();
+    h.add_edge(vec!["3".into(), "4".into(), "5".into()], Some("e1".into()), v()).unwrap();
+    let before: std::collections::BTreeSet<String> =
+        h.members("e0").unwrap().into_iter().chain(h.members("e1").unwrap()).collect();
+    h.random_edge_shuffle(Some("e0"), Some("e1"), 7).unwrap();
+    let after: std::collections::BTreeSet<String> =
+        h.members("e0").unwrap().into_iter().chain(h.members("e1").unwrap()).collect();
+    assert_eq!(before, after);
+}
+
+#[test]
+fn test_random_edge_shuffle_is_reproducible() {
+    let build = || {
+        let mut h: Hypergraph = Hypergraph::new();
+        h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), v()).unwrap();
+        h.add_edge(vec!["3".into(), "4".into()], Some("e1".into()), v()).unwrap();
+        h
+    };
+    let mut h1 = build();
+    let mut h2 = build();
+    h1.random_edge_shuffle(Some("e0"), Some("e1"), 99).unwrap();
+    h2.random_edge_shuffle(Some("e0"), Some("e1"), 99).unwrap();
+    let mut a = h1.members("e0").unwrap();
+    a.sort();
+    let mut b = h2.members("e0").unwrap();
+    b.sort();
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_random_edge_shuffle_needs_two_edges() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into()], Some("e0".into()), v()).unwrap();
+    assert!(h.random_edge_shuffle(None, None, 1).is_err());
+}

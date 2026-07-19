@@ -22,6 +22,9 @@ pub enum EdgeError {
     /// The members collection was empty.
     #[error("cannot add an empty edge")]
     EmptyMembers,
+    /// `random_edge_shuffle` needs at least two edges to swap between.
+    #[error("random_edge_shuffle requires at least 2 edges")]
+    TooFewEdges,
 }
 
 /// Error raised by `double_edge_swap`.
