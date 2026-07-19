@@ -482,6 +482,59 @@ impl<N, E, M> Hypergraph<N, E, M> {
         }
         Ok(())
     }
+
+    /// Remove multiple edges. Missing ids are ignored (XGI warns).
+    /// XGI parity: `H.remove_edges_from(ebunch)`.
+    pub fn remove_edges_from(&mut self, edge_ids: &[String]) {
+        for eid in edge_ids {
+            let _ = self.remove_edge(eid);
+        }
+    }
+
+    /// Remove multiple nodes (weak removal). Missing ids are ignored.
+    /// XGI parity: `H.remove_nodes_from(nodes)`.
+    pub fn remove_nodes_from(&mut self, node_ids: &[String]) {
+        for nid in node_ids {
+            let _ = self.remove_node(nid, false);
+        }
+    }
+
+    /// Add nodes then edges. XGI parity: `H.update(edges=, nodes=)`
+    /// (hypergraph.py:1210-1229).
+    pub fn update(
+        &mut self,
+        nodes: Vec<(String, N)>,
+        edges: Vec<(Vec<String>, Option<String>, E)>,
+    ) where
+        N: Default,
+        M: Default + Clone,
+    {
+        self.add_nodes_from(nodes);
+        let _ = self.add_edges_from(edges);
+    }
+
+    /// Node ids with zero memberships, in insertion order.
+    /// XGI parity: `H.nodes.isolates()` (views.py:632-667, default).
+    pub fn isolate_node_ids(&self) -> Vec<String> {
+        self.node_ids()
+            .into_iter()
+            .filter(|n| self.memberships(n).map_or(false, |m| m.is_empty()))
+            .collect()
+    }
+
+    /// Edge ids with exactly one member, in insertion order.
+    /// XGI parity: `H.edges.singletons()` (views.py:749-761).
+    pub fn singleton_edge_ids(&self) -> Vec<String> {
+        self.edge_ids()
+            .into_iter()
+            .filter(|e| self.members(e).map_or(false, |m| m.len() == 1))
+            .collect()
+    }
+
+    /// Read-only view of the graph-level attribute dict (XGI's `H.graph`).
+    pub fn graph_attrs(&self) -> &serde_json::Map<String, serde_json::Value> {
+        &self.graph_attrs
+    }
 }
 
 impl<M> Hypergraph<serde_json::Value, serde_json::Value, M> {
