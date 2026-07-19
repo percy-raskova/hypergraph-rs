@@ -876,8 +876,6 @@ fn test_debug_format_empty() {
     assert!(repr.contains("Hypergraph"));
 }
 
-use rustworkx_core::petgraph::visit::EdgeCount;
-
 #[test]
 fn test_skeleton_projects_pairwise() {
     let mut h: Hypergraph = Hypergraph::new();
