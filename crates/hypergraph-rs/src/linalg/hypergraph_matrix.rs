@@ -64,3 +64,48 @@ pub fn incidence_matrix_sparse<N, E, M>(
     }
     (tri.to_csr(), node_ids, edge_ids)
 }
+
+/// Adjacency matrix `A` (nodes × nodes). `A = I·Iᵀ` with the diagonal zeroed;
+/// then thresholded by `s` overlapping edges. If `weighted`, the surviving
+/// entries carry the shared-edge count; otherwise they are `1.0`.
+///
+/// XGI parity: `xgi.adjacency_matrix(H, order, s, weighted)`
+/// (`hypergraph_matrix.py:138-204`).
+pub fn adjacency_matrix<N, E, M>(
+    h: &Hypergraph<N, E, M>,
+    order: Option<usize>,
+    s: usize,
+    weighted: bool,
+) -> (Array2<f64>, Vec<String>) {
+    let (inc, node_ids, _edge_ids) = incidence_matrix(h, order);
+    if inc.shape() == [0, 0] {
+        // No (filtered) edges: XGI returns an N×N zero matrix over all nodes.
+        let n = h.num_nodes();
+        return (Array2::zeros((n, n)), h.node_ids());
+    }
+    let mut a = inc.dot(&inc.t());
+    let n = a.nrows();
+    for d in 0..n {
+        a[[d, d]] = 0.0;
+    }
+    let s = s as f64;
+    let out = a.mapv(|v| {
+        if v >= s {
+            if weighted {
+                v
+            } else {
+                1.0
+            }
+        } else {
+            0.0
+        }
+    });
+    (out, node_ids)
+}
+
+/// Weighted clique-motif matrix — `adjacency_matrix(H, None, 1, true)`.
+///
+/// XGI parity: `xgi.clique_motif_matrix(H)` (`hypergraph_matrix.py:268-299`).
+pub fn clique_motif_matrix<N, E, M>(h: &Hypergraph<N, E, M>) -> (Array2<f64>, Vec<String>) {
+    adjacency_matrix(h, None, 1, true)
+}

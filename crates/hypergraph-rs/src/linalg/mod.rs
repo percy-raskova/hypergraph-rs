@@ -7,7 +7,9 @@
 
 mod hypergraph_matrix;
 
-pub use hypergraph_matrix::{incidence_matrix, incidence_matrix_sparse};
+pub use hypergraph_matrix::{
+    adjacency_matrix, clique_motif_matrix, incidence_matrix, incidence_matrix_sparse,
+};
 
 use crate::Hypergraph;
 use thiserror::Error;

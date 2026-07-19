@@ -1,4 +1,6 @@
-use hypergraph_rs::linalg::{incidence_matrix, incidence_matrix_sparse};
+use hypergraph_rs::linalg::{
+    adjacency_matrix, clique_motif_matrix, incidence_matrix, incidence_matrix_sparse,
+};
 use hypergraph_rs::Hypergraph;
 use ndarray::array;
 
@@ -68,4 +70,61 @@ fn test_incidence_matrix_sparse_matches_dense() {
     let (dense, _, _) = incidence_matrix(&h, None);
     let (sparse, _, _) = incidence_matrix_sparse(&h, None);
     assert_eq!(sparse.to_dense(), dense);
+}
+
+#[test]
+fn test_adjacency_binary() {
+    let h = sample();
+    let (a, rows) = adjacency_matrix(&h, None, 1, false);
+    assert_eq!(rows, vec!["1", "2", "3", "4", "5", "6", "7"]);
+    // node 7 (index 6) shares edges with 1,2,3 (via e0) and 5,6 (via e2).
+    assert_eq!(a[[6, 0]], 1.0); // 7-1 connected
+    assert_eq!(a[[6, 4]], 1.0); // 7-5 connected
+    assert_eq!(a[[0, 0]], 0.0); // diagonal zeroed
+    assert_eq!(a[[3, 0]], 0.0); // node 4 isolated from node 1
+}
+
+#[test]
+fn test_adjacency_weighted_counts_shared_edges() {
+    // Two edges both containing {a, b} => weight 2 between them.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let (a, rows) = adjacency_matrix(&h, None, 1, true);
+    let ia = rows.iter().position(|x| x == "a").unwrap();
+    let ib = rows.iter().position(|x| x == "b").unwrap();
+    assert_eq!(a[[ia, ib]], 2.0);
+}
+
+#[test]
+fn test_adjacency_s_threshold() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    // s=2: only pairs sharing >= 2 edges remain. a-b share 2; a-c share 1.
+    let (a, rows) = adjacency_matrix(&h, None, 2, false);
+    let ia = rows.iter().position(|x| x == "a").unwrap();
+    let ib = rows.iter().position(|x| x == "b").unwrap();
+    let ic = rows.iter().position(|x| x == "c").unwrap();
+    assert_eq!(a[[ia, ib]], 1.0);
+    assert_eq!(a[[ia, ic]], 0.0);
+}
+
+#[test]
+fn test_adjacency_no_edges_returns_zeros_n_by_n() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", serde_json::Value::Null);
+    h.add_node("b", serde_json::Value::Null);
+    let (a, rows) = adjacency_matrix(&h, None, 1, false);
+    assert_eq!(a.shape(), &[2, 2]);
+    assert_eq!(rows, vec!["a", "b"]);
+    assert_eq!(a.sum(), 0.0);
+}
+
+#[test]
+fn test_clique_motif_equals_weighted_adjacency() {
+    let h = sample();
+    let (w, _) = clique_motif_matrix(&h);
+    let (a, _) = adjacency_matrix(&h, None, 1, true);
+    assert_eq!(w, a);
 }
