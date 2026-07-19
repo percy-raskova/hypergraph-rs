@@ -17,3 +17,19 @@ thiserror.workspace = true
 rand.workspace = true
 rand_pcg.workspace = true
 rand_core.workspace = true
+ndarray.workspace = true
+sprs.workspace = true
+
+[features]
+default = ["algorithms", "generators", "stats", "readwrite", "layout", "viz"]
+all = ["default", "dynamics", "communities", "convert", "network"]
+algorithms = []
+generators = []
+stats = []
+readwrite = []
+layout = []
+viz = []
+dynamics = []
+communities = []
+convert = []
+network = []

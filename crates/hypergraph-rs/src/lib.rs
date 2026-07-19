@@ -6,6 +6,7 @@
 //! kinds (`Agent` and `Hyperedge`) connected by `MembershipEdge` edges.
 
 pub mod core;
+pub mod linalg;
 
 pub use core::dihypergraph::DiHypergraph;
 pub use core::error::{EdgeError, NodeError, SimplexError, SwapError};
