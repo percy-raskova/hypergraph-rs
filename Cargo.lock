@@ -241,6 +241,9 @@ name = "hypergraph-rs"
 version = "0.1.0"
 dependencies = [
  "indexmap",
+ "rand",
+ "rand_core",
+ "rand_pcg",
  "rustworkx-core",
  "serde",
  "serde_json",
