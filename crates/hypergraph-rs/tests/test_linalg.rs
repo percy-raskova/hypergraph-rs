@@ -17,7 +17,8 @@ fn sample() -> Hypergraph {
         serde_json::Value::Null,
     )
     .unwrap();
-    h.add_edge(vec!["4".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["4".into()], Some("e1".into()), serde_json::Value::Null)
+        .unwrap();
     h.add_edge(
         vec!["5".into(), "6".into(), "7".into()],
         Some("e2".into()),
@@ -89,8 +90,18 @@ fn test_adjacency_binary() {
 fn test_adjacency_weighted_counts_shared_edges() {
     // Two edges both containing {a, b} => weight 2 between them.
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let (a, rows) = adjacency_matrix(&h, None, 1, true);
     let ia = rows.iter().position(|x| x == "a").unwrap();
     let ib = rows.iter().position(|x| x == "b").unwrap();
@@ -100,8 +111,18 @@ fn test_adjacency_weighted_counts_shared_edges() {
 #[test]
 fn test_adjacency_s_threshold() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     // s=2: only pairs sharing >= 2 edges remain. a-b share 2; a-c share 1.
     let (a, rows) = adjacency_matrix(&h, None, 2, false);
     let ia = rows.iter().position(|x| x == "a").unwrap();
@@ -139,7 +160,7 @@ fn test_intersection_profile_diagonal_is_edge_size() {
     assert_eq!(p[[0, 0]], 4.0); // e0 has 4 members
     assert_eq!(p[[1, 1]], 1.0); // e1 has 1
     assert_eq!(p[[2, 2]], 3.0); // e2 has 3
-    // e0 ∩ e2 = {7} => 1
+                                // e0 ∩ e2 = {7} => 1
     assert_eq!(p[[0, 2]], 1.0);
     // e0 ∩ e1 = {} => 0
     assert_eq!(p[[0, 1]], 0.0);
@@ -164,8 +185,8 @@ fn test_degree_matrix_empty_is_zeros_over_nodes() {
     assert_eq!(rows, vec!["a", "b"]);
 }
 
-use hypergraph_rs::linalg::{laplacian, multiorder_laplacian, normalized_hypergraph_laplacian};
 use hypergraph_rs::linalg::LinalgError;
+use hypergraph_rs::linalg::{laplacian, multiorder_laplacian, normalized_hypergraph_laplacian};
 
 fn approx(a: f64, b: f64) -> bool {
     (a - b).abs() < 1e-9
@@ -175,9 +196,24 @@ fn approx(a: f64, b: f64) -> bool {
 fn test_laplacian_order1_is_graph_laplacian() {
     // Triangle: three pairwise edges over {a,b,c}. L = 2I - A (order 1, weighted).
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "c".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let (l, rows) = laplacian(&h, 1, false);
     assert_eq!(rows, vec!["a", "b", "c"]);
     // Each node has degree 2; L diagonal = 2, off-diagonal = -1.
@@ -200,8 +236,18 @@ fn test_laplacian_empty() {
 #[test]
 fn test_multiorder_laplacian_shape() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let (l, rows) = multiorder_laplacian(&h, &[1, 2], &[1.0, 1.0], false);
     assert_eq!(rows.len(), 3);
     assert_eq!(l.shape(), &[3, 3]);
@@ -214,7 +260,12 @@ fn test_multiorder_laplacian_shape() {
 #[test]
 fn test_normalized_laplacian_isolated_node_errors() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     h.add_node("isolated", serde_json::Value::Null);
     let result = normalized_hypergraph_laplacian(&h, false);
     assert_eq!(result, Err(LinalgError::IsolatedNodes));
@@ -223,8 +274,18 @@ fn test_normalized_laplacian_isolated_node_errors() {
 #[test]
 fn test_normalized_laplacian_ok() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let (l, rows) = normalized_hypergraph_laplacian(&h, false).unwrap();
     assert_eq!(rows, vec!["a", "b", "c"]);
     assert_eq!(l.shape(), &[3, 3]);

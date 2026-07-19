@@ -881,7 +881,12 @@ use rustworkx_core::petgraph::visit::EdgeCount;
 #[test]
 fn test_skeleton_projects_pairwise() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let g = h.skeleton();
     // triangle a-b, a-c, b-c => 3 nodes, 3 undirected edges
     assert_eq!(g.node_count(), 3);
@@ -902,8 +907,18 @@ fn test_skeleton_node_order_positional() {
 #[test]
 fn test_node_neighbors() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["c".into(), "d".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["c".into(), "d".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let mut nb = h.node_neighbors("c").unwrap();
     nb.sort();
     assert_eq!(nb, vec!["a", "b", "d"]);
@@ -913,8 +928,18 @@ fn test_node_neighbors() {
 #[test]
 fn test_node_degree_and_edge_size() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     assert_eq!(h.node_degree("a", None), Some(2));
     assert_eq!(h.node_degree("a", Some(1)), Some(1)); // only e0 (size 2 => order 1)
     assert_eq!(h.edge_size("e1"), Some(3));

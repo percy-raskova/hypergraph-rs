@@ -50,8 +50,10 @@ pub fn local_clustering_coefficient<N, E, M>(h: &Hypergraph<N, E, M>) -> IndexMa
         // Bounded: |ev| choose 2.
         for a in 0..ev.len() {
             for b in (a + 1)..ev.len() {
-                let edge1: HashSet<String> = h.members(&ev[a]).unwrap_or_default().into_iter().collect();
-                let edge2: HashSet<String> = h.members(&ev[b]).unwrap_or_default().into_iter().collect();
+                let edge1: HashSet<String> =
+                    h.members(&ev[a]).unwrap_or_default().into_iter().collect();
+                let edge2: HashSet<String> =
+                    h.members(&ev[b]).unwrap_or_default().into_iter().collect();
                 let d1: HashSet<String> = edge1.difference(&edge2).cloned().collect();
                 let d2: HashSet<String> = edge2.difference(&edge1).cloned().collect();
                 let union: HashSet<String> = d1.union(&d2).cloned().collect();

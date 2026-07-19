@@ -32,7 +32,7 @@ pub fn laplacian<N, E, M>(
     let (k, _) = degree_matrix(h, Some(order));
     let mut l = diag(&k) * (order as f64) - &a;
     if rescale_per_node {
-        l = l / (order as f64);
+        l /= order as f64;
     }
     (l, node_ids)
 }
@@ -57,7 +57,11 @@ pub fn multiorder_laplacian<N, E, M>(
     let mut l_multi = Array2::<f64>::zeros((n, n));
     for (&d, &w) in orders.iter().zip(weights.iter()) {
         let (k, _) = degree_matrix(h, Some(d));
-        let mean_k = if k.is_empty() { 0.0 } else { k.mean().unwrap_or(0.0) };
+        let mean_k = if k.is_empty() {
+            0.0
+        } else {
+            k.mean().unwrap_or(0.0)
+        };
         // Skip orders with no edges (all-zero K) to avoid divide-by-zero.
         if mean_k == 0.0 {
             continue;

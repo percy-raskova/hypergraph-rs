@@ -7,8 +7,18 @@ use hypergraph_rs::Hypergraph;
 #[test]
 fn test_is_uniform_and_max_order() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["0".into(), "1".into(), "2".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["0".into(), "1".into(), "2".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     assert_eq!(is_uniform(&h), Some(2)); // all edges order 2
     assert_eq!(max_edge_order(&h), Some(2));
 }
@@ -16,16 +26,36 @@ fn test_is_uniform_and_max_order() {
 #[test]
 fn test_is_uniform_false_when_mixed() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     assert_eq!(is_uniform(&h), None);
 }
 
 #[test]
 fn test_unique_edge_sizes_and_num_edges_order() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     assert_eq!(unique_edge_sizes(&h), vec![2, 3]);
     assert_eq!(num_edges_order(&h, Some(1)), 1); // size-2 edges
     assert_eq!(num_edges_order(&h, None), 2);
@@ -35,15 +65,30 @@ fn test_unique_edge_sizes_and_num_edges_order() {
 fn test_degree_counts() {
     // XGI docstring: edges [[1,2],[2,3,4]] => degree_counts == [0, 3, 1]
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["2".into(), "3".into(), "4".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["2".into(), "3".into(), "4".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     assert_eq!(degree_counts(&h, None), vec![0, 3, 1]);
 }
 
 #[test]
 fn test_density_and_incidence_density_nonempty() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     // 1 edge, n=2 => density = 1/(2^2 - 1) = 1/3
     assert!((density(&h, None, None, false) - (1.0 / 3.0)).abs() < 1e-12);
     // incidence density: nnz=2, denom = n*num_edges = 2*1 = 2 => 1.0
@@ -57,8 +102,18 @@ use hypergraph_rs::algorithms::connected::{
 
 fn two_components() -> Hypergraph {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["c".into(), "d".into(), "e".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["c".into(), "d".into(), "e".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     h
 }
 
@@ -69,7 +124,12 @@ fn test_number_and_is_connected() {
     assert!(!is_connected(&h));
 
     let mut h2: Hypergraph = Hypergraph::new();
-    h2.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h2.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     assert!(is_connected(&h2));
     assert_eq!(number_connected_components(&h2), 1);
 }
@@ -96,7 +156,10 @@ fn test_rustworkx_delegated_count_matches_handrolled() {
     let h = two_components();
     // number_connected_components delegates to rustworkx_core on the skeleton;
     // it must agree with the hand-rolled component extraction.
-    assert_eq!(number_connected_components(&h), connected_components(&h).len());
+    assert_eq!(
+        number_connected_components(&h),
+        connected_components(&h).len()
+    );
 }
 
 use hypergraph_rs::algorithms::shortest_path::{
@@ -107,8 +170,18 @@ use hypergraph_rs::algorithms::shortest_path::{
 fn test_single_source_distances() {
     // Path-ish: e0={a,b}, e1={b,c}. a->b=1, a->c=2 (via shared node b).
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let d = single_source_shortest_path_length(&h, "a").unwrap();
     assert_eq!(d["a"], 0.0);
     assert_eq!(d["b"], 1.0);
@@ -118,8 +191,18 @@ fn test_single_source_distances() {
 #[test]
 fn test_unreachable_is_infinity() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["c".into(), "d".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["c".into(), "d".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let d = single_source_shortest_path_length(&h, "a").unwrap();
     assert_eq!(d["b"], 1.0);
     assert!(d["c"].is_infinite());
@@ -134,7 +217,12 @@ fn test_missing_source_none() {
 #[test]
 fn test_shortest_path_length_all_sources() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let all = shortest_path_length(&h);
     assert_eq!(all.len(), 2); // one per node
     let (src, dists) = &all[0];
@@ -152,9 +240,24 @@ fn triangle() -> Hypergraph {
     // docstring fixture (the source of the 0.5 two-node-CC golden below).
     // Without the triple edge, `_uv_cc`(union) evaluates to 1/3, not 0.5.
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["0".into(), "1".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["1".into(), "2".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["0".into(), "2".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["0".into(), "1".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["0".into(), "2".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     h.add_edge(
         vec!["0".into(), "1".into(), "2".into()],
         Some("e3".into()),
@@ -210,8 +313,18 @@ use hypergraph_rs::algorithms::assortativity::{
 #[test]
 fn test_dynamical_requires_uniform() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     assert_eq!(dynamical_assortativity(&h), Err(AssortError::NotUniform));
 }
 
@@ -220,8 +333,18 @@ fn test_dynamical_uniform_regular_is_near_zero() {
     // 3-uniform (edge order 2): two copies of the same triple {0,1,2}, so all
     // node degrees are equal (2) => dynamical assortativity is 0.
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["0".into(), "1".into(), "2".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["0".into(), "1".into(), "2".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["0".into(), "1".into(), "2".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["0".into(), "1".into(), "2".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let val = dynamical_assortativity(&h).unwrap();
     assert!(val.abs() < 1e-9);
 }
@@ -229,8 +352,18 @@ fn test_dynamical_uniform_regular_is_near_zero() {
 #[test]
 fn test_degree_assortativity_exact_runs() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["0".into(), "1".into(), "2".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["0".into(), "1".into(), "2".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let rho = degree_assortativity_exact(&h, AssortKind::Uniform).unwrap();
     assert!(rho.is_finite());
     assert!((-1.0..=1.0).contains(&rho));
@@ -246,9 +379,24 @@ use hypergraph_rs::algorithms::centrality::{clique_eigenvector_centrality, katz_
 
 fn connected_triangle() -> Hypergraph {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["0".into(), "1".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["1".into(), "2".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["0".into(), "2".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["0".into(), "1".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["0".into(), "2".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     h
 }
 
@@ -258,7 +406,7 @@ fn test_katz_l1_normalized_and_symmetric() {
     let c = katz_centrality(&h, 100);
     let sum: f64 = c.values().map(|v| v.abs()).sum();
     assert!((sum - 1.0).abs() < 1e-9); // L1-normalized
-    // symmetric triangle => equal centralities
+                                       // symmetric triangle => equal centralities
     assert!((c["0"] - c["1"]).abs() < 1e-9);
     assert!((c["1"] - c["2"]).abs() < 1e-9);
 }
@@ -286,24 +434,54 @@ fn test_clique_eigenvector_positive_normalized() {
 #[test]
 fn test_clique_eigenvector_disconnected_is_nan() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["c".into(), "d".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["c".into(), "d".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let c = clique_eigenvector_centrality(&h, 1e-6, 1000);
     assert!(c["a"].is_nan());
 }
 
 use hypergraph_rs::algorithms::simpliciality::{
-    edit_simpliciality, face_edit_simpliciality, mean_face_edit_distance,
-    simplicial_edit_distance, simplicial_fraction,
+    edit_simpliciality, face_edit_simpliciality, mean_face_edit_distance, simplicial_edit_distance,
+    simplicial_fraction,
 };
 
 fn full_simplex() -> Hypergraph {
     // Down-closed on {a,b,c} for sizes >= 2: {a,b},{a,c},{b,c},{a,b,c}
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e3".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".into(), "c".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e3".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     h
 }
 
@@ -326,9 +504,24 @@ fn test_edit_distance_full_simplex_is_zero() {
 fn test_edit_distance_missing_face_positive() {
     // {a,b,c} present but {b,c} missing => not a full simplex.
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let d = simplicial_edit_distance(&h, 2, true, true);
     assert!(d > 0.0);
 }

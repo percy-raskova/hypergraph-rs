@@ -191,7 +191,10 @@ pub fn incidence_density<N, E, M>(
     ignore_singletons: bool,
 ) -> f64 {
     let n = h.num_nodes();
-    assert!(n >= 1, "incidence density is not defined for an empty hypergraph");
+    assert!(
+        n >= 1,
+        "incidence density is not defined for an empty hypergraph"
+    );
     if h.num_edges() < 1 {
         return 0.0;
     }

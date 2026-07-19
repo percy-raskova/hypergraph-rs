@@ -42,8 +42,11 @@ pub fn connected_components<N, E, M>(h: &Hypergraph<N, E, M>) -> Vec<Vec<String>
             let comp = bfs_component(h, v);
             seen.extend(comp.iter().cloned());
             // Emit in node_ids() order for determinism.
-            let ordered: Vec<String> =
-                node_ids.iter().filter(|n| comp.contains(*n)).cloned().collect();
+            let ordered: Vec<String> = node_ids
+                .iter()
+                .filter(|n| comp.contains(*n))
+                .cloned()
+                .collect();
             components.push(ordered);
         }
     }
@@ -75,7 +78,12 @@ pub fn node_connected_component<N, E, M>(h: &Hypergraph<N, E, M>, n: &str) -> Op
         return None;
     }
     let comp = bfs_component(h, n);
-    Some(h.node_ids().into_iter().filter(|x| comp.contains(x)).collect())
+    Some(
+        h.node_ids()
+            .into_iter()
+            .filter(|x| comp.contains(x))
+            .collect(),
+    )
 }
 
 /// The largest connected component (ties broken by first-seen order).

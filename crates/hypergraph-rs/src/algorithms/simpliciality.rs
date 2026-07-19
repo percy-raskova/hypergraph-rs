@@ -97,9 +97,8 @@ fn maximal_edges<N, E, M>(h: &Hypergraph<N, E, M>) -> Vec<String> {
         .collect();
     all.iter()
         .filter(|(_id, set)| {
-            !all.iter().any(|(_oid, other)| {
-                other.len() > set.len() && set.is_subset(other)
-            })
+            !all.iter()
+                .any(|(_oid, other)| other.len() > set.len() && set.is_subset(other))
         })
         .map(|(id, _)| id.clone())
         .collect()
