@@ -241,3 +241,53 @@ fn test_assortativity_empty_errors() {
     let h: Hypergraph = Hypergraph::new();
     assert_eq!(dynamical_assortativity(&h), Err(AssortError::NoNodes));
 }
+
+use hypergraph_rs::algorithms::centrality::{clique_eigenvector_centrality, katz_centrality};
+
+fn connected_triangle() -> Hypergraph {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["0".into(), "1".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["0".into(), "2".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h
+}
+
+#[test]
+fn test_katz_l1_normalized_and_symmetric() {
+    let h = connected_triangle();
+    let c = katz_centrality(&h, 100);
+    let sum: f64 = c.values().map(|v| v.abs()).sum();
+    assert!((sum - 1.0).abs() < 1e-9); // L1-normalized
+    // symmetric triangle => equal centralities
+    assert!((c["0"] - c["1"]).abs() < 1e-9);
+    assert!((c["1"] - c["2"]).abs() < 1e-9);
+}
+
+#[test]
+fn test_katz_empty_no_edges_is_zeros() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", serde_json::Value::Null);
+    let c = katz_centrality(&h, 100);
+    assert_eq!(c["a"], 0.0);
+}
+
+#[test]
+fn test_clique_eigenvector_positive_normalized() {
+    let h = connected_triangle();
+    let c = clique_eigenvector_centrality(&h, 1e-6, 1000);
+    let sum: f64 = c.values().map(|v| v.abs()).sum();
+    assert!((sum - 1.0).abs() < 1e-6);
+    for v in c.values() {
+        assert!(*v > 0.0);
+    }
+    assert!((c["0"] - c["1"]).abs() < 1e-6);
+}
+
+#[test]
+fn test_clique_eigenvector_disconnected_is_nan() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["c".into(), "d".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let c = clique_eigenvector_centrality(&h, 1e-6, 1000);
+    assert!(c["a"].is_nan());
+}
