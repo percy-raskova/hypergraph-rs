@@ -313,3 +313,40 @@ fn test_edge_attrs_missing_returns_none() {
     let h: Hypergraph = Hypergraph::new();
     assert!(h.edge_attrs("nonexistent").is_none());
 }
+
+#[test]
+fn test_graph_attr_set_and_get() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.set_graph_attr("name", serde_json::json!("wayne_county"));
+    h.set_graph_attr("tick", serde_json::json!(42));
+    assert_eq!(h.graph_attr("name"), Some(&serde_json::json!("wayne_county")));
+    assert_eq!(h.graph_attr("tick"), Some(&serde_json::json!(42)));
+}
+
+#[test]
+fn test_graph_attr_missing_returns_none() {
+    let h: Hypergraph = Hypergraph::new();
+    assert!(h.graph_attr("nonexistent").is_none());
+}
+
+#[test]
+fn test_graph_attr_overwrite() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.set_graph_attr("tick", serde_json::json!(1));
+    h.set_graph_attr("tick", serde_json::json!(99));
+    assert_eq!(h.graph_attr("tick"), Some(&serde_json::json!(99)));
+}
+
+#[test]
+fn test_clear_removes_everything() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".to_string(), "b".to_string()], Some("e1".to_string()), serde_json::json!({"heat": 0.5})).unwrap();
+    h.add_node("lonely", serde_json::json!({"x": 1}));
+    h.set_graph_attr("name", serde_json::json!("test"));
+    h.clear();
+    assert_eq!(h.num_nodes(), 0);
+    assert_eq!(h.num_edges(), 0);
+    assert!(h.node_ids().is_empty());
+    assert!(h.edge_ids().is_empty());
+    assert!(h.graph_attr("name").is_none());
+}

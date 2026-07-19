@@ -288,4 +288,26 @@ impl<N, E, M> Hypergraph<N, E, M> {
             _ => None,
         }
     }
+
+    /// Read a graph-level attribute. XGI parity: `H["name"]`.
+    pub fn graph_attr(&self, key: &str) -> Option<&serde_json::Value> {
+        self.graph_attrs.get(key)
+    }
+
+    /// Set a graph-level attribute. XGI parity: `H["name"] = value`.
+    pub fn set_graph_attr(&mut self, key: &str, value: serde_json::Value) {
+        self.graph_attrs.insert(key.to_string(), value);
+    }
+
+    /// Remove all nodes and edges. XGI parity: `H.clear()`.
+    ///
+    /// The edge-uid counter is deliberately NOT reset — XGI's `clear()`
+    /// never touches `_edge_uid` (verified 0.10.2: auto-ids continue the
+    /// pre-clear sequence).
+    pub fn clear(&mut self) {
+        self.inner = StableDiGraph::new();
+        self.agent_ids.clear();
+        self.hyperedge_ids.clear();
+        self.graph_attrs.clear();
+    }
 }
