@@ -10,3 +10,4 @@ pub mod core;
 pub use core::error::{EdgeError, NodeError, SwapError};
 pub use core::hypergraph::{Hypergraph, MergeRename, MergeRule};
 pub use core::kinds::{MembershipEdge, NodeKind};
+pub use core::views::{FilterMode, NodeView};
