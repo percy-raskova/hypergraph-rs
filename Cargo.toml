@@ -1,0 +1,30 @@
+[workspace]
+members = [
+    "crates/hypergraph-rs",
+    "crates/hypergraph-rs-python",
+    "crates/hypergraph-rs-wasm",
+    "crates/hypergraph-rs-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "BSD-3-Clause"
+authors = ["Babylon Project"]
+repository = "https://github.com/percy-raskova/babylon"
+
+[workspace.dependencies]
+# NO direct petgraph dependency: rustworkx-core 0.18 re-exports petgraph 0.8;
+# all petgraph types are reached via rustworkx_core::petgraph. A direct pin
+# (the spec's original petgraph = "0.6") resolves to a SECOND type-incompatible
+# petgraph copy (verified empirically via cargo tree, 2026-07-18 preflight).
+rustworkx-core = "0.18"
+indexmap = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+rand = "0.8"
+rand_pcg = "0.3"
+rayon = "1"
