@@ -345,6 +345,87 @@ impl<N, E, M> Hypergraph<N, E, M> {
     {
         edges.into_iter().map(|(m, i, a)| self.add_edge(m, i, a)).collect()
     }
+
+    /// Add a node to an existing edge. Auto-creates both if missing.
+    /// XGI parity: `H.add_node_to_edge(edge, node)`.
+    pub fn add_node_to_edge(&mut self, edge_id: &str, node_id: &str) -> Result<(), EdgeError>
+    where
+        N: Default,
+        E: Default,
+        M: Default + Clone,
+    {
+        // Auto-create edge if missing
+        if !self.hyperedge_ids.contains_key(edge_id) {
+            let he_idx = self.inner.add_node(NodeKind::Hyperedge(E::default()));
+            self.hyperedge_ids.insert(edge_id.to_string(), he_idx);
+            // Update uid counter if edge_id is numeric
+            if let Ok(n) = edge_id.parse::<u64>() {
+                if n >= self.edge_uid_counter {
+                    self.edge_uid_counter = n + 1;
+                }
+            }
+        }
+        // Auto-create node if missing
+        if !self.agent_ids.contains_key(node_id) {
+            let nidx = self.inner.add_node(NodeKind::Agent(N::default()));
+            self.agent_ids.insert(node_id.to_string(), nidx);
+        }
+        // Add the membership edges (both directions for undirected)
+        let agent_idx = self.agent_ids[node_id];
+        let he_idx = self.hyperedge_ids[edge_id];
+        // Check if membership already exists
+        if self.inner.find_edge(agent_idx, he_idx).is_none() {
+            let membership = MembershipEdge { member_data: M::default() };
+            self.inner.add_edge(agent_idx, he_idx, membership.clone());
+            self.inner.add_edge(he_idx, agent_idx, membership);
+        }
+        Ok(())
+    }
+
+    /// Remove a node from an existing edge.
+    /// XGI parity: `H.remove_node_from_edge(edge, node, remove_empty=True)`.
+    pub fn remove_node_from_edge(
+        &mut self,
+        edge_id: &str,
+        node_id: &str,
+        remove_empty: bool,
+    ) -> Result<(), NodeError> {
+        let he_idx = *self.hyperedge_ids.get(edge_id).ok_or(NodeError::NotFound {
+            node_id: edge_id.to_string(),
+        })?;
+        let agent_idx = *self.agent_ids.get(node_id).ok_or(NodeError::NotFound {
+            node_id: node_id.to_string(),
+        })?;
+
+        // Check if the node is actually in the edge
+        let edge_to_he = self.inner.find_edge(agent_idx, he_idx);
+        let edge_from_he = self.inner.find_edge(he_idx, agent_idx);
+        if edge_to_he.is_none() {
+            return Err(NodeError::NotFound {
+                node_id: format!("node {} not in edge {}", node_id, edge_id),
+            });
+        }
+
+        // Remove the bipartite membership edges
+        if let Some(e) = edge_to_he {
+            self.inner.remove_edge(e);
+        }
+        if let Some(e) = edge_from_he {
+            self.inner.remove_edge(e);
+        }
+
+        // Check if edge is now empty
+        if remove_empty {
+            let has_members = self.inner.neighbors(he_idx).any(|n| {
+                matches!(self.inner.node_weight(n), Some(NodeKind::Agent(_)))
+            });
+            if !has_members {
+                self.inner.remove_node(he_idx);
+                self.hyperedge_ids.shift_remove(edge_id);
+            }
+        }
+        Ok(())
+    }
 }
 
 impl<N: PartialEq, E: PartialEq, M: PartialEq> PartialEq for Hypergraph<N, E, M> {
