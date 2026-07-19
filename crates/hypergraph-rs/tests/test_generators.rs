@@ -199,3 +199,35 @@ fn test_ring_lattice_is_deterministic() {
     assert_eq!(a.num_nodes(), b.num_nodes());
     assert_eq!(a.num_edges(), b.num_edges());
 }
+
+use hypergraph_rs::generators::{star_clique, sunflower};
+
+#[test]
+fn test_star_clique_node_count() {
+    // n_star=6, n_clique=7 -> 13 nodes
+    let h = star_clique(6, 7, 2).unwrap();
+    assert_eq!(h.num_nodes(), 13);
+    assert!(h.num_edges() > 0);
+}
+
+#[test]
+fn test_star_clique_rejects_bad_dmax() {
+    // d_max must be <= n_clique - 1
+    assert!(star_clique(6, 7, 7).is_err());
+    assert!(star_clique(0, 7, 2).is_err());
+}
+
+#[test]
+fn test_sunflower_is_m_uniform() {
+    // l=3 petals, c=2 core, m=4 edge size
+    let h = sunflower(3, 2, 4).unwrap();
+    assert_eq!(h.num_edges(), 3);
+    for e in h.edge_ids() {
+        assert_eq!(h.members(&e).unwrap().len(), 4);
+    }
+}
+
+#[test]
+fn test_sunflower_rejects_m_less_than_c() {
+    assert!(sunflower(3, 5, 4).is_err());
+}

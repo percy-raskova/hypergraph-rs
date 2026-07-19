@@ -16,8 +16,7 @@ pub use classic::{
     complement, complete_hypergraph, empty_hypergraph, trivial_hypergraph, GeneratorError,
 };
 pub use lattice::ring_lattice;
-// TASK 5: uncomment when simple.rs lands
-// pub use simple::{star_clique, sunflower};
+pub use simple::{star_clique, sunflower};
 // TASK 6: uncomment when random.rs lands
 // pub use random::{
 //     chung_lu_hypergraph, fast_random_hypergraph, random_hypergraph, watts_strogatz_hypergraph,
