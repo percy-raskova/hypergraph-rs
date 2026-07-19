@@ -153,3 +153,78 @@ fn test_dihypergraph_remove_node_from_edge() {
     // removing a node not in the named role errors
     assert!(dh.remove_node_from_edge("e0", "1", DiRole::Tail, true).is_err());
 }
+
+#[test]
+fn test_dihypergraph_node_stats() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    dh.add_edge(vec!["2".into()], vec!["3".into()], Some("e1".into()), v()).unwrap();
+    assert_eq!(dh.degree("2"), 2);
+    assert_eq!(dh.in_degree("2"), 1);  // receiver in e0
+    assert_eq!(dh.out_degree("2"), 1); // sender in e1
+}
+
+#[test]
+fn test_dihypergraph_edge_stats() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into(), "2".into()], vec!["3".into()], Some("e0".into()), v()).unwrap();
+    assert_eq!(dh.size("e0"), 3);
+    assert_eq!(dh.order("e0"), 2);
+    assert_eq!(dh.tail_size("e0"), 2);
+    assert_eq!(dh.head_size("e0"), 1);
+    assert_eq!(dh.tail_order("e0"), 1);
+    assert_eq!(dh.head_order("e0"), 0);
+}
+
+#[test]
+fn test_dihypergraph_isolates() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    dh.add_node("lonely", v());
+    assert_eq!(dh.isolate_node_ids(), vec!["lonely".to_string()]);
+}
+
+#[test]
+fn test_dihypergraph_copy_is_independent() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    let mut c = dh.copy();
+    c.add_node("x", v());
+    assert!(!dh.has_node("x"));
+    assert_eq!(c.num_nodes(), 3);
+}
+
+#[test]
+fn test_dihypergraph_clear() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    dh.clear();
+    assert_eq!(dh.num_nodes(), 0);
+    assert_eq!(dh.num_edges(), 0);
+}
+
+#[test]
+fn test_dihypergraph_freeze() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_node("a", v());
+    dh.freeze();
+    assert!(dh.is_frozen());
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mut dh = dh;
+        dh.add_node("b", v());
+    }));
+    assert!(r.is_err());
+}
+
+#[test]
+fn test_dihypergraph_eq_and_debug() {
+    let mut a: DiHypergraph = DiHypergraph::new();
+    a.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    let mut b: DiHypergraph = DiHypergraph::new();
+    b.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v()).unwrap();
+    assert!(a == b);
+    b.add_node("x", v());
+    assert!(a != b);
+    let repr = format!("{a:?}");
+    assert!(repr.contains("DiHypergraph"));
+}

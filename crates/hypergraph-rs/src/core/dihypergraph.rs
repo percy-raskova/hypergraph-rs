@@ -399,4 +399,159 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         }
         Ok(())
     }
+
+    /// Node degree: number of distinct edges it belongs to. XGI parity:
+    /// `DH.nodes.degree` (dinodestats.py:138-139).
+    pub fn degree(&self, node_id: &str) -> usize {
+        self.memberships(node_id).map_or(0, |m| m.len())
+    }
+
+    /// Node in-degree: edges where the node is a head (receiver).
+    pub fn in_degree(&self, node_id: &str) -> usize {
+        self.dimemberships(node_id).map_or(0, |(i, _)| i.len())
+    }
+
+    /// Node out-degree: edges where the node is a tail (sender).
+    pub fn out_degree(&self, node_id: &str) -> usize {
+        self.dimemberships(node_id).map_or(0, |(_, o)| o.len())
+    }
+
+    /// Edge size: |tail ∪ head|. XGI parity: `DH.edges.size`.
+    pub fn size(&self, edge_id: &str) -> usize {
+        self.members(edge_id).map_or(0, |m| m.len())
+    }
+
+    /// Edge order: size − 1. XGI parity: `DH.edges.order`.
+    pub fn order(&self, edge_id: &str) -> usize {
+        self.size(edge_id).saturating_sub(1)
+    }
+
+    /// Number of tail (sender) members.
+    pub fn tail_size(&self, edge_id: &str) -> usize {
+        self.tail(edge_id).map_or(0, |t| t.len())
+    }
+
+    /// Number of head (receiver) members.
+    pub fn head_size(&self, edge_id: &str) -> usize {
+        self.head(edge_id).map_or(0, |h| h.len())
+    }
+
+    /// Tail size − 1.
+    pub fn tail_order(&self, edge_id: &str) -> usize {
+        self.tail_size(edge_id).saturating_sub(1)
+    }
+
+    /// Head size − 1.
+    pub fn head_order(&self, edge_id: &str) -> usize {
+        self.head_size(edge_id).saturating_sub(1)
+    }
+
+    /// Node ids with degree 0. XGI parity: `DH.nodes.isolates()`.
+    pub fn isolate_node_ids(&self) -> Vec<String> {
+        self.node_ids().into_iter().filter(|n| self.degree(n) == 0).collect()
+    }
+
+    /// Remove all nodes and edges (keeps the uid counter, like Phase 1).
+    /// XGI parity: `DH.clear()` (dihypergraph.py:1000-1017).
+    pub fn clear(&mut self) {
+        self.assert_not_frozen();
+        self.inner = StableDiGraph::new();
+        self.agent_ids.clear();
+        self.hyperedge_ids.clear();
+        self.graph_attrs.clear();
+    }
+
+    /// An independent deep copy. XGI parity: `DH.copy()` (always unfrozen).
+    pub fn copy(&self) -> Self
+    where
+        N: Clone,
+        E: Clone,
+        M: Clone,
+    {
+        Self {
+            inner: self.inner.clone(),
+            agent_ids: self.agent_ids.clone(),
+            hyperedge_ids: self.hyperedge_ids.clone(),
+            edge_uid_counter: self.edge_uid_counter,
+            graph_attrs: self.graph_attrs.clone(),
+            frozen: false,
+        }
+    }
+
+    /// Freeze against modification. XGI parity: `DH.freeze()`.
+    pub fn freeze(&mut self) {
+        self.frozen = true;
+    }
+
+    /// Whether the dihypergraph is frozen. XGI parity: `DH.is_frozen`.
+    pub fn is_frozen(&self) -> bool {
+        self.frozen
+    }
+}
+
+impl<N: PartialEq, E: PartialEq, M> PartialEq for DiHypergraph<N, E, M> {
+    /// Equal iff same nodes (with attrs), same edges (with (tail,head) sets and
+    /// attrs), and same graph attrs.
+    fn eq(&self, other: &Self) -> bool {
+        if self.agent_ids.len() != other.agent_ids.len() {
+            return false;
+        }
+        for (nid, &idx) in &self.agent_ids {
+            let a = match self.inner.node_weight(idx) {
+                Some(NodeKind::Agent(a)) => a,
+                _ => return false,
+            };
+            let b_idx = match other.agent_ids.get(nid) {
+                Some(i) => *i,
+                None => return false,
+            };
+            match other.inner.node_weight(b_idx) {
+                Some(NodeKind::Agent(b)) if a == b => {}
+                _ => return false,
+            }
+        }
+        if self.hyperedge_ids.len() != other.hyperedge_ids.len() {
+            return false;
+        }
+        for (eid, &idx) in &self.hyperedge_ids {
+            let a = match self.inner.node_weight(idx) {
+                Some(NodeKind::Hyperedge(a)) => a,
+                _ => return false,
+            };
+            let b_idx = match other.hyperedge_ids.get(eid) {
+                Some(i) => *i,
+                None => return false,
+            };
+            match other.inner.node_weight(b_idx) {
+                Some(NodeKind::Hyperedge(b)) if a == b => {}
+                _ => return false,
+            }
+            let mut a_dm = self.dimembers(eid).unwrap_or_default();
+            let mut b_dm = other.dimembers(eid).unwrap_or_default();
+            a_dm.0.sort();
+            a_dm.1.sort();
+            b_dm.0.sort();
+            b_dm.1.sort();
+            if a_dm != b_dm {
+                return false;
+            }
+        }
+        self.graph_attrs == other.graph_attrs
+    }
+}
+
+impl<N, E, M> std::fmt::Debug for DiHypergraph<N, E, M> {
+    /// XGI parity: `__repr__` = `DiHypergraph([(tail, head), ...])`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "DiHypergraph(")?;
+        let edges: Vec<String> = self
+            .edge_ids()
+            .iter()
+            .map(|eid| {
+                let (t, h) = self.dimembers(eid).unwrap_or_default();
+                format!("({{{}}}, {{{}}})", t.join(", "), h.join(", "))
+            })
+            .collect();
+        write!(f, "[{}])", edges.join(", "))
+    }
 }
