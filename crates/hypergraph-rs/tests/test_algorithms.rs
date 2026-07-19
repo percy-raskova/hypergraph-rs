@@ -202,3 +202,42 @@ fn test_local_clustering_coefficient_defined() {
         assert!(cc[n].is_finite());
     }
 }
+
+use hypergraph_rs::algorithms::assortativity::{
+    degree_assortativity_exact, dynamical_assortativity, AssortError, AssortKind,
+};
+
+#[test]
+fn test_dynamical_requires_uniform() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    assert_eq!(dynamical_assortativity(&h), Err(AssortError::NotUniform));
+}
+
+#[test]
+fn test_dynamical_uniform_regular_is_near_zero() {
+    // 3-uniform (edge order 2): two copies of the same triple {0,1,2}, so all
+    // node degrees are equal (2) => dynamical assortativity is 0.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["0".into(), "1".into(), "2".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["0".into(), "1".into(), "2".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let val = dynamical_assortativity(&h).unwrap();
+    assert!(val.abs() < 1e-9);
+}
+
+#[test]
+fn test_degree_assortativity_exact_runs() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["0".into(), "1".into(), "2".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let rho = degree_assortativity_exact(&h, AssortKind::Uniform).unwrap();
+    assert!(rho.is_finite());
+    assert!((-1.0..=1.0).contains(&rho));
+}
+
+#[test]
+fn test_assortativity_empty_errors() {
+    let h: Hypergraph = Hypergraph::new();
+    assert_eq!(dynamical_assortativity(&h), Err(AssortError::NoNodes));
+}
