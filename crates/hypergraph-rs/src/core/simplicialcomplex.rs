@@ -153,6 +153,25 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         self.inner.node_ids()
     }
 
+    /// Add a node (no simplices). XGI parity: `S.add_node(id, **attr)`.
+    /// (Phase 4 Task 9 addition: the generator `random_simplicial_complex`
+    /// must add all `N` nodes up front regardless of which simplices are
+    /// sampled — XGI's own generator does `S.add_nodes_from(nodes)` before
+    /// `S.add_simplices_from(simplices)`. This method was not part of the
+    /// Phase-2 surface the Task-9 plan text assumed; it mirrors
+    /// `Hypergraph::add_node` exactly and required no other change.)
+    pub fn add_node(&mut self, node_id: &str, attrs: N) -> bool {
+        self.invalidate();
+        self.inner.add_node(node_id, attrs)
+    }
+
+    /// Add many nodes (no simplices). XGI parity: `S.add_nodes_from(nbunch)`.
+    pub fn add_nodes_from(&mut self, nodes: impl IntoIterator<Item = (String, N)>) {
+        for (node_id, attrs) in nodes {
+            self.add_node(&node_id, attrs);
+        }
+    }
+
     /// All simplex ids (insertion order).
     pub fn edge_ids(&self) -> Vec<String> {
         self.inner.edge_ids()

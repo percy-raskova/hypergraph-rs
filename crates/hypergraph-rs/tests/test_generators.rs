@@ -376,3 +376,24 @@ fn test_configuration_model_is_deterministic() {
     let b = uniform_hypergraph_configuration_model(&k, 3, Some(5));
     assert!(a == b);
 }
+
+use hypergraph_rs::generators::random_simplicial_complex;
+
+#[test]
+fn test_random_simplicial_complex_node_count() {
+    let s = random_simplicial_complex(20, &[0.1, 0.01], Some(3)).unwrap();
+    assert_eq!(s.num_nodes(), 20);
+}
+
+#[test]
+fn test_random_simplicial_complex_is_deterministic() {
+    let a = random_simplicial_complex(15, &[0.2, 0.05], Some(8)).unwrap();
+    let b = random_simplicial_complex(15, &[0.2, 0.05], Some(8)).unwrap();
+    assert_eq!(a.num_nodes(), b.num_nodes());
+    assert_eq!(a.num_edges(), b.num_edges());
+}
+
+#[test]
+fn test_random_simplicial_complex_rejects_bad_probability() {
+    assert!(random_simplicial_complex(10, &[1.5], Some(1)).is_err());
+}

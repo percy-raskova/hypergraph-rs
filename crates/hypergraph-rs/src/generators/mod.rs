@@ -21,5 +21,4 @@ pub use random::{
     chung_lu_hypergraph, fast_random_hypergraph, random_hypergraph, watts_strogatz_hypergraph,
 };
 pub use uniform::{uniform_erdos_renyi_hypergraph, uniform_hypergraph_configuration_model};
-// TASK 9: uncomment when simplicial.rs lands
-// pub use simplicial::random_simplicial_complex;
+pub use simplicial::random_simplicial_complex;
