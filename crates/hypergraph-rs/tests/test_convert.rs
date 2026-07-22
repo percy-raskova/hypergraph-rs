@@ -217,3 +217,33 @@ fn test_from_hypergraph_dict_missing_key_errors() {
     let data = serde_json::json!({"type": "hypergraph"}); // no edge-dict/node-data
     assert!(from_hypergraph_dict(&data).is_err());
 }
+
+use hypergraph_rs::convert::cut_to_order;
+
+#[test]
+fn test_cut_to_order_removes_large_edges() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("small".into()), serde_json::Value::Null).unwrap(); // order 1
+    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("big".into()), serde_json::Value::Null).unwrap(); // order 2
+    let cut = cut_to_order(&h, 1).unwrap();
+    assert!(cut.has_edge("small"));
+    assert!(!cut.has_edge("big"));
+    // Nodes are preserved even when their large edge is cut.
+    assert!(cut.has_node("c"));
+}
+
+#[test]
+fn test_cut_to_order_keeps_all_when_order_is_max() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    let cut = cut_to_order(&h, 2).unwrap();
+    assert_eq!(cut.num_edges(), 2);
+}
+
+#[test]
+fn test_cut_to_order_too_large_errors() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap(); // max order 1
+    assert!(cut_to_order(&h, 3).is_err());
+}

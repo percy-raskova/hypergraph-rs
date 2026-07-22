@@ -311,3 +311,30 @@ pub fn from_hypergraph_dict(data: &Value) -> Result<Hypergraph, ConvertError> {
 
     Ok(h)
 }
+
+/// A copy of the hypergraph keeping only edges of order ≤ `order`.
+///
+/// XGI parity: `xgi.cut_to_order` (`convert/higher_order_network.py:219-244`). Edge order
+/// is `len(members) - 1`. Errors if `order` exceeds the network's maximum edge order.
+/// Nodes are preserved even when their edges are cut.
+pub fn cut_to_order(h: &Hypergraph, order: i64) -> Result<Hypergraph, ConvertError> {
+    let max_order: i64 = h
+        .edge_ids()
+        .into_iter()
+        .map(|e| h.members(&e).map(|m| m.len() as i64 - 1).unwrap_or(0))
+        .max()
+        .unwrap_or(-1);
+    if order > max_order {
+        return Err(ConvertError::OrderTooLarge { order, max_order });
+    }
+    let mut cut = h.copy();
+    let to_remove: Vec<String> = h
+        .edge_ids()
+        .into_iter()
+        .filter(|e| h.members(e).map(|m| m.len() as i64 - 1).unwrap_or(0) > order)
+        .collect();
+    for e in to_remove {
+        let _ = cut.remove_edge(&e);
+    }
+    Ok(cut)
+}
