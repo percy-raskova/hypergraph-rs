@@ -281,3 +281,34 @@ fn test_random_hypergraph_node_count_and_determinism() {
 fn test_random_hypergraph_rejects_bad_probability() {
     assert!(random_hypergraph(10, &[1.5], Some(&[1]), Some(1)).is_err());
 }
+
+use hypergraph_rs::generators::{chung_lu_hypergraph, watts_strogatz_hypergraph};
+use indexmap::IndexMap;
+
+#[test]
+fn test_chung_lu_node_count_and_determinism() {
+    let mut k1: IndexMap<String, f64> = IndexMap::new();
+    let mut k2: IndexMap<String, f64> = IndexMap::new();
+    for i in 0..20 {
+        k1.insert(i.to_string(), (1 + (i % 5)) as f64);
+        k2.insert(i.to_string(), (1 + (i % 5)) as f64);
+    }
+    let a = chung_lu_hypergraph(&k1, &k2, Some(4));
+    let b = chung_lu_hypergraph(&k1, &k2, Some(4));
+    assert_eq!(a.num_nodes(), 20);
+    assert!(a == b);
+}
+
+#[test]
+fn test_watts_strogatz_preserves_node_count() {
+    let h = watts_strogatz_hypergraph(12, 3, 4, 1, 0.3, Some(11)).unwrap();
+    assert_eq!(h.num_nodes(), 12);
+    assert!(h.num_edges() > 0);
+}
+
+#[test]
+fn test_watts_strogatz_is_deterministic() {
+    let a = watts_strogatz_hypergraph(12, 3, 4, 1, 0.3, Some(11)).unwrap();
+    let b = watts_strogatz_hypergraph(12, 3, 4, 1, 0.3, Some(11)).unwrap();
+    assert!(a == b);
+}

@@ -1,9 +1,11 @@
 //! Random (non-uniform) hypergraph generators (XGI `generators/random.py`).
 
+use indexmap::IndexMap;
 use serde_json::Value;
 
 use super::classic::GeneratorError;
-use super::rng::{comb, geometric, index_to_edge_comb, seeded_rng, uniform_f64};
+use super::lattice::ring_lattice;
+use super::rng::{comb, geometric, index_to_edge_comb, random_below, seeded_rng, uniform_f64};
 use crate::Hypergraph;
 
 /// Resolve `(ps, order)` per XGI `_check_input_args`: default `order = 1..=len(ps)`;
@@ -110,6 +112,118 @@ pub fn random_hypergraph(
                 let _ = h.add_edge(members, None, Value::Null);
             }
         }
+    }
+    Ok(h)
+}
+
+/// Chung–Lu hypergraph from node-degree and edge-size sequences.
+/// XGI `chung_lu_hypergraph(k1, k2)`.
+///
+/// `k1`: node id -> degree; `k2`: edge id -> size. Determinism: nodes/edges are
+/// sorted by value descending with a stable tiebreak on the (insertion-ordered)
+/// key, so the traversal is reproducible.
+pub fn chung_lu_hypergraph(
+    k1: &IndexMap<String, f64>,
+    k2: &IndexMap<String, f64>,
+    seed: Option<u64>,
+) -> Hypergraph {
+    let mut rng = seeded_rng(seed);
+
+    // sort by value desc; stable tiebreak preserves IndexMap insertion order
+    let mut node_labels: Vec<&String> = k1.keys().collect();
+    node_labels.sort_by(|a, b| k2_cmp(k1[*b], k1[*a]));
+    let mut edge_labels: Vec<&String> = k2.keys().collect();
+    edge_labels.sort_by(|a, b| k2_cmp(k2[*b], k2[*a]));
+
+    let m = k2.len();
+    let s: f64 = k1.values().sum();
+
+    let mut h = Hypergraph::new();
+    for &nid in &node_labels {
+        h.add_node(nid, Value::Null);
+    }
+
+    for &u in &node_labels {
+        let mut j = 0usize;
+        if m == 0 {
+            continue;
+        }
+        let mut v = edge_labels[0];
+        let mut p = ((k1[u] * k2[v]) / s).min(1.0);
+        // Bounded: j strictly increases toward m.
+        while j < m {
+            if p != 1.0 {
+                if p <= 0.0 {
+                    // geometric(p<=0) returns the u64::MAX "infinity" sentinel;
+                    // XGI relies on Python float `j += inf` to end the loop for
+                    // this node. Break instead of adding the sentinel, which
+                    // would overflow `j` (a real panic risk when j > 0).
+                    break;
+                }
+                j += geometric(p, &mut rng) as usize;
+            }
+            if j < m {
+                v = edge_labels[j];
+                let q = ((k1[u] * k2[v]) / s).min(1.0);
+                let r = uniform_f64(&mut rng);
+                if p > 0.0 && r < q / p {
+                    let _ = h.add_node_to_edge(v, u);
+                }
+                p = q;
+                j += 1;
+            }
+        }
+    }
+    h
+}
+
+/// Total order on f64 for descending sort (NaN sinks last). Not exported.
+fn k2_cmp(a: f64, b: f64) -> std::cmp::Ordering {
+    a.partial_cmp(&b).unwrap_or(std::cmp::Ordering::Equal)
+}
+
+/// Watts–Strogatz hypergraph: a ring lattice with each edge rewired with prob `p`.
+/// XGI `watts_strogatz_hypergraph(n, d, k, l, p)`.
+pub fn watts_strogatz_hypergraph(
+    n: usize,
+    d: usize,
+    k: usize,
+    l: usize,
+    p: f64,
+    seed: Option<u64>,
+) -> Result<Hypergraph, GeneratorError> {
+    let mut rng = seeded_rng(seed);
+    let mut h = ring_lattice(n, d, k, l)?;
+
+    let mut to_remove: Vec<String> = Vec::new();
+    let mut to_add: Vec<Vec<String>> = Vec::new();
+
+    for e in h.edge_ids() {
+        if uniform_f64(&mut rng) < p {
+            let members = h.members(&e).unwrap();
+            // Keep the numeric-min member (node ids are decimal integers here),
+            // matching XGI's `min(H.edges.members(e))` over integer node ids.
+            // A lexicographic `str` min would diverge for n >= 11 (e.g. "10" < "2").
+            let keep = members
+                .iter()
+                .min_by_key(|s| s.parse::<u64>().unwrap_or(u64::MAX))
+                .cloned()
+                .unwrap();
+            let mut new_edge: Vec<String> = Vec::with_capacity(d);
+            for _ in 0..(d - 1) {
+                let idx = random_below(&mut rng, n as u64) as usize;
+                new_edge.push(idx.to_string());
+            }
+            new_edge.push(keep);
+            to_remove.push(e);
+            to_add.push(new_edge);
+        }
+    }
+    for e in to_remove {
+        let _ = h.remove_edge(&e);
+    }
+    for members in to_add {
+        let _ = h.add_edge(members, None, Value::Null);
     }
     Ok(h)
 }
