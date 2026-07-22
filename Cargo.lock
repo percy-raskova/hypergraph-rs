@@ -291,6 +291,7 @@ name = "hypergraph-rs-python"
 version = "0.1.0"
 dependencies = [
  "hypergraph-rs",
+ "indexmap",
  "numpy",
  "pyo3",
  "rustworkx-core",
