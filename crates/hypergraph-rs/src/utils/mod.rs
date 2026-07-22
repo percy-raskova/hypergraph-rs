@@ -3,6 +3,7 @@
 //! Ported: `dual_dict`, `powerset`, `subfaces`, `get_network_type`,
 //! `convert_labels_to_integers`. See the Phase-6 plan header for the exclusion list.
 
+use crate::Hypergraph;
 use indexmap::IndexMap;
 use thiserror::Error;
 
@@ -109,4 +110,42 @@ pub fn powerset(
         r += 1;
     }
     out
+}
+
+/// Subfaces of a list of hyperedges.
+///
+/// XGI parity: `xgi.subfaces` (`utils/utilities.py:310-374`). Faces are NOT deduplicated
+/// (a face may appear once per parent edge), matching XGI. Singleton and empty edges
+/// contribute nothing.
+pub fn subfaces(edges: &[Vec<String>], order: Option<i64>) -> Result<Vec<Vec<String>>, UtilError> {
+    let max_order: i64 = edges.iter().map(|e| e.len() as i64 - 1).max().unwrap_or(-1);
+    if let Some(o) = order {
+        if o > max_order {
+            return Err(UtilError::OrderTooLarge { order: o, max_order });
+        }
+    }
+    let mut faces: Vec<Vec<String>> = Vec::new();
+    for edge in edges {
+        let size = edge.len();
+        if size <= 1 {
+            continue;
+        }
+        let to_add = match order {
+            None => powerset(edge, false, true, false, None),
+            Some(-1) => combinations(edge, size - 1),
+            Some(o) if o >= 0 => combinations(edge, (o + 1) as usize),
+            Some(_) => Vec::new(), // order < -1 is undefined in XGI; treat as empty
+        };
+        faces.extend(to_add);
+    }
+    Ok(faces)
+}
+
+/// The lowercased network type name.
+///
+/// XGI parity: `xgi.get_network_type` (`utils/utilities.py:560-561`). For the undirected
+/// `Hypergraph` this is the constant `"hypergraph"` (matching XGI's
+/// `type(H).__name__.lower()` for `Hypergraph`).
+pub fn get_network_type(_h: &Hypergraph) -> String {
+    "hypergraph".to_string()
 }

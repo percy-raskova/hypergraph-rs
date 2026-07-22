@@ -57,3 +57,53 @@ fn test_powerset_max_size() {
     assert_eq!(ps.len(), 6);
     assert!(ps.iter().all(|s| s.len() <= 2 && !s.is_empty()));
 }
+
+use hypergraph_rs::utils::{get_network_type, subfaces};
+use hypergraph_rs::Hypergraph;
+
+fn edges(rows: &[&[&str]]) -> Vec<Vec<String>> {
+    rows.iter()
+        .map(|r| r.iter().map(|s| s.to_string()).collect())
+        .collect()
+}
+
+#[test]
+fn test_subfaces_none_all_down_to_nodes() {
+    // {1,2,3} -> singletons + pairs (no full triple): C(3,1)+C(3,2) = 3+3 = 6
+    let es = edges(&[&["1", "2", "3"]]);
+    let faces = subfaces(&es, None).unwrap();
+    assert_eq!(faces.len(), 6);
+    assert!(faces.contains(&vec!["1".to_string()]));
+    assert!(faces.contains(&vec!["1".to_string(), "2".to_string()]));
+}
+
+#[test]
+fn test_subfaces_order_minus1() {
+    // {1,2,3} one order below (size 2): the 3 pairs.
+    let es = edges(&[&["1", "2", "3"]]);
+    let faces = subfaces(&es, Some(-1)).unwrap();
+    assert_eq!(faces.len(), 3);
+    assert!(faces.iter().all(|f| f.len() == 2));
+}
+
+#[test]
+fn test_subfaces_order_d() {
+    // order=2 -> subfaces of size 3. {1,2,3,4} has C(4,3)=4 triples.
+    let es = edges(&[&["1", "2", "3", "4"]]);
+    let faces = subfaces(&es, Some(2)).unwrap();
+    assert_eq!(faces.len(), 4);
+    assert!(faces.iter().all(|f| f.len() == 3));
+}
+
+#[test]
+fn test_subfaces_order_too_large_errors() {
+    let es = edges(&[&["1", "2"]]); // max order = 1
+    let result = subfaces(&es, Some(5));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_get_network_type() {
+    let h: Hypergraph = Hypergraph::new();
+    assert_eq!(get_network_type(&h), "hypergraph");
+}
