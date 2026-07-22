@@ -382,3 +382,33 @@ fn test_hyperedge_aware_hull_has_at_least_two_points_for_triangle_edge() {
         panic!("expected ConvexHull geometry");
     }
 }
+
+use hypergraph_rs::layout::compute_layout;
+
+#[test]
+fn test_compute_layout_spring_arm() {
+    let h = sample_h();
+    let r = compute_layout(&h, LayoutStrategy::Spring { iterations: 50, seed: Some(42) });
+    assert_eq!(r, spring_layout(&h, 50, Some(42)));
+}
+
+#[test]
+fn test_compute_layout_bipartite_arm() {
+    let h = sample_h();
+    let r = compute_layout(&h, LayoutStrategy::Bipartite { align: BipartiteAlign::Vertical });
+    assert_eq!(r, bipartite_layout(&h, BipartiteAlign::Vertical));
+}
+
+#[test]
+fn test_compute_layout_hyperedge_aware_arm() {
+    let h = sample_h();
+    let r = compute_layout(&h, LayoutStrategy::HyperedgeAware { iterations: 50, halo_padding: 0.05 });
+    assert_eq!(r, hyperedge_aware_layout(&h, 50, 0.05));
+}
+
+#[test]
+fn test_compute_layout_radial_arm() {
+    let h = sample_h();
+    let r = compute_layout(&h, LayoutStrategy::Radial { rings: 3 });
+    assert_eq!(r, radial_layout(&h, 3));
+}

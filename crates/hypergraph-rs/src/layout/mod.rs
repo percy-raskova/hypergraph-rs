@@ -119,3 +119,17 @@ pub(crate) fn bounding_box_of(
     }
     bb
 }
+
+use crate::core::hypergraph::Hypergraph;
+
+/// Dispatch a `LayoutStrategy` to its implementation (spec §5.2).
+pub fn compute_layout<N, E, M>(h: &Hypergraph<N, E, M>, strategy: LayoutStrategy) -> LayoutResult {
+    match strategy {
+        LayoutStrategy::Spring { iterations, seed } => spring::spring_layout(h, iterations, seed),
+        LayoutStrategy::Bipartite { align } => place::bipartite_layout(h, align),
+        LayoutStrategy::HyperedgeAware { iterations, halo_padding } => {
+            spring::hyperedge_aware_layout(h, iterations, halo_padding)
+        }
+        LayoutStrategy::Radial { rings } => place::radial_layout(h, rings),
+    }
+}
