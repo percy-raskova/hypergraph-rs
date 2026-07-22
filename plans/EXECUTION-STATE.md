@@ -107,6 +107,27 @@ This repo (`/home/user/projects/game/babylon/hypergraph-rs`) is its OWN git repo
 `main`), parent-ignored by babylon's `.gitignore` (`/hypergraph-rs/`, the `infra/` pattern).
 No remote — publishing of any kind is an owner decision.
 
+## 2026-07-22 UPDATE 2 — lineage reconciliation DONE
+
+The `conformance-lineage` reconciliation (13 tasks, plan `plans/reconciliation-plan.md`) is
+**complete**: HEAD is `703b334` after this close-out commit lands. The executable XGI 0.10.2
+conformance harness (`crates/hypergraph-rs/conformance/generate_fixtures.py` +
+`xgi_ground_truth.json` + `tests/conformance/main.rs`, 57 replay tests) is grafted onto `main`
+and green under `mise run rust:check` (296 tests total across the workspace, conformance
+target included). The D1-D17 divergence register and rulings ledger live in
+`plans/reconciliation-plan.md` §2 ("Rulings ledger") — that is now the durable record of every
+core-vs-lineage adjudication; no separate rulings file exists for this program.
+
+Consequence for the phase table below: **Phase 7 Task 0** ("core `add_empty_edge`") is
+**subsumed** by reconciliation Task 3 (D1 — empty edges/simplices are now first-class; XGI
+create-empty-edge semantics landed on `main`, `EdgeError::EmptyMembers` removed). Phase 7's
+plan text still lists it; skip it when Phase 7 executes and start from its Task 1.
+
+**Phase 4 resumes at task 6** (tasks 1-5 were already committed pre-reconciliation and are
+untouched by any reconciliation task; the reconciliation work landed entirely in `crates/`
+core, `tests/conformance/`, and `.mise.toml`, not in `phase-4-generators-stats-readwrite.md`'s
+task list).
+
 ## State at pause
 
 | Phase | Plan file (plans/) | Status | Evidence |
@@ -114,10 +135,10 @@ No remote — publishing of any kind is an owner decision.
 | 0+1 workspace + core | phase-0-1-workspace-core.md | **DONE + review approve** | 64 tests; commits b604c6d..767267e |
 | 2 dihypergraph/simplicial/views | phase-2-dihypergraph-simplicial-views.md | **DONE + review approve** | 15/15 tasks, 135 tests, HEAD was `da208f4` |
 | 3 linalg + algorithms | phase-3-linalg-algorithms.md | **DONE + review fixed** | 12/12 tasks (`a88c8e1`..`0308138`); review said fix-needed → all 4 findings fixed in `5fdb4a4` + `5630357`; 188 tests, clippy `--all-targets` clean |
-| 4 generators/stats/readwrite | phase-4-generators-stats-readwrite.md | **PAUSED: tasks 1–5 of 19 committed** | `f65cc0e` `d9d80c7` `467b3ac` `af61224` `3f7ec00`; tree clean; run `wf_2cbb34ad-267` stopped mid-task-6 |
+| 4 generators/stats/readwrite | phase-4-generators-stats-readwrite.md | **PAUSED: tasks 1–5 of 19 committed; resumes at task 6** | `f65cc0e` `d9d80c7` `467b3ac` `af61224` `3f7ec00`; tree clean; run `wf_2cbb34ad-267` stopped mid-task-6; unaffected by reconciliation (703b334) |
 | 5 layout + viz | phase-5-layout-viz.md | not started | 11 tasks |
 | 6 convert/dynamics/communities/utils | phase-6-convert-dynamics-communities-utils.md | not started | 17 tasks |
-| 7 python conformance | phase-7-python-conformance.md | not started | 20 tasks (Task 0 = core `add_empty_edge`) |
+| 7 python conformance | phase-7-python-conformance.md | not started | 20 tasks; **Task 0 (core `add_empty_edge`) already subsumed by reconciliation D1 (`703b334`) — start at Task 1** |
 | 8 wasm | phase-8-wasm.md | not started | 8 tasks |
 | 9 cli | phase-9-cli.md | not started | 11 tasks |
 | 10 react package | phase-10-react-package.md | not started | 6 tasks |
