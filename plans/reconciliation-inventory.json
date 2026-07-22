@@ -1,0 +1,546 @@
+{
+ "register": {
+  "entries": [
+   {
+    "id": "D1",
+    "title": "Empty-members docstring lie: runtime CREATES empty edges/simplices",
+    "xgi_runtime_behavior": "XGI's docstrings/Notes claim XGIError (or 'currently cannot add empty simplices') for empty-member add_edge/add_simplex calls, but the ACTUAL installed XGI 0.10.2 runtime creates the empty edge/simplex successfully (and XGI's own test suite asserts this). Applies to Hypergraph.add_edge([]), DiHypergraph.add_edge(([],[])) and tail-only/head-only variants, SimplicialComplex.add_simplex([]), and bulk add_edges_from with an empty-members tuple.",
+    "rust_core_behavior": "Rust core matches the RUNTIME (not the docstring): add_edge/add_simplex with empty members succeeds and creates the empty edge/simplex; a second add_simplex([]) is a silent no-op matching has_simplex([])==true afterward.",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:54-69 (conform_add_edge_empty_creates_edge, 'D1 RESOLVED'); :1399-1408 (conform_di_empty_edge, 'D1-class parity'); :2159-2164 ('Empty edge is CREATED, not skipped (D1-class)'); :2800-2810 (conform_sc_empty_simplex, 'D1-class docstring lie'); :2085 (di_add_edges_from, D1-class); generate_fixtures.py:777, :1129, :1457"
+   },
+   {
+    "id": "D2",
+    "title": "Error channel: XGI warns+no-ops (returns None) on recoverable conflicts; Rust core returns Err",
+    "xgi_runtime_behavior": "For a broad class of recoverable conflicts (duplicate edge idx on add_edge, missing node/edge id on remove_node/remove_edge/remove_nodes_from, missing node on set_node_attributes bulk, dup idx on add_edges_from, dup idx on SimplicialComplex add_simplex, etc.) XGI's runtime either (a) issues a UserWarning and no-ops, returning None, or (b) raises IDNotFound/XGIError with a specific pinned message string. Behavior differs per call: remove_node/remove_edge single-item calls RAISE; remove_nodes_from WARNS+SKIPS+CONTINUES per item; remove_edges_from RAISES on first bad id and STOPS (partial effects already applied for earlier valid ids).",
+    "rust_core_behavior": "The Rust core NEVER warns and never silently no-ops on these paths: it returns a typed Result (Err(EdgeError::AlreadyExists/NotFound), Err(NodeError::NotFound), Err(MembershipError::NotAMember), etc.) for single-item ops, and for bulk ops (remove_nodes_from) returns a Vec<Result<..>> with ONE entry per attempted id (continuing past errors) or (remove_edges_from) a Vec<Result<..>> that STOPS after the first Err \u2014 mirroring XGI's partial-effect stopping point without raising a panic. It is the responsibility of the Phase-7 PyO3 binding to translate Err back into UserWarning+None or a raised exception (matching XGI's exact per-call channel) so the Python-facing surface is behaviorally conformant.",
+    "owner": "binding",
+    "evidence": "tests/conformance/main.rs:121-140 (diverge_d2_dup_idx_errors_instead_of_warn_noop, defines the class); :281-293 (remove_edge missing -> IDNotFound, 'Same error-channel class as D2'); :373-385 (remove_node missing); :449-486 (remove_nodes_from: warns+skips+continues per item, Rust returns per-item Vec); :488-538 (remove_edges_from: raises+stops on first bad id, Rust Vec length <= input); :911-926 (set_node_attributes_bulk missing node warns+skips, D2 channel class, D7 for the dict-vs-pairs boundary); :1155, :1366, :1640, :1775, :1787, :1826, :1869, :2173, :2444, :2771; generate_fixtures.py:382,459,483,563,757,891,1127,1202-1203,1433"
+   },
+   {
+    "id": "D3",
+    "title": "str-numeric idx does NOT bump XGI's uid counter; Rust bumps when the id parses as u64",
+    "xgi_runtime_behavior": "XGI's internal `_edge_uid` (itertools.count) is only bumped by `update_uid_counter` when the explicit idx is an INT (or float.is_integer(), see D4). A STRING idx like \"5\" does not touch the counter at all, so the next auto-generated id after add_edge(members, id=\"5\") is 0 (fixture: edge_ids == [\"5\", \"0\"]). This is because XGI's Python API passes idx through untouched with its native type (int vs str), and the counter-bump logic type-checks specifically for int/float.",
+    "rust_core_behavior": "The Rust core is stringly-typed at the ID boundary (see D7) and cannot distinguish \"5\" (a Python str) from 5 (a Python int) the way XGI does. Instead it bumps `edge_uid_counter` whenever `idx.parse::<u64>()` succeeds, regardless of whether the original caller intended a string or int id \u2014 so add_edge(members, id=\"5\") DOES bump the counter, and the next auto id is \"6\", not \"0\". This is a deliberate, pinned outcome divergence (Rust's rule: 'bump iff parses as u64') justified because XGI's int-idx common case is worth preserving even though the string case necessarily differs at a stringly-typed boundary.",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:142-157 (diverge_d3_str_numeric_idx_bumps_counter); :1319,:1344,:1350 (SimplicialComplex face-add extension); :2704 (numeric idx '10' bumps faces to 11,12,13); generate_fixtures.py:731"
+   },
+   {
+    "id": "D4",
+    "title": "XGI bumps counter for float idx 5.0 (float.is_integer()); Rust's parse::<u64> rejects \"5.0\" so no bump",
+    "xgi_runtime_behavior": "XGI's update_uid_counter treats a float idx whose value `.is_integer()` (e.g. 5.0) the same as an int idx: it bumps `_edge_uid` (next auto id becomes 6, not the pre-bump 0). Fixture: add_edge(members, id=5.0) -> edge_ids == [5.0, 6].",
+    "rust_core_behavior": "The Rust core's bump rule is exactly `idx.parse::<u64>().is_ok()`. The string \"5.0\" fails u64 parsing (it has a decimal point), so the counter is NOT bumped \u2014 the next auto id after add_edge(members, id=\"5.0\") is \"0\". This is presented as making the D3 rule 'exact': the Rust rule is a single u64-parse test with no float special-casing, and this test pins that the divergence from XGI's float-aware behavior is deliberate and exact, not accidental.",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:159-172 (diverge_d4_float_idx_does_not_bump)"
+   },
+   {
+    "id": "D5",
+    "title": "XGI member/edge-set ordering is hash-randomized/unordered; Rust core is deterministically insertion-ordered ('strictly more defined')",
+    "xgi_runtime_behavior": "XGI stores hyperedge members and node memberships as Python `set`s; iteration order is hash-dependent and NOT stable across runs/processes (hash randomization). Its __repr__ renders lists derived from set iteration in this unstable order, and an empty edge's set renders as the Python literal \"set()\". Because order is not reproducible, the ground-truth fixture can only pin SORTED projections (member_sets sorted) and STABLE substrings (repr prefix, structural shape), never the raw unsorted order.",
+    "rust_core_behavior": "The Rust core returns members()/dimembers()/memberships() as Vec<String> in INSERTION order (deterministic, reproducible across runs), and its Debug/repr formats an empty edge's braces uniformly as \"{}\" (not the Python-set-specific \"set()\" artifact) and empty directed edges as \"({}, {})\". This is characterized as 'strictly more defined' \u2014 not a semantic gap but Rust providing a stronger (deterministic) guarantee than XGI's runtime offers, so tests compare either sorted vectors or only the stable structural projections. Also governs SimplicialComplex closure/face enumeration, where the face-id -> member-set MAPPING order differs (XGI hash-ordered set(faces) vs Rust's canonical combination order) so closure tests compare the multiset of member-sets, not the id->set mapping order.",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:1192-1237 (repr_format, 'cited divergence D5'); :1244-1246, :1894-1897, :1936 (DiHypergraph repr/dimembers, 'same D5 class'); :2596-2605 (member_set_multiset helper, SimplicialComplex closure D5 class); :2630; generate_fixtures.py:652,669,1051,1070,1356"
+   },
+   {
+    "id": "D6",
+    "title": "XGI merges attrs on re-adding an existing node; Rust core (generic N) REPLACES",
+    "xgi_runtime_behavior": "add_node(id, attrs) on an ALREADY-EXISTING node id MERGES the new attrs dict into the existing attr dict (add_node(\"a\",{x:1}) then add_node(\"a\",{y:2}) yields {x:1,y:2} \u2014 union of keys, not overwrite).",
+    "rust_core_behavior": "The Rust core's add_node REPLACES the existing attrs wholesale with the new value (generic N cannot know how to merge arbitrary attribute types), so the same sequence yields only {y:2}. The PyO3 binding is responsible for merging the incoming dict with the existing dict BEFORE calling into the core, to recover XGI's merge semantics at the Python surface.",
+    "owner": "binding",
+    "evidence": "tests/conformance/main.rs:174-189 (diverge_d6_add_node_replaces_instead_of_merging)"
+   },
+   {
+    "id": "D7",
+    "title": "XGI ids are dynamically typed (int auto-ids, arbitrary hashables for explicit ids); Rust core is stringly-typed at the ID boundary",
+    "xgi_runtime_behavior": "XGI auto-generates int ids (itertools.count) and accepts arbitrary hashable Python objects as explicit ids (commonly int or str, but not restricted). Its bulk-mutation APIs (add_edges_from, set_node_attributes, set_edge_attributes) accept multiple shapes (members-only, (members,idx), (members,attrdict), (members,idx,attrdict), dict-of-dicts bunches, **kwargs attr broadcast, scalar name= sugar) with Python-level format detection, and raise XGIError at the Python boundary for a malformed shape (e.g. a list-of-pairs into set_node_attributes, which is dict-of-dicts only).",
+    "rust_core_behavior": "The Rust core represents every id as a String end-to-end (id_str() coerces fixture ints/strings uniformly) and its bulk APIs take a single UNIFORM shape \u2014 (tail, head, idx, attrs) quadruples for edges, (id, attrdict) pairs for attribute sets \u2014 with no format-detection or **kwargs broadcast. Format detection, broadcast-merging, and shape-validation-with-XGIError are explicitly binding concerns: the Phase-7 PyO3 binding must implement Python-side shape sniffing and dict-of-dicts validation to reproduce XGI's accepted-shapes surface and its XGIError-on-bad-shape behavior; the core itself is judged only on whether its single uniform shape produces outcome-conformant results for the shapes XGI accepts.",
+    "owner": "binding",
+    "evidence": "tests/conformance/main.rs:32-40 (id_str, 'Divergence D7'); :911-918 (set_node_attributes_bulk, 'D7 class' for pairs-vs-dict boundary); :2078-2085 (di_add_edges_from, 'binding concerns (D7 class)'); :2216-2223 (di set_attrs, D7 class); :2828 (D7-class convention shared with auto-created nodes); generate_fixtures.py:512,1131,1202"
+   },
+   {
+    "id": "D8",
+    "title": "XGI mutators return None (Python convention); Rust core mutators return Ok(id)",
+    "xgi_runtime_behavior": "XGI's add_edge, add_node_to_edge, add_simplex and similar mutating methods always return None (or nothing) at the Python level \u2014 there is no return-channel to report which id was assigned or reused, even for a redundant re-add of an existing member-set (SimplicialComplex.add_simplex on an existing face silently no-ops and returns None, giving the caller no way to learn the existing edge's id from the return value alone).",
+    "rust_core_behavior": "The Rust core's equivalent mutators return Result<String, ..> = Ok(id) \u2014 reporting either the newly created id or, for a redundant/no-op add, the id of the EXISTING matching edge. This is a strictly-more-informative return channel that XGI's None cannot express; outcomes (state changes, warnings, no-ops) are otherwise conformant.",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:1255-1262 (conform_di_add_edge_dimembers, 'D8 class: the Rust core returns Ok(id)'); :2720-2733 (conform_sc_redundant_simplex, 'D8 return-channel class'); generate_fixtures.py:1361,1395"
+   },
+   {
+    "id": "D9",
+    "title": "remove_node three-mode (strong, remove_empty) semantics \u2014 registered surface, NOT a behavioral divergence; core fully conforms",
+    "xgi_runtime_behavior": "XGI's remove_node(n, strong=False, remove_empty=True) has three interacting modes: weak+remove_empty=False leaves an emptied edge in place (queryable, members==[]); weak+remove_empty=True (XGI's default) drops the emptied edge; strong=True removes EVERY incident edge regardless of remove_empty. DiHypergraph.remove_node extends this: weak drops the node from BOTH tail and head of every containing edge and removes an edge iff BOTH sides end up empty AND remove_empty; strong removes every incident edge entirely, ignoring the flag.",
+    "rust_core_behavior": "The Rust core conforms exactly on all three modes for both Hypergraph and DiHypergraph \u2014 this is registered as 'D9' in the harness not because Rust diverges, but because the three-mode API surface is subtle enough (interacting flags) to warrant a pinned conformance entry documenting that Phase 2 Task 2 implemented it correctly. No outcome divergence; owner is moot (no reconciliation needed) but documented as core-conformant behavior worth preserving in any rewrite.",
+    "owner": "both",
+    "evidence": "tests/conformance/main.rs:387-394 (conform_remove_node_remove_empty, 'register D9, implemented in Phase 2 Task 2 ... The Rust core conforms on all three modes'); :1686-1697 (conform_di_remove_node_modes, 'register D9 class')"
+   },
+   {
+    "id": "D10",
+    "title": "XGI's clear() does NOT reset the auto-id/uid counter; Rust core's clear() DOES reset it",
+    "xgi_runtime_behavior": "XGI's clear(remove_net_attr=True default) empties all nodes, edges, node/edge attrs, and net attrs, but does NOT touch `_edge_uid` \u2014 the next auto-generated id after clear() continues the pre-clear sequence (e.g. if 2 edges were added before clear, the next auto id is \"1\", not \"0\"). Same rule for DiHypergraph.clear(); DiHypergraph additionally has no clear_edges at all (see D16).",
+    "rust_core_behavior": "The Rust core's clear() RESETS `edge_uid_counter` to 0, so a cleared hypergraph is behaviorally identical to a freshly-constructed one (clear() \u2261 new()) \u2014 the post-clear next auto id is always \"0\". This is deliberate, justified by 'replay-from-empty determinism' (design principle III.7): a rewrite/replay from a cleared state should not depend on pre-clear history.",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:206-247 (diverge_d10_clear_resets_uid_counter); :2337,:2375,:2389 (DiHypergraph clear extension); generate_fixtures.py:214,1266"
+   },
+   {
+    "id": "D11",
+    "title": "XGI's add_node_to_edge never bumps _edge_uid (auto-creating a numeric edge id can silently collide/overwrite); Rust core bumps when the id parses as u64",
+    "xgi_runtime_behavior": "XGI's add_node_to_edge(edge_id, node_id) never calls update_uid_counter, even when edge_id auto-creates a brand-new edge with a numeric-looking id (e.g. \"5\"). Because the counter is untouched, a subsequent auto add_edge() reuses id 0, and since XGI's add_edge does not existence-check its auto-generated id, this SILENTLY OVERWRITES edge 5's members if the auto sequence ever collides with a numeric id created via add_node_to_edge \u2014 a footgun in XGI's runtime. DiHypergraph.add_node_to_edge has the identical omission (does not call update_uid_counter either).",
+    "rust_core_behavior": "The Rust core's add_node_to_edge bumps `edge_uid_counter` whenever the auto-created edge_id parses as u64 \u2014 extending the D3 bump rule to this method for both Hypergraph and DiHypergraph \u2014 which forecloses the collision/silent-overwrite class entirely. This is a deliberate safety-motivated divergence, not merely an outcome mismatch.",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:766-783 (diverge_d11_add_node_to_edge_numeric_bumps_counter); :1539-1560 (diverge_d11_di_add_node_to_edge_numeric_bumps_counter, 'D11-extension (DiHypergraph)'); generate_fixtures.py:341,852,855,858"
+   },
+   {
+    "id": "D12",
+    "title": "XGI's freeze() is an incomplete method-swizzle guard list (omits clear_edges, and for DiHypergraph also omits add_node_to_edge/remove_node_from_edge); Rust core's frozen flag guards ALL structural mutators uniformly",
+    "xgi_runtime_behavior": "XGI's freeze() monkey-patches a specific LIST of methods to raise when called on a frozen instance. That list omits clear_edges entirely (probed live: calling clear_edges on a frozen XGI Hypergraph is unguarded \u2014 'guarded[\"clear_edges\"]' is None, i.e. no raise occurred, and every edge is deleted). For DiHypergraph, the omission is broader: freeze's guard list also omits add_node_to_edge and remove_node_from_edge (both mutate a frozen DiHypergraph unimpeded), and clear_edges does not exist on DiHypergraph at all (see D16).",
+    "rust_core_behavior": "The Rust core's `frozen` flag is checked uniformly by EVERY structural mutator (add/remove node, add/remove edge, add_node_to_edge, remove_node_from_edge, clear, clear_edges, etc.) for both Hypergraph and DiHypergraph \u2014 calling any of them while frozen panics/errors BEFORE any mutation occurs (verified: state is untouched after the guarded call). This is characterized as fixing an implementation artifact of XGI's method-swizzling (an incomplete guard list), not reproducing an intended semantic \u2014 'a freeze that permits wholesale edge deletion [or membership surgery] is not a freeze.'",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:1105-1129 (diverge_d12_freeze_guards_clear_edges); :2523-2569 (diverge_d12_di_freeze_guards_membership_ops_and_clear_edges); generate_fixtures.py:597,1272"
+   },
+   {
+    "id": "D13",
+    "title": "XGI's freeze is per-instance method-swizzling, not carried by copy(); Rust core's frozen flag is data and IS carried by copy()",
+    "xgi_runtime_behavior": "XGI's freeze() patches methods onto the specific instance object. copy() builds a brand-new instance object that never receives that patch, so copy_of_frozen_is_frozen == False for both Hypergraph and DiHypergraph \u2014 an implementation artifact of how freeze is implemented (per-instance monkeypatching), not a designed semantic.",
+    "rust_core_behavior": "The Rust core's `frozen` field is ordinary data on the struct; copy()/clone() is a deep, value-based clone that necessarily copies every field including `frozen` \u2014 so a copy of a frozen Rust hypergraph IS frozen (copy_of_frozen_is_frozen == true, deliberately diverging from XGI). Rationale: 'a clone that silently drops immutability is a footgun the core declines to reproduce.'",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:1131-1149 (diverge_d13_copy_carries_frozen); :2571-2590 (diverge_d13_di_copy_carries_frozen, 'DiHypergraph parity'); generate_fixtures.py:602,1278"
+   },
+   {
+    "id": "D14",
+    "title": "XGI validates directed-edge member shape and direction strings at runtime (raises XGIError/TypeError); Rust core makes both compile-time-impossible via types",
+    "xgi_runtime_behavior": "XGI's DiHypergraph runtime raises XGIError \"Directed edge must be a list or tuple!\" when directed-edge members are passed as a non-list/tuple (e.g. a set), raises a raw TypeError for a flat list of ints where a (tail, head) pair was expected, and raises XGIError \"Invalid direction!\" for a bad direction string passed to add_node_to_edge/direction-taking APIs.",
+    "rust_core_behavior": "The Rust core's add_edge signature takes a typed (Vec<String>, Vec<String>) pair and direction is the closed `Direction` enum (In/Out) \u2014 both classes of XGI runtime error become COMPILE-TIME impossible in Rust; there is no runtime check because the invalid states are unrepresentable. The test's own existence (it compiles) is offered as the proof of type-level prevention. The Phase-7 Python binding must expose runtime shims that raise XGIError with XGI's exact messages, since Python callers can still pass malformed shapes dynamically.",
+    "owner": "binding",
+    "evidence": "tests/conformance/main.rs:1460-1495 (diverge_d14_members_must_be_pair); generate_fixtures.py:820,896"
+   },
+   {
+    "id": "D15",
+    "title": "Not used \u2014 no D15 divergence exists in the register",
+    "xgi_runtime_behavior": "n/a",
+    "rust_core_behavior": "n/a \u2014 the register's numbering jumps directly from D14 to D16; a repo-wide search of both harness files (main.rs and generate_fixtures.py) found zero occurrences of the token 'D15'.",
+    "owner": "both",
+    "evidence": "absence confirmed via `rg -n 'D15' tests/conformance/main.rs conformance/generate_fixtures.py` returning no matches (checked against the full conformance-lineage checkout of both files)"
+   },
+   {
+    "id": "D16",
+    "title": "DiHypergraph has no clear_edges in XGI (AttributeError via __getattr__ fallback); Rust core provides it as a deliberate API-uniformity extension",
+    "xgi_runtime_behavior": "XGI's DiHypergraph class does not define clear_edges at all. Attribute lookup falls through Python's normal attribute resolution / XGI's __getattr__ stat-fallback and raises AttributeError, with a message starting \"clear_edges is not a method of DiHypergraph\" (pinned).",
+    "rust_core_behavior": "The Rust core DELIBERATELY provides clear_edges on DiHypergraph (which does not exist in XGI) for API uniformity with the undirected Hypergraph: it removes every edge while keeping all nodes, node/edge/net attrs, and (matching the undirected core's D10 rule) does NOT reset the uid counter. It is freeze-guarded per the D12 uniform-guard rationale \u2014 this is a genuinely NEW core-only surface, not a translation of an XGI behavior, so there is no XGI outcome to be outcome-conformant with; it is pinned purely to document that the extension exists intentionally and its behavior (attr preservation, no counter reset, freeze guard) is fixed.",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:2382-2408 (diverge_d16_di_clear_edges_is_core_extension); referenced also at :2529 (D12 cross-reference: 'clear_edges does not exist at all (D16)'); generate_fixtures.py:1275"
+   },
+   {
+    "id": "D17",
+    "title": "SimplicialComplex.add_simplex treats a FALSY idx (0, \"\") as auto \u2014 Rust's Option<String> is exact (None means auto, Some(\"0\") is explicit)",
+    "xgi_runtime_behavior": "XGI's SimplicialComplex.add_simplex computes the id as `next(_edge_uid) if not idx else idx` \u2014 using Python truthiness, not an `is None` check. This means idx=0 or idx=\"\" (both falsy) are REPLACED by an auto-generated id, even though the caller explicitly supplied a (falsy) value. This is unique to SimplicialComplex: Hypergraph.add_edge and DiHypergraph.add_edge test `idx is None` (an explicit 0 or \"\" IS honored there) \u2014 SimplicialComplex is the odd one out. Pinned: after prior auto ids [5,6,7,8], add_simplex(..., idx=0) is replaced by auto id 9 (zero_idx_edges == [5,6,7,8,9]); add_simplex(..., idx=\"\") IS honored as an explicit id 0-string in one recorded case (empty_str_idx_edges == [0]), reflecting the exact `not idx` truthiness semantics being pinned precisely, falsy-value by falsy-value.",
+    "rust_core_behavior": "The Rust core's add_simplex takes idx: Option<String>. None means 'auto-generate'; Some(\"0\".to_string()) or Some(\"\".to_string()) are explicit ids and are honored exactly as given \u2014 there is no truthiness coercion, so the Rust core does NOT reproduce XGI's falsy-idx-becomes-auto quirk. This is presented as the Option<String> type being 'exact' where XGI's `not idx` check is described as an accidental artifact of Python truthiness rather than intended semantics.",
+    "owner": "core",
+    "evidence": "tests/conformance/main.rs:2877-2899 (diverge_d17_sc_falsy_idx_is_explicit); generate_fixtures.py:1506"
+   }
+  ],
+  "harness_files": [
+   {
+    "path": "crates/hypergraph-rs/tests/conformance/main.rs",
+    "lines": 2903,
+    "purpose": "Rust conformance replay test suite: loads the committed xgi_ground_truth.json fixture and replays each vector against the Rust core, asserting either full conformance (conform_* tests) or a registered/pinned divergence (diverge_d*_* tests) that pins both XGI's recorded runtime truth and Rust's deliberate differing behavior side by side."
+   },
+   {
+    "path": "crates/hypergraph-rs/conformance/generate_fixtures.py",
+    "lines": 1538,
+    "purpose": "Generator script that runs the ACTUAL installed XGI 0.10.2 runtime (never docstrings) for every scenario, recording observed outcomes (return values, exceptions/messages, warnings, resulting state) as deterministic, sorted, committed JSON \u2014 the ground-truth fixture consumed by main.rs."
+   },
+   {
+    "path": "crates/hypergraph-rs/conformance/xgi_ground_truth.json",
+    "lines": 0,
+    "purpose": "Committed 29937-byte JSON ground-truth fixture: a top-level object with 'generated_by', 'xgi_version' (0.10.2), and a 'vectors' map keyed by scenario name (e.g. add_edge_empty_creates_edge, add_edge_dup_idx_warns_noop) whose values are per-scenario dicts of recorded XGI outcomes (edge_ids, members, num_nodes/edges, return, warned, warning_prefix/message, exception, message, etc.) consumed by main.rs's vector() lookups."
+   }
+  ],
+  "notes": "Complete D1-D17 register extracted (D15 confirmed unused/absent \u2014 numbering jumps D14\u2192D16). Two recurring cross-cutting classes are heavily reused rather than being separate D-numbers: the 'D2 error-channel class' (warn+no-op vs raise vs Err, applied to ~15 different call sites across remove_edge/remove_node/remove_nodes_from/remove_edges_from/set_*_attributes/add_edges_from/add_simplex) and the 'D5 ordering class' (XGI's hash-unordered Python sets vs Rust's deterministic insertion/canonical order, applied to repr, members(), dimembers(), and SimplicialComplex closure/face enumeration). D7 (stringly-typed ID boundary / uniform bulk-API shape vs XGI's dynamic-type + multi-shape API) and D1 (docstring-vs-runtime lies about empty members) are likewise applied repeatedly across Hypergraph/DiHypergraph/SimplicialComplex without incrementing the D-number, per the harness's own convention of citing 'no new D-number \u2014 same class' inline.\n\nOwnership pattern observed: divergences where the Rust core is STRICTLY MORE DEFINED/SAFE than XGI (D3, D4, D5, D8, D10, D11, D12, D13, D16, D17, and D1's runtime-truth resolution) are core-owned \u2014 the core's behavior is the intended, permanent design and is NOT expected to be undone by any future binding. Divergences that exist because the core cannot see the full dynamically-typed Python surface (D2's warn/raise channel, D6's dict-merge, D7's id-typing and multi-shape bulk APIs, D14's runtime-vs-type-level validation) are binding-owned: the harness explicitly assigns these to 'the Phase-7 PyO3 binding' to translate/shim, and the core is described as 'allowed to differ' on these axes. D9 is not a divergence at all \u2014 it is a registered conformance surface (three-mode remove_node semantics) where the core matches XGI exactly; it appears in the register only because the interacting-flags surface area was subtle enough to warrant a pinned, executable specification."
+ },
+ "coreDiff": {
+  "differences": [
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::add_edge / EdgeError::EmptyMembers",
+    "main_behavior": "add_edge rejects an empty members list with Err(EdgeError::EmptyMembers).",
+    "lineage_behavior": "add_edge has no empty check; an empty members list succeeds and creates a zero-member edge (matches XGI 0.10.2 runtime; XGI docstring claim of XGIError is documented as wrong).",
+    "register_id": "D1",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/error.rs",
+    "symbol": "EdgeError enum",
+    "main_behavior": "Variants: NotFound, AlreadyExists, EmptyMembers, TooFewEdges (TooFewEdges is Phase-3, not comparable).",
+    "lineage_behavior": "Variants: NotFound, AlreadyExists only. No EmptyMembers (D1 consequence); no TooFewEdges (random_edge_shuffle predates Phase 3).",
+    "register_id": "D1",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/error.rs",
+    "symbol": "NodeError / MembershipError enums",
+    "main_behavior": "NodeError has NotFound{node_id} and EdgeNotFound{edge_id}, no PartialEq. No MembershipError type. remove_node_from_edge overloads NodeError::NotFound for all 3 failure branches, reusing node_id for a hand-formatted composite message.",
+    "lineage_behavior": "NodeError shrinks to NotFound{node_id} + derive(PartialEq). New MembershipError enum (EdgeNotFound, NodeNotFound, NotAMember) for remove_node_from_edge with distinct XGI-matching messages per branch.",
+    "register_id": "D2",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::remove_node_from_edge",
+    "main_behavior": "Returns Result<(), NodeError>; missing-edge and not-a-member both signaled via NodeError::NotFound with different ad hoc strings.",
+    "lineage_behavior": "Returns Result<(), MembershipError> using the three dedicated variants.",
+    "register_id": "D2",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::add_node (existing id)",
+    "main_behavior": "Returns false, leaves existing attrs untouched (passed attrs dropped).",
+    "lineage_behavior": "Returns false but replaces stored attrs with the new ones (XGI dict-merge semantics; binding does the merge).",
+    "register_id": "D6",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/dihypergraph.rs",
+    "symbol": "DiHypergraph::add_node (existing id)",
+    "main_behavior": "Returns false, leaves existing attrs untouched.",
+    "lineage_behavior": "Returns false but replaces stored attrs (same D6 rule).",
+    "register_id": "D6",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::remove_node",
+    "main_behavior": "remove_node(node_id, strong) -> Result<(), NodeError>; no remove_empty param, weak mode always drops emptied edges.",
+    "lineage_behavior": "remove_node(node_id, strong, remove_empty) -> Result<(), NodeError>; remove_empty is caller-controlled, false can leave an emptied edge in place.",
+    "register_id": "D9",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::clear",
+    "main_behavior": "Does NOT reset edge_uid_counter or frozen; docstring argues this matches raw XGI (which never touches _edge_uid in clear()).",
+    "lineage_behavior": "Resets edge_uid_counter to 0 and frozen to false (clear() == new()); docstring calls this an INTENTIONAL divergence from XGI, pinned by the lineage's own conformance tests under D10.",
+    "register_id": "D10",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/dihypergraph.rs",
+    "symbol": "DiHypergraph::clear",
+    "main_behavior": "Does not reset edge_uid_counter or frozen.",
+    "lineage_behavior": "Resets both (D10 extended to DiHypergraph).",
+    "register_id": "D10",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::copy - frozen flag",
+    "main_behavior": "copy() hardcodes frozen: false regardless of self.frozen.",
+    "lineage_behavior": "copy() carries frozen: self.frozen (D13: frozen is data, a deep clone should carry it, unlike XGI's per-instance method-swizzling freeze).",
+    "register_id": "D13",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/dihypergraph.rs",
+    "symbol": "DiHypergraph::copy - frozen flag",
+    "main_behavior": "copy() hardcodes frozen: false.",
+    "lineage_behavior": "copy() carries frozen: self.frozen (D13 extended).",
+    "register_id": "D13",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "assert_not_frozen panic message",
+    "main_behavior": "panic message: \"Frozen hypergraph can't be modified\"",
+    "lineage_behavior": "panic message: \"Frozen higher-order network can't be modified\" - matches XGI's exact XGIError text for binding reproduction.",
+    "register_id": "D2",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::remove_nodes_from",
+    "main_behavior": "remove_nodes_from(&[String]), no return; calls remove_node(nid, false) per id, silently discards any Err.",
+    "lineage_behavior": "remove_nodes_from(impl IntoIterator<Item=String>, strong, remove_empty) -> Vec<Result<(), NodeError>>; owns ids, exposes strong/remove_empty, returns per-item results for the binding to warn on.",
+    "register_id": "UNREGISTERED",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::remove_edges_from",
+    "main_behavior": "remove_edges_from(&[String]), no return; iterates all ids, silently discards Err, never stops early.",
+    "lineage_behavior": "remove_edges_from(impl IntoIterator<Item=String>) -> Vec<Result<(), EdgeError>>; stops at first Err, reproducing XGI's raise-on-first-missing partial-effects behavior.",
+    "register_id": "UNREGISTERED",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::add_node_to_edge",
+    "main_behavior": "Returns Result<(), EdgeError> but every path is Ok(()) - dead Err variant. Counter-bump-on-numeric-id logic (D11) present, identical to lineage.",
+    "lineage_behavior": "Returns () (infallible), matching XGI's always-None return. Same D11 rule (not itself a divergence).",
+    "register_id": "UNREGISTERED",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/hypergraph.rs",
+    "symbol": "Hypergraph::memberships / members ordering",
+    "main_behavior": "Computed via self.inner.neighbors(idx), petgraph-internal order - not guaranteed insertion order.",
+    "lineage_behavior": "Iterate insertion-ordered id maps directly - guaranteed insertion order, 'strictly more defined than XGI's unordered set'.",
+    "register_id": "D5",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/dihypergraph.rs",
+    "symbol": "DiHypergraph representation and ordering",
+    "main_behavior": "DiMembershipEdge<M> with role: DiRole field, arcs always Agent->Hyperedge; tail/head via edges_directed graph-internal order matched on role. members() sorts alphabetically via BTreeSet.",
+    "lineage_behavior": "Direction encoded structurally as arc direction on plain MembershipEdge<M> (no role field): tail=arc agent->edge, head=arc edge->agent. All accessors iterate insertion-ordered id maps directly (D5), no incidental sort.",
+    "register_id": "D5",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/kinds.rs",
+    "symbol": "DiRole/DiMembershipEdge<M> vs Direction",
+    "main_behavior": "enum DiRole{Tail,Head}, serializes as \"Tail\"/\"Head\" (no rename); struct DiMembershipEdge<M>{member_data,role} distinct edge-weight type.",
+    "lineage_behavior": "enum Direction{In,Out} with serde rename_all=lowercase, serializes as \"in\"/\"out\" matching XGI's own strings byte-for-byte. DiMembershipEdge eliminated; DiHypergraph reuses plain MembershipEdge<M>. Makes XGI's 'Invalid direction!' runtime error compile-time-impossible.",
+    "register_id": "D14",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/dihypergraph.rs",
+    "symbol": "DiHypergraph::add_node_to_edge",
+    "main_behavior": "add_node_to_edge(edge_id, node_id, role: DiRole) -> Result<(), EdgeError> (always Ok).",
+    "lineage_behavior": "add_node_to_edge(edge_id, node_id, direction: Direction) (infallible, returns ()), matching XGI's always-None return.",
+    "register_id": "D14",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/dihypergraph.rs",
+    "symbol": "DiHypergraph::remove_node_from_edge",
+    "main_behavior": "Returns Result<(), NodeError>, role: DiRole param. Missing-edge uses NodeError::EdgeNotFound; not-a-member reuses NodeError::NotFound with a hand-formatted message.",
+    "lineage_behavior": "Returns Result<(), MembershipError>, direction: Direction param, using the three dedicated variants with XGI-matching per-direction messages.",
+    "register_id": "D2",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/dihypergraph.rs",
+    "symbol": "DiHypergraph API surface gap",
+    "main_behavior": "No node_attrs, edge_attrs, node_attrs_mut, edge_attrs_mut, graph_attr, set_graph_attr, add_nodes_from, add_edges_from, remove_nodes_from, remove_edges_from, clear_edges, set_node_attributes, set_edge_attributes exist (confirmed via grep).",
+    "lineage_behavior": "All of the above exist: add_edges_from takes uniform (tail,head,idx,attrs) quadruples; remove_nodes_from is three-mode (D9); remove_edges_from stops at first Err; clear_edges added for API uniformity though XGI's DiHypergraph has none at all (D16, AttributeError at runtime in XGI).",
+    "register_id": "D16",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/dihypergraph.rs",
+    "symbol": "DiHypergraph::freeze guard coverage",
+    "main_behavior": "assert_not_frozen guards add_node, add_edge, remove_edge, remove_node, remove_node_from_edge, clear. No clear_edges to guard.",
+    "lineage_behavior": "Documents (D12 extended) that XGI's DiHypergraph freeze list omits add_node_to_edge and remove_node_from_edge (both mutate a frozen XGI DiHypergraph unimpeded), yet the core still guards both plus the added clear_edges uniformly - intentional over-guarding vs XGI.",
+    "register_id": "D12",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/simplicialcomplex.rs",
+    "symbol": "SimplicialComplex::add_simplex return type",
+    "main_behavior": "Returns Result<(), SimplexError>. Re-adding an existing member set, or any duplicate idx, returns Ok(()) - silently discards the resulting/existing id ('deviation #5'). SimplexError{NotAvailable,NotFound} used only here.",
+    "lineage_behavior": "Returns Result<String, EdgeError>. Re-adding an existing member set returns Ok(existing_id), even discarding a newly supplied idx (D8: XGI returns None always, core returns Ok(id) uniformly). Duplicate idx with a DIFFERENT member set propagates Err(EdgeError::AlreadyExists) via '?' rather than being swallowed. No SimplexError type exists.",
+    "register_id": "D8",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/simplicialcomplex.rs",
+    "symbol": "SimplicialComplex::add_simplex - empty members",
+    "main_behavior": "Empty member set returns Ok(()) immediately, nothing created ('cannot add empty simplices').",
+    "lineage_behavior": "Empty members not special-cased; falls through to inner.add_edge which (per D1) succeeds, creating an empty simplex.",
+    "register_id": "D1",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/simplicialcomplex.rs",
+    "symbol": "SimplicialComplex::add_edge / remove_edge stub pattern",
+    "main_behavior": "add_edge and remove_edge are defined public methods that always return Err(SimplexError::NotAvailable{..}) at runtime.",
+    "lineage_behavior": "add_edge, remove_edge, add_edges_from, add_weighted_edges_from, add_node_to_edge are ABSENT from the type entirely - calling them is a compile error, not a runtime Err (D15).",
+    "register_id": "D15",
+    "api_breaking": true
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/simplicialcomplex.rs",
+    "symbol": "SimplicialComplex API surface gap",
+    "main_behavior": "No memberships(), graph_attr(), set_graph_attr() methods.",
+    "lineage_behavior": "memberships(node_id), graph_attr(key), set_graph_attr(key,value) all exist as thin delegates to the wrapped Hypergraph.",
+    "register_id": "UNREGISTERED",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/simplicialcomplex.rs",
+    "symbol": "FaceLattice/close/remove_simplex_id/add_simplices_from - main-only",
+    "main_behavior": "Adds FaceLattice (OnceCell-cached), close(), remove_simplex_id(), remove_simplex_ids_from(), add_simplices_from().",
+    "lineage_behavior": "None of this exists; lineage's own comment calls the face-lattice cache 'a deferred optimization (YAGNI until profiling)', anticipating this main-side addition without conflict.",
+    "register_id": "N/A main-only addition",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/core/mod.rs",
+    "symbol": "module exports views/globalviews - main-only",
+    "main_behavior": "pub mod globalviews; pub mod views; both present.",
+    "lineage_behavior": "Neither module/file exists at all in the conformance-lineage tree (git show: fatal, path not in conformance-lineage). Lineage predates Phase 3.",
+    "register_id": "N/A main-only addition",
+    "api_breaking": false
+   },
+   {
+    "file": "crates/hypergraph-rs/src/lib.rs",
+    "symbol": "crate root exports",
+    "main_behavior": "Exports algorithms/linalg/generators/stats/readwrite (Phase 3/4, not comparable) plus EdgeError,NodeError,SimplexError,SwapError; Hypergraph,MergeRename,MergeRule; DiMembershipEdge,DiRole,MembershipEdge,NodeKind; FaceLattice,SimplicialComplex; EdgeView,FilterMode,NodeView; subhypergraph. MembershipError is NOT exported (does not exist).",
+    "lineage_behavior": "Exports only pub mod core, plus EdgeError,MembershipError,NodeError; Hypergraph; Direction,MembershipEdge,NodeKind; SimplicialComplex.",
+    "register_id": "D2/D14 combined at export level",
+    "api_breaking": true
+   }
+  ],
+  "notes": "Ran git diff main conformance-lineage on the scoped core files plus lib.rs, then read main's core/{hypergraph,dihypergraph,simplicialcomplex,error,kinds,mod}.rs and src/lib.rs in full via Read, and lineage equivalents via git show conformance-lineage:<path>. Cross-referenced claimed divergences against '// D<N>:' comments in the lineage's tests/conformance/main.rs to assign register IDs; marked UNREGISTERED where a real difference had no anchoring comment. core/views.rs and core/globalviews.rs exist ONLY on main (git show against conformance-lineage returns 'fatal: path exists on disk, but not in conformance-lineage') - these are Phase-3 main-only additions per task instructions, not differences to adopt, noted only as such. Likewise Hypergraph::skeleton/dual/cleanup/cleaned/merge_duplicate_edges/double_edge_swap/random_edge_shuffle/node_neighbors/node_degree/edge_size, MergeRename/MergeRule/SwapError, and SimplicialComplex's FaceLattice/close/remove_simplex_id/remove_simplex_ids_from/add_simplices_from are main-only Phase-3-or-later additions absent from the pre-Phase-3 lineage snapshot; only surfaced at the exports level. Single most load-bearing finding: Hypergraph::clear()'s counter-reset policy (D10) is a direct policy conflict, not a gap - main's docstring gives an explicit reasoned case for NOT resetting (matching raw XGI), while the lineage's register explicitly rules the opposite (reset, diverging from XGI on purpose) and pins it with its own conformance test. The reconciliation mandate says the register wins 'unless a main review explicitly ruled otherwise' - main's docstring is exactly such an explicit ruling, just the opposite one, so this needs a human/orchestrator decision, not a mechanical merge. Also notable: SimplicialComplex's add_edge/remove_edge blocked-method pattern (D15) is a genuine architectural fork - main chose always-Err runtime stub methods, lineage chose absent-at-the-type-level (compile-time prevention); reconciling means either deleting main's stub methods (breaking code matching on SimplexError::NotAvailable) or the type-level omission never lands. D3/D4/D7 (uid-counter parsing rules, add_edges_from format tolerance) appear in lineage docstrings but main's code paths are already behaviorally identical, so not listed as divergences."
+ },
+ "ripple": {
+  "dependencies": [
+   {
+    "caller_file": "crates/hypergraph-rs/src/core/globalviews.rs",
+    "core_api": "add_edge (via subhypergraph, line 45-47)",
+    "usage": "subhypergraph() explicitly gates edge re-insertion with `if !members.is_empty() && members.iter().all(|m| node_set.contains(m))` before calling `new.add_edge(members, ...)`.",
+    "risk_if_changed": "If the lineage adopts D1 (XGI allows empty edges), this filter silently DROPS legitimately-empty edges that survived the node/edge selection \u2014 a real semantic divergence from XGI's subhypergraph, which would keep an empty edge if it was in the requested edge set. This is the single sharpest, already-existing empty-edge assumption in the later-phase code; it is not just a defensive `unwrap_or_default()`, it is an intentional exclusion that must be revisited if empty edges become first-class."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/linalg/laplacian.rs",
+    "core_api": "incidence_matrix / column sums (edge sizes) in normalized_hypergraph_laplacian",
+    "usage": "`de = inc.sum_axis(Axis(0))` (edge-size vector) is inverted directly via `de.mapv(|x| 1.0 / x)` with no zero-check, unlike the analogous per-node isolated check a few lines above.",
+    "risk_if_changed": "If empty edges (size 0) become constructible and are NOT filtered out by callers, `de[j] == 0` produces `1.0/0.0 = inf`, silently poisoning the whole Laplacian with Inf/NaN \u2014 no error path exists for this case (only isolated NODES are checked, not empty EDGES). This is a genuine correctness hole that D1 would expose."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/algorithms/properties.rs",
+    "core_api": "edge_size(e) via num_edges_order/unique_edge_sizes/incidence_density/density",
+    "usage": "`edge_size` results are used directly as `Some(order+1)` comparisons and summed as `numer`; a size-0 edge would just contribute size 0 to `numer` and count under order `usize::MAX`-safe (order=size-1 would underflow only via `saturating_sub`, which is used at line 214, but NOT at line 15/28/48 which use raw `Option` equality/max \u2014 those are safe since order+1>=1 never matches 0).",
+    "risk_if_changed": "Mostly benign \u2014 the `Option`-based comparisons naturally exclude size-0 edges from any `order`-filtered count without erroring, so empty edges become invisible/uncounted in `num_edges_order`, `unique_edge_sizes`, `is_uniform`, and the `order` branch of `density`/`incidence_density`. Semantically this means D1-adopted empty edges would silently vanish from all order-based edge statistics rather than surfacing as order `-1` or a distinct case \u2014 worth an explicit decision on whether XGI's own semantics treat order for empty edges specially."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/algorithms/assortativity.rs",
+    "core_api": "unique_edge_sizes / edge members via degrees()/pair iteration",
+    "usage": "`degree_assortativity_exact` and `dynamical_assortativity` iterate `h.members(&e).unwrap_or_default()` and build all pairs `(a,b)` for `a in 0..len, b in a+1..len`; guarded by `if members.len() > 1` in the exact variant, and singleton-edges rejected via `HasSingletons` in the dynamical variant.",
+    "risk_if_changed": "Low risk for empty edges specifically (0-length members produces zero pairs, loop is a no-op) \u2014 but the `HasSingletons` check only tests `unique_edge_sizes(h).contains(&1)`; if D1 makes empty (size-0) edges legal, they're NOT rejected by any equivalent `HasEmptyEdges` guard, so `dynamical_assortativity`'s degree-sum/pair-product math would proceed over a hypergraph containing empty edges without error (silently degenerate, not necessarily wrong, but untested)."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/algorithms/simpliciality.rs",
+    "core_api": "h.edge_size(e), h.members(&e), FaceSet powerset/subface logic",
+    "usage": "`simplicial_edit_distance` filters candidate edges by `h.edge_size(e).map(|sz| sz >= min_size).unwrap_or(false)`; `FaceSet::build` inserts `h.members(&e).unwrap_or_default()` (empty vec) as a legitimate 'face'; `powerset()` on an empty edge (`n=0`) trivially returns `[[]]` when `min_size==0`.",
+    "risk_if_changed": "If empty edges become legal and `min_size` is ever called with 0, an empty edge would register as both a 'face' in FaceSet and contribute to `count_missing_subfaces`/`is_simplex` computations in ways never exercised by current tests \u2014 untested edge case that could silently alter simpliciality scores rather than erroring."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/generators/classic.rs",
+    "core_api": "add_edge (discarded Result via `let _ = h.add_edge(...)`)",
+    "usage": "`complete_hypergraph` and `complement` both call `let _ = h.add_edge(members, None, Value::Null)` for every constructed combination, discarding any Result/Err entirely; comment at line 98 notes 'Non-empty by construction; auto-id.'",
+    "risk_if_changed": "These generators rely on their own combinatorics to guarantee non-empty `members`, so they don't currently hit `EdgeError::EmptyMembers`. But because errors are silently swallowed (`let _ =`), if the lineage changes ANY other add_edge error condition (e.g. auto-id counter collisions, a new frozen-state check, or a new `TooFewEdges`-style validation), a partial/incorrect hypergraph could be built with no compile-time or runtime signal \u2014 these callers have zero error-handling to adapt if the Result's error set grows."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/generators/simple.rs",
+    "core_api": "add_edge (discarded Result)",
+    "usage": "`star_clique` and `sunflower` both discard `add_edge`'s Result the same way as classic.rs, for star legs, star-to-clique connector, clique hyperedges, and sunflower petals.",
+    "risk_if_changed": "Same class of risk as classic.rs: silent swallowing of any new error variant introduced by the lineage's add_edge changes. `sunflower` additionally computes `petal = m - c` (could be 0, producing an edge of exactly `core` members \u2014 never empty since `c >= ... ` isn't checked to be >0, so `c == 0` and `m == 0` would create a fully empty-members edge on the very first call) \u2014 worth flagging: `sunflower(l, 0, 0)` is not rejected by the current parameter validation (`if m < c` only), so it is a concrete path that WOULD currently return `EdgeError::EmptyMembers` (swallowed) but would silently succeed and create empty edges under D1 semantics."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/generators/lattice.rs",
+    "core_api": "add_edge (discarded Result)",
+    "usage": "`ring_lattice` discards `add_edge`'s Result for every `(node, start)` pair; `d` is validated `>=1` so `members` always has >=1 element after the loop.",
+    "risk_if_changed": "Same discarded-Result risk class as above; low practical impact here since `d>=1` is enforced, but any future change to add_edge's error surface is invisible to this caller."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/core/simplicialcomplex.rs",
+    "core_api": "inner.add_edge / inner.remove_edge (discarded Results throughout add_simplex/close/remove_simplex_id)",
+    "usage": "`add_simplex` explicitly short-circuits `if set.is_empty() { return Ok(()); }` before ever calling `add_edge`, and every subsequent `inner.add_edge`/`inner.remove_edge` call discards its Result with `let _ =`.",
+    "risk_if_changed": "The explicit empty-set guard means SimplicialComplex itself is unaffected by D1 (it already refuses empty simplices, matching XGI's own skip-empty semantics per the code comment). But every downstream `add_edge`/`remove_edge` call ignores its Result, so if the lineage changes error variants (EdgeError::TooFewEdges, a new frozen-check panic vs Result, etc.) these call sites give no visibility into failures \u2014 `remove_simplex_id`/`remove_simplex_ids_from` in particular assume every `remove_edge` call it makes succeeds."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/algorithms/centrality.rs",
+    "core_api": "clique_motif_matrix / adjacency_matrix (via linalg)",
+    "usage": "`katz_centrality` and `clique_eigenvector_centrality` both build the clique-motif matrix and rely on `is_connected(h)`/`num_edges()==0` short-circuits before doing any matrix math; the katz correctness comment (lines 24-32) is an explicit non-negativity proof that assumes `A` has no negative entries and accumulates strictly non-negative contributions given `m>=1` edges.",
+    "risk_if_changed": "If D1 allows edges with 0 members to count toward `num_edges()>0` while contributing nothing to the incidence/adjacency matrix (all-zero rows/cols for that edge), the katz non-negativity proof at lines 24-32 still holds (empty edges contribute zero, not negative), so this is LOW risk \u2014 but the proof's stated precondition ('with `m >= 1` and `alpha > 0`... `mat` accumulates strictly non-negative contributions from `A`') implicitly assumes at least one edge has >=1 member; a hypergraph with `num_edges()==1` and that one edge empty would bypass the `m==0` short-circuit yet produce an all-zero `A`, making `c` all-zero and hitting the `norm != 0.0` guard (correctly handled) \u2014 so this is actually safe, but the code comment's proof text would need a footnote if D1 lands."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/src/core/views.rs",
+    "core_api": "members(edge_id)/size(edge_id) via EdgeView::order/singletons/empty/duplicates/lookup/maximal",
+    "usage": "`EdgeView::order()` computes `self.size(edge_id).saturating_sub(1)` with a comment 'Saturates at 0 (our edges are never empty in normal use)'; `EdgeView::empty()` is already implemented as `filterby_size(0, FilterMode::Eq)`, i.e. the API already has a slot for empty edges.",
+    "risk_if_changed": "Low/no risk to correctness (the `saturating_sub` already defends against underflow, and `.empty()` already exists as a filter) \u2014 but the doc comment's claim that edges are 'never empty in normal use' becomes stale/misleading once D1 empty edges are adopted, and `.empty()`'s current behavior (silently returning 0 matches today) should be re-verified against real empty-edge fixtures once reconciliation lands, since it is presently untested (no test file constructs an edge with 0 members via the public API \u2014 `add_edge(vec![], ...)` currently errors, per test_hypergraph.rs:101-106)."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/tests/test_hypergraph.rs",
+    "core_api": "EdgeError::EmptyMembers, EdgeError::AlreadyExists, EdgeError::NotFound, NodeError::NotFound, remove_node(weak/strong), remove_node_from_edge(remove_empty bool), clear_edges, freeze/is_frozen",
+    "usage": "Directly asserts the CURRENT contract: `add_edge(vec![], ...)` returns `Err(EdgeError::EmptyMembers)` (line 101-106); `remove_node(id, strong: bool)` two-arg signature (weak removes node from edges, deletes resulting singleton-turned-empty edges implicitly per test_remove_node_weak_removes_singleton_edges; strong deletes all containing edges) (lines 261-312); `remove_node_from_edge(edge_id, node_id, remove_empty: bool)` three/four-arg signature with an explicit `remove_empty` toggle that either deletes the edge when it becomes empty or keeps it non-deleted-but-empty (lines 694-722) \u2014 i.e. THIS crate's `Hypergraph` already supports empty edges existing transiently, just not being creatable via `add_edge` directly; freeze()/is_frozen() guard mutation via panic (not Result) (lines 828-840).",
+    "risk_if_changed": "This is the authoritative behavioral contract file for exactly the hotspots named in the task. If reconciliation (a) changes `EdgeError` variants, `test_add_edge_empty_members_returns_error` breaks at the type level; (b) makes `add_edge` ACCEPT empty members (per D1), this test's core assertion inverts and must be rewritten, and downstream code that currently treats 'add_edge succeeded' as 'edge is non-empty' (globalviews.rs, generators, simplicialcomplex.rs `let _ =` sites) all inherit a new invariant they don't check for; (c) if `remove_node`/`remove_node_from_edge` signatures change (e.g. gaining a `remove_empty` default or a new error type replacing bool flags), every one of these ~10 tests needs a signature update, and the DiHypergraph mirror tests (test_dihypergraph.rs) need the same treatment kept in lockstep."
+   },
+   {
+    "caller_file": "crates/hypergraph-rs/tests/test_dihypergraph.rs",
+    "core_api": "EdgeError::EmptyMembers, EdgeError::AlreadyExists, remove_node(strong,keep?), remove_node_from_edge(edge,node,role,remove_empty), is_frozen",
+    "usage": "Mirrors test_hypergraph.rs's contract for the directed variant: `EdgeError::EmptyMembers` on empty-member add_edge (line 68), `remove_node(\"1\", strong_bool, keep_bool)` \u2014 note THIS is a 3-arg call (`dh.remove_node(\"1\", false, true)`) vs the base Hypergraph's 2-arg `remove_node(id, strong)`, and `remove_node_from_edge(edge, node, DiRole::Tail, remove_empty_bool)` \u2014 an extra `DiRole` parameter not present on the base hypergraph.",
+    "risk_if_changed": "Two structurally different signatures for what the task description calls a single 'remove_node(strong) signature possibly gaining remove_empty' hotspot \u2014 DiHypergraph already HAS a remove_empty-shaped 3rd/4th bool parameter that base Hypergraph's `remove_node` lacks (base only takes `strong`). If reconciliation unifies these APIs (e.g. giving base Hypergraph::remove_node a matching keep/remove_empty flag), the base and Di variants will need coordinated signature changes, and every call site across both test files must be updated together to avoid one drifting out of sync with the other."
+   }
+  ],
+  "notes": "Scope covered: all files listed in the task (algorithms/*.rs, linalg/*.rs, generators/*.rs \u2014 random.rs/uniform.rs/simplicial.rs are still empty stub files with only doc comments, so no dependencies to report there \u2014 stats/mod.rs, core/views.rs, core/globalviews.rs, core/simplicialcomplex.rs, and all crates/hypergraph-rs/tests/*.rs).\n\nOverall picture: main's later-phase code is defensively written around the CURRENT invariant that add_edge rejects empty member lists \u2014 nearly every algorithm/linalg site uses `.unwrap_or_default()` on `members()`/`memberships()` which degrades gracefully to empty Vec/HashSet either way, so raw panics from D1's empty-edge allowance are unlikely. The real risks cluster in three places: (1) core/globalviews.rs's subhypergraph() ACTIVELY FILTERS OUT empty edges by intent (`!members.is_empty()`), which would become an incorrect divergence from XGI if D1 lands \u2014 this is the highest-confidence, most concrete finding; (2) linalg/laplacian.rs's normalized_hypergraph_laplacian divides by edge-size (`1.0/de[j]`) with zero protection only on the NODE side, not the edge side \u2014 a latent Inf/NaN hazard that D1 would newly expose; (3) stats/mod.rs itself has NO dependency on the core hotspots at all \u2014 it's a pure generic `Stat<T>` wrapper with no coupling to EdgeError/NodeError/add_edge semantics, so it is unaffected by reconciliation.\n\ntest_hypergraph.rs and test_dihypergraph.rs are the two files that encode the CURRENT contract as executable assertions and will need the most coordinated rewriting \u2014 notably the base Hypergraph::remove_node(id, strong) is a 2-arg call while DiHypergraph::remove_node(id, strong, keep) is 3-arg, so \"remove_node(strong) possibly gaining remove_empty\" is not a uniform hotspot: DiHypergraph already has an analogous flag under a different name/position that base Hypergraph lacks entirely.\n\nDid not modify any files, run cargo, or switch branches, per instructions. Did not read the conformance-lineage orphan branch content itself (D1-D17 register) \u2014 this report is purely a main-branch dependency map as requested; cross-referencing against the actual lineage diffs is a follow-up step for whoever performs the reconciliation."
+ },
+ "testsMap": {
+  "lineage_only_tests": [
+   "Hypergraph: test_add_edge_three_empty_edges_get_auto_ids (empty edges get sequential auto ids 0,1,2)",
+   "Hypergraph: test_members_insertion_order / test_memberships_insertion_order (explicit D5 determinism pins, not just .contains() checks)",
+   "Hypergraph: test_add_node_existing_replaces_attrs (D6 \u2014 re-add REPLACES attrs wholesale, pinned with exact json equality)",
+   "Hypergraph: test_add_node_to_edge_is_infallible (pins the () return type explicitly, Phase 2 Task 1)",
+   "Hypergraph: test_remove_node_from_edge_missing_edge/node/not_a_member_returns_error (pins exact MembershipError::{EdgeNotFound,NodeNotFound,NotAMember} variants + Display strings, not just is_err())",
+   "Hypergraph: test_clear_edges_continues_uid_counter (D10 contrast \u2014 clear_edges does NOT reset the id counter, unlike clear())",
+   "Hypergraph: test_freeze_guards_all_structural_mutators (exhaustive: add_node, add_nodes_from, add_edge, add_edges_from, remove_node, remove_nodes_from, remove_edge, remove_edges_from, add_node_to_edge, remove_node_from_edge, clear, clear_edges \u2014 main only tests add_node)",
+   "Hypergraph: test_freeze_leaves_attr_channel_open (freeze does NOT guard set_node_attributes/set_edge_attributes/set_graph_attr)",
+   "Hypergraph: test_copy_of_frozen_is_frozen (D13 \u2014 copy() carries the frozen flag; XGI's swizzle-based freeze does not)",
+   "Hypergraph: test_debug_format_matches_xgi_repr / test_debug_format_empty / test_debug_format_empty_edge_and_lonely_node (exact string equality, not substring .contains())",
+   "Hypergraph: test_remove_node_weak_remove_empty_false_keeps_emptied_edge (D9 \u2014 3-arg remove_node with remove_empty=false leaves emptied edge alive)",
+   "Hypergraph: test_remove_node_strong_ignores_remove_empty_false (strong mode ignores the remove_empty flag entirely)",
+   "Hypergraph: test_remove_nodes_from_missing_per_item_err_continues / _remove_empty_false_passthrough / _strong_passthrough (bulk remove_nodes_from with strong+remove_empty flags, per-item Result<_,NodeError>, CONTINUES past a missing id)",
+   "Hypergraph: test_remove_edges_from_missing_stops_after_first_err (bulk remove_edges_from returns Vec<Result> and STOPS after the first missing id \u2014 partial-effects semantics)",
+   "DiHypergraph: entire file uses a different API surface than main's (see conflicts) \u2014 if kept, still worth grafting: add_node_returns_bool_and_replaces_attrs (D6), empty_directed_edge_is_allowed (D1 for directed), direction_enum_serializes_lowercase (serde spelling pin), dimemberships_is_in_out_order + queries_are_insertion_ordered_under_interleaved_adds (D5 pins), add_node_to_edge_autocreates_edge_and_node + _numeric_id_bumps_counter + _set_semantics_and_both_directions, remove_node_from_edge_emptied_means_both_sides (directed 'emptied' = both tail AND head empty), remove_edges_from_per_item_stops_after_err, remove_nodes_from_per_item_continues_past_missing, clear_resets_everything_and_counter (D10) vs clear_edges_keeps_nodes_and_counter (D16 \u2014 XGI has no clear_edges on DiHypergraph at all), freeze_guards_all_structural_mutators, copy_is_independent_and_carries_counter_and_frozen (D13), debug_formats_dimembers_in_insertion_order (exact string), partial_eq_is_direction_aware / partial_eq_attrs_and_ids_significant",
+   "SimplicialComplex: add_simplex_four_simplex_has_sizes_two_and_three_only (exact canonical face-id ordering for a 4-simplex, 11 total edges)",
+   "SimplicialComplex: redundant_add_returns_existing_id_silently (D8 \u2014 re-adding an existing member set, even with a NEW explicit idx, silently returns the existing id; idx is not consumed)",
+   "SimplicialComplex: dup_idx_with_different_members_errors (same idx, different members -> Err(EdgeError::AlreadyExists))",
+   "SimplicialComplex: empty_simplex_is_created (D1-class \u2014 XGI docstring claims empty simplices are rejected; runtime creates one; second empty add is a no-op returning the same id)",
+   "SimplicialComplex: attrs_land_only_on_the_top_simplex (subfaces get Null/empty attrs, only the top simplex keeps caller-supplied attrs)",
+   "SimplicialComplex: uid_counter_rules_match_the_core (explicit numeric-string idx bumps the counter, faces consume the post-bump sequence; non-numeric idx does not bump)",
+   "SimplicialComplex: falsy_idx_is_explicit_in_rust (D17 \u2014 XGI treats falsy idx like 0/'' as auto; Option<String> semantics make Some(\"0\") explicit, diverging deliberately)",
+   "SimplicialComplex: has_simplex_is_member_set_comparison / missing_id_queries_return_none (systematic None-on-missing coverage across all query methods)"
+  ],
+  "conflicting_tests": [
+   {
+    "behavior": "Hypergraph::add_edge with an empty member list",
+    "main_asserts": "test_add_edge_empty_members_returns_error: returns Err(EdgeError::EmptyMembers)",
+    "lineage_asserts": "test_add_edge_empty_members_creates_empty_edge: succeeds, creates an empty edge with auto id '0', num_edges()==1, num_nodes()==0 \u2014 explicitly justified as XGI 0.10.2 RUNTIME ground truth (divergence register D1), contradicting the docstring-derived assumption main's error variant encodes"
+   },
+   {
+    "behavior": "DiHypergraph::add_edge with both tail and head empty",
+    "main_asserts": "test_dihypergraph_add_edge_both_empty_errors: returns Err(EdgeError::EmptyMembers)",
+    "lineage_asserts": "empty_directed_edge_is_allowed: succeeds, creates an empty (tail=[], head=[]) edge \u2014 same D1-class runtime-vs-docstring divergence extended to the directed core"
+   },
+   {
+    "behavior": "Hypergraph::remove_node signature/arity",
+    "main_asserts": "2-arg form: remove_node(id, strong) -> Result<(), NodeError>; no way to control whether an emptied edge is dropped",
+    "lineage_asserts": "3-arg form: remove_node(id, strong, remove_empty) -> Result<(), NodeError>; remove_empty=false explicitly keeps an emptied edge alive (test_remove_node_weak_remove_empty_false_keeps_emptied_edge) \u2014 this is the exact 3-arg shape main's own DiHypergraph::remove_node already uses, so main's undirected core is internally inconsistent with itself here"
+   },
+   {
+    "behavior": "Hypergraph::add_node_to_edge return type",
+    "main_asserts": "returns Result<(), EdgeError> (tests call .unwrap())",
+    "lineage_asserts": "test_add_node_to_edge_is_infallible: returns () directly \u2014 XGI's add_node_to_edge auto-creates a missing edge/node with no error path; the Result wrapper is called 'vestigial' and removed"
+   },
+   {
+    "behavior": "Hypergraph::remove_nodes_from / remove_edges_from bulk ops \u2014 signature, return type, and missing-id handling",
+    "main_asserts": "remove_nodes_from(&[String]) -> (); remove_edges_from(&[String]) -> (); both silently ignore/skip missing ids and have no strong/remove_empty parameters for remove_nodes_from",
+    "lineage_asserts": "remove_nodes_from(Vec<String>, strong, remove_empty) -> Vec<Result<(), NodeError>>, CONTINUES past a missing id recording a per-item Err; remove_edges_from(Vec<String>) -> Vec<Result<(), EdgeError>>, STOPS after the first missing id (partial effects, shorter-than-input Vec) \u2014 two different continuation policies pinned as intentional D2-class channel translations of XGI's raise-mid-iteration behavior"
+   },
+   {
+    "behavior": "DiHypergraph core API shape (naming and argument structure)",
+    "main_asserts": "add_edge(tail: Vec<String>, head: Vec<String>, idx, attrs) \u2014 tail/head as two positional Vec args; direction enum is DiRole::{Head, Tail}; add_node_to_edge and remove_node_from_edge return Result",
+    "lineage_asserts": "add_edge((tail, head): (Vec<String>, Vec<String>), idx, attrs) \u2014 tail/head bundled as one tuple; direction enum is Direction::{In, Out} (serde 'in'/'out'); add_node_to_edge is infallible (); remove_node_from_edge returns Result<(), MembershipError> with three discriminated variants \u2014 this is a wholesale API-shape conflict, not just a behavioral one, and touches every DiHypergraph test in both files"
+   },
+   {
+    "behavior": "SimplicialComplex error channel for add_simplex/add_edge failures",
+    "main_asserts": "uses a dedicated SimplexError enum (SimplexError::NotAvailable for the blocked add_edge, SimplexError::NotFound for remove_simplex_id on a missing id) \u2014 no lineage-side test exercises SimplexError::NotAvailable",
+    "lineage_asserts": "dup_idx_with_different_members_errors uses Err(EdgeError::AlreadyExists) for an add_simplex idx collision \u2014 same EdgeError type the core Hypergraph uses, suggesting add_simplex's error path may not go through SimplexError at all in the lineage design; the two suites never test the same failure case so this is a coverage gap rather than a proven runtime contradiction, but the error-type story needs reconciling before merge"
+   }
+  ],
+  "structure_recommendation": "Keep main's flat tests/*.rs layout as the merge target (it already carries the Phase-3/4 files \u2014 test_hypergraph_ext.rs, test_views.rs, test_globalviews.rs \u2014 that the lineage predates and must survive untouched). Do NOT adopt the lineage's tests/core/main.rs module-per-file harness; instead port lineage test bodies as additional #[test] fns appended into the matching flat file (test_hypergraph.rs, test_dihypergraph.rs, test_simplicialcomplex.rs), since none of the lineage names collide with main's test fn names. Before grafting, the 7 direct conflicts must be adjudicated (owner decision, per plans/EXECUTION-STATE.md's reconciliation mandate) because grafting a lineage test verbatim while main's implementation still returns EdgeError::EmptyMembers, or still exposes add_node_to_edge as fallible, or still uses DiRole instead of Direction, will not compile \u2014 these aren't independent additions, they encode a different core API. Recommended order: (1) resolve D1 (empty-edge behavior) and the DiHypergraph API shape first since they gate the largest number of dependent tests; (2) port the MembershipError-based hardening tests once/if that enum is adopted; (3) port the freeze/copy/debug/uid-counter precision tests last since they are purely additive and likely don't require signature changes.",
+  "notes": "This comparison is read-only per task constraints \u2014 no cargo build/test was run, so 'conflict' here means the two test files assert incompatible things about method signatures/return types/error variants as WRITTEN, not confirmed compile/runtime failures against the current main src/. Main's test_hypergraph_ext.rs, test_views.rs, and test_globalviews.rs (dual, double_edge_swap, random_edge_shuffle, merge_duplicate_edges, cleanup/cleaned, update, NodeView/EdgeView/FilterMode, subhypergraph) have zero lineage counterparts \u2014 these are Phase 3/4 work done after the lineage snapshot and must be left untouched by any merge. The single largest reconciliation cost is DiHypergraph: main and lineage differ not just in one or two assertions but in the full method-signature/enum-naming surface (add_edge arg shape, DiRole vs Direction, fallible vs infallible add_node_to_edge/remove_node_from_edge) \u2014 treat it as requiring an explicit design decision, not a mechanical test merge. The lineage's divergence-register comments (D1-D17) embedded as code comments are themselves valuable artifacts \u2014 preserve them verbatim when porting, since they encode the XGI-runtime verification rationale that CLAUDE.md's 'behavioral contracts' philosophy asks to keep alive outside any one implementation."
+ }
+}
