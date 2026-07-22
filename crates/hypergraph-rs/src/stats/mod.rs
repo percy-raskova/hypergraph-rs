@@ -9,6 +9,8 @@ pub mod dinodestats;
 pub mod edgestats;
 pub mod nodestats;
 
+pub use nodestats::{node_attrs, node_degree, node_degree_weighted};
+
 use indexmap::IndexMap;
 
 /// An id → quantity mapping, insertion-ordered (mirrors XGI's `IDStat` result dict).
