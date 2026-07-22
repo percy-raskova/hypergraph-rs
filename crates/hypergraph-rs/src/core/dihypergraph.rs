@@ -99,14 +99,30 @@ impl<N, E, M> DiHypergraph<N, E, M> {
 
     /// Add a node with attributes. Returns `true` if newly created.
     /// XGI parity: `DH.add_node(node, **attr)` (dihypergraph.py:327-349).
+    /// If `node_id` already exists, its stored attrs are REPLACED (XGI's
+    /// binding merges the incoming dict into the existing one before
+    /// calling; a generic `N` can't merge, so the core replaces and the
+    /// PyO3 layer composes the merge on top — divergence D6).
     pub fn add_node(&mut self, node_id: &str, attrs: N) -> bool {
         self.assert_not_frozen();
-        if self.agent_ids.contains_key(node_id) {
+        if let Some(idx) = self.agent_ids.get(node_id) {
+            if let Some(NodeKind::Agent(existing)) = self.inner.node_weight_mut(*idx) {
+                *existing = attrs;
+            }
             return false;
         }
         let idx = self.inner.add_node(NodeKind::Agent(attrs));
         self.agent_ids.insert(node_id.to_string(), idx);
         true
+    }
+
+    /// Read a node's attributes. XGI parity: `DH.nodes[n]`.
+    pub fn node_attrs(&self, node_id: &str) -> Option<&N> {
+        let idx = self.agent_ids.get(node_id)?;
+        match self.inner.node_weight(*idx)? {
+            NodeKind::Agent(attrs) => Some(attrs),
+            _ => None,
+        }
     }
 
     /// Add a directed hyperedge with the given tail (senders) and head

@@ -107,10 +107,17 @@ impl<N, E, M> Hypergraph<N, E, M> {
     /// Add a node with attributes. Returns `true` if a new node was created,
     /// `false` if it already existed.
     ///
-    /// XGI parity: `H.add_node(node, **attr)`.
+    /// XGI parity: `H.add_node(node, **attr)`. If `node_id` already exists,
+    /// its stored attrs are REPLACED (XGI's binding merges the incoming
+    /// dict into the existing one before calling; a generic `N` can't
+    /// merge, so the core replaces and the PyO3 layer composes the merge
+    /// on top — divergence D6).
     pub fn add_node(&mut self, node_id: &str, attrs: N) -> bool {
         self.assert_not_frozen();
-        if self.agent_ids.contains_key(node_id) {
+        if let Some(idx) = self.agent_ids.get(node_id) {
+            if let Some(NodeKind::Agent(existing)) = self.inner.node_weight_mut(*idx) {
+                *existing = attrs;
+            }
             return false;
         }
         let idx = self.inner.add_node(NodeKind::Agent(attrs));

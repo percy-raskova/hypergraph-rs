@@ -474,3 +474,15 @@ fn test_dihypergraph_queries_insertion_ordered_under_interleaved_adds() {
     assert_eq!(dh.head("e2").unwrap(), vec!["n1".to_string()]);
     assert_eq!(dh.tail("e3").unwrap(), vec!["n3".to_string()]);
 }
+
+#[test]
+fn test_add_node_existing_replaces_attrs() {
+    // D6 parity with the undirected core: re-adding an existing node
+    // REPLACES its attrs (XGI merges; a generic N cannot -- the binding
+    // merges before calling).
+    let mut h: DiHypergraph = DiHypergraph::new();
+    assert!(h.add_node("a", serde_json::json!({"x": 1})));
+    assert!(!h.add_node("a", serde_json::json!({"y": 2})));
+    assert_eq!(h.num_nodes(), 1);
+    assert_eq!(h.node_attrs("a").unwrap(), &serde_json::json!({"y": 2}));
+}

@@ -1140,3 +1140,15 @@ fn test_remove_edges_from_missing_stops_after_first_err() {
     assert!(h.has_edge("e2"));
     assert!(h.has_edge("e3")); // never attempted
 }
+
+#[test]
+fn test_add_node_existing_replaces_attrs() {
+    // XGI: "If node is already in the hypergraph, its attributes are still
+    // updated." Core semantics replace (a generic N cannot merge; the PyO3
+    // layer merges dicts before calling). Divergence D6.
+    let mut h: Hypergraph = Hypergraph::new();
+    assert!(h.add_node("a", serde_json::json!({"x": 1})));
+    assert!(!h.add_node("a", serde_json::json!({"y": 2})));
+    assert_eq!(h.node_attrs("a").unwrap(), &serde_json::json!({"y": 2}));
+    assert_eq!(h.num_nodes(), 1);
+}
