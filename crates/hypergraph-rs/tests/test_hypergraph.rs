@@ -1062,3 +1062,81 @@ fn test_node_degree_and_edge_size() {
     assert_eq!(h.edge_size("e1"), Some(3));
     assert_eq!(h.edge_size("nope"), None);
 }
+
+#[test]
+fn test_remove_nodes_from_missing_per_item_err_continues() {
+    // XGI warns ("Node ghost not in hypergraph") + skips + CONTINUES on a
+    // missing id; the core records a per-item Err and continues (D2-class
+    // channel translation — the binding warns per Err item).
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("e1".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".to_string(), "c".to_string()],
+        Some("e2".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    let results = h.remove_nodes_from(
+        &["b".to_string(), "ghost".to_string(), "c".to_string()],
+        false,
+        true,
+    );
+    assert_eq!(results.len(), 3);
+    assert!(results[0].is_ok());
+    assert_eq!(
+        results[1],
+        Err(NodeError::NotFound {
+            node_id: "ghost".to_string()
+        })
+    );
+    assert!(results[2].is_ok());
+    // b and c both removed; e2 emptied (c gone) -> dropped; e1 = [a].
+    assert_eq!(h.node_ids(), vec!["a"]);
+    assert_eq!(h.edge_ids(), vec!["e1"]);
+    assert_eq!(h.members("e1").unwrap(), vec!["a"]);
+}
+
+#[test]
+fn test_remove_edges_from_missing_stops_after_first_err() {
+    // XGI RAISES IDNotFound mid-iteration on the first missing id: ids
+    // before it are already removed (partial effects), ids after it are
+    // never attempted. The core records per-item results and STOPS after
+    // the first Err (Vec length = attempted count <= input length), so
+    // the binding can reproduce the raise exactly.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("e1".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".to_string(), "c".to_string()],
+        Some("e2".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["c".to_string(), "d".to_string()],
+        Some("e3".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    let results = h.remove_edges_from(&["e1".to_string(), "ghost".to_string(), "e3".to_string()]);
+    assert_eq!(results.len(), 2, "e3 was never attempted");
+    assert!(results[0].is_ok());
+    assert_eq!(
+        results[1],
+        Err(EdgeError::NotFound {
+            edge_id: "ghost".to_string()
+        })
+    );
+    assert!(!h.has_edge("e1")); // removed before the error
+    assert!(h.has_edge("e2"));
+    assert!(h.has_edge("e3")); // never attempted
+}

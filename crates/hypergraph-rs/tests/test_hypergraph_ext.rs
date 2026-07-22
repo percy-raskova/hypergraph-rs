@@ -37,7 +37,7 @@ fn test_remove_nodes_from_bulk() {
         v(),
     )
     .unwrap();
-    h.remove_nodes_from(&["a".to_string(), "c".to_string()]);
+    h.remove_nodes_from(&["a".to_string(), "c".to_string()], false, true);
     assert!(!h.has_node("a"));
     assert!(!h.has_node("c"));
     assert!(h.has_node("b"));

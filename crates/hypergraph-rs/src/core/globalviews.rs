@@ -52,7 +52,7 @@ pub fn subhypergraph(
 
     if !keep_isolates {
         let isolates = new.isolate_node_ids();
-        new.remove_nodes_from(&isolates);
+        let _ = new.remove_nodes_from(&isolates, false, true);
     }
     new.freeze();
     new

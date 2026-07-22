@@ -537,20 +537,41 @@ impl<N, E, M> Hypergraph<N, E, M> {
         Ok(())
     }
 
-    /// Remove multiple edges. Missing ids are ignored (XGI warns).
-    /// XGI parity: `H.remove_edges_from(ebunch)`.
-    pub fn remove_edges_from(&mut self, edge_ids: &[String]) {
+    /// Remove multiple edges, returning a result per ATTEMPTED edge.
+    ///
+    /// XGI parity: `H.remove_edges_from(ebunch)` — XGI iterates in order
+    /// and RAISES on the first missing id, so ids after it are never
+    /// attempted (partial effects: ids before the failure are already
+    /// removed). The core mirrors this: stop on the first `Err`.
+    pub fn remove_edges_from(&mut self, edge_ids: &[String]) -> Vec<Result<(), EdgeError>> {
+        let mut results = Vec::new();
         for eid in edge_ids {
-            let _ = self.remove_edge(eid);
+            let result = self.remove_edge(eid);
+            let stop = result.is_err();
+            results.push(result);
+            if stop {
+                break;
+            }
         }
+        results
     }
 
-    /// Remove multiple nodes (weak removal). Missing ids are ignored.
-    /// XGI parity: `H.remove_nodes_from(nodes)`.
-    pub fn remove_nodes_from(&mut self, node_ids: &[String]) {
-        for nid in node_ids {
-            let _ = self.remove_node(nid, false, true);
-        }
+    /// Remove multiple nodes, returning a result per item.
+    ///
+    /// XGI parity: `H.remove_nodes_from(nodes)` — XGI warns and skips a
+    /// missing id, then CONTINUES; the core records a per-item `Err` and
+    /// continues (D2-class channel translation — the binding warns per
+    /// `Err` item).
+    pub fn remove_nodes_from(
+        &mut self,
+        node_ids: &[String],
+        strong: bool,
+        remove_empty: bool,
+    ) -> Vec<Result<(), NodeError>> {
+        node_ids
+            .iter()
+            .map(|nid| self.remove_node(nid, strong, remove_empty))
+            .collect()
     }
 
     /// Add nodes then edges. XGI parity: `H.update(edges=, nodes=)`
@@ -1035,11 +1056,11 @@ impl Hypergraph<Value, Value, Value> {
         }
         if !singletons {
             let s = self.singleton_edge_ids();
-            self.remove_edges_from(&s);
+            let _ = self.remove_edges_from(&s);
         }
         if !isolates {
             let i = self.isolate_node_ids();
-            self.remove_nodes_from(&i);
+            let _ = self.remove_nodes_from(&i, false, true);
         }
     }
 
