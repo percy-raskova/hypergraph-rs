@@ -1,7 +1,8 @@
 #![cfg(feature = "convert")]
 
 use hypergraph_rs::convert::{
-    from_hyperedge_dict, from_hyperedge_list, to_hyperedge_dict, to_hyperedge_list,
+    from_bipartite_edgelist, from_hyperedge_dict, from_hyperedge_list, to_bipartite_edgelist,
+    to_hyperedge_dict, to_hyperedge_list,
 };
 use hypergraph_rs::Hypergraph;
 
@@ -61,4 +62,39 @@ fn test_hyperedge_dict_roundtrip_members_as_sets() {
     let mut m = back.get("e1").unwrap().clone();
     m.sort();
     assert_eq!(m, vec!["a".to_string(), "b".to_string()]);
+}
+
+#[test]
+fn test_from_bipartite_edgelist() {
+    let el = vec![
+        ("a".to_string(), "e1".to_string()),
+        ("b".to_string(), "e1".to_string()),
+        ("c".to_string(), "e2".to_string()),
+    ];
+    let h = from_bipartite_edgelist(el);
+    assert_eq!(h.num_edges(), 2);
+    assert_eq!(h.num_nodes(), 3);
+    let mut m = h.members("e1").unwrap();
+    m.sort();
+    assert_eq!(m, vec!["a".to_string(), "b".to_string()]);
+}
+
+#[test]
+fn test_to_bipartite_edgelist() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let el = to_bipartite_edgelist(&h);
+    assert_eq!(el.len(), 2);
+    assert!(el.contains(&("a".to_string(), "e1".to_string())));
+    assert!(el.contains(&("b".to_string(), "e1".to_string())));
+}
+
+#[test]
+fn test_bipartite_edgelist_roundtrip() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    let back = from_bipartite_edgelist(to_bipartite_edgelist(&h));
+    assert_eq!(back.num_nodes(), 3);
+    assert_eq!(back.num_edges(), 2);
 }

@@ -78,3 +78,29 @@ pub fn to_hyperedge_dict(h: &Hypergraph) -> IndexMap<String, Vec<String>> {
         })
         .collect()
 }
+
+/// Build a hypergraph from a bipartite edgelist of `(node, edge)` pairs.
+///
+/// XGI parity: `xgi.from_bipartite_edgelist` (`convert/bipartite_edges.py:9-42`,
+/// undirected branch — each pair calls `add_node_to_edge(edge, node)`).
+pub fn from_bipartite_edgelist(edges: Vec<(String, String)>) -> Hypergraph {
+    let mut h = Hypergraph::new();
+    for (node, edge) in edges {
+        // add_node_to_edge auto-creates both; infallible on the default Value types.
+        let _ = h.add_node_to_edge(&edge, &node);
+    }
+    h
+}
+
+/// Extract a bipartite edgelist of `(node, edge)` pairs (edge order, then member order).
+///
+/// XGI parity: `xgi.to_bipartite_edgelist` (`convert/bipartite_edges.py:45-73`).
+pub fn to_bipartite_edgelist(h: &Hypergraph) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    for e in h.edge_ids() {
+        for n in h.members(&e).unwrap_or_default() {
+            out.push((n, e.clone()));
+        }
+    }
+    out
+}
