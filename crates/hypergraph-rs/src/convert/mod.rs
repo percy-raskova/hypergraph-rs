@@ -7,9 +7,11 @@
 //! (see the Phase-6 plan open questions).
 
 use indexmap::IndexMap;
+use rustworkx_core::petgraph::graph::UnGraph;
 use rustworkx_core::petgraph::stable_graph::StableDiGraph;
 use rustworkx_core::petgraph::visit::{EdgeRef, IntoEdgeReferences};
 use serde_json::Value;
+use std::collections::HashSet;
 use thiserror::Error;
 
 use crate::Hypergraph;
@@ -172,4 +174,38 @@ pub fn from_bipartite_graph(
         let _ = h.add_node_to_edge(hyperedge, node);
     }
     Ok(h)
+}
+
+/// The unweighted 1-skeleton (graph projection) of the hypergraph.
+///
+/// XGI parity: `xgi.to_graph` (`convert/graph.py:8-28`). Two nodes are linked iff they
+/// share at least one hyperedge. Node weights are the node ids (node insertion order);
+/// duplicate pairs are added once. Built directly from memberships (no linalg dependency).
+pub fn to_graph(h: &Hypergraph) -> UnGraph<String, ()> {
+    let mut g: UnGraph<String, ()> = UnGraph::new_undirected();
+    let mut node_idx = IndexMap::new();
+    for n in h.node_ids() {
+        let idx = g.add_node(n.clone());
+        node_idx.insert(n, idx);
+    }
+    // Dedup pairs by their (min, max) positional indices — deterministic, no HashMap order.
+    let mut seen: HashSet<(usize, usize)> = HashSet::new();
+    for e in h.edge_ids() {
+        let members = h.members(&e).unwrap_or_default();
+        for i in 0..members.len() {
+            for j in (i + 1)..members.len() {
+                let a = node_idx[&members[i]];
+                let b = node_idx[&members[j]];
+                let key = if a.index() <= b.index() {
+                    (a.index(), b.index())
+                } else {
+                    (b.index(), a.index())
+                };
+                if seen.insert(key) {
+                    g.add_edge(a, b, ());
+                }
+            }
+        }
+    }
+    g
 }

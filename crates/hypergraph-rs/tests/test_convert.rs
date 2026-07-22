@@ -144,3 +144,25 @@ fn test_from_bipartite_graph_non_bipartite_errors() {
     g.add_edge(a, b, ());
     assert!(from_bipartite_graph(&g).is_err());
 }
+
+use hypergraph_rs::convert::to_graph;
+
+#[test]
+fn test_to_graph_node_count() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let g = to_graph(&h);
+    assert_eq!(g.node_count(), 3);
+    // A triangle-hyperedge projects to a 3-clique: 3 undirected edges.
+    assert_eq!(g.edge_count(), 3);
+}
+
+#[test]
+fn test_to_graph_disjoint_edges() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["c".into(), "d".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    let g = to_graph(&h);
+    assert_eq!(g.node_count(), 4);
+    assert_eq!(g.edge_count(), 2);
+}
