@@ -7,6 +7,7 @@
 //! Forgy k-means. Exact XGI parity is impossible (RNG divergence, spec §9.4); assertions
 //! are structural, and results are deterministic under a fixed `seed`.
 
+use indexmap::IndexMap;
 use ndarray::{Array2, Array1};
 use rand::RngExt;
 use rand_core::SeedableRng;
@@ -339,4 +340,30 @@ pub fn kmeans(x: &Array2<f64>, k: usize, max_iter: usize, seed: Option<u64>) -> 
     }
 
     labels
+}
+
+/// Spectral clustering of a hypergraph into `k` partitions.
+///
+/// XGI parity: `xgi.spectral_clustering` (`communities/spectral.py:14-72`). Builds the
+/// normalized Laplacian, embeds nodes via the `k` smallest-eigenvalue eigenvectors, and
+/// k-means-clusters them. Returns an insertion-ordered node-id→cluster map (clusters
+/// begin at 0). Deterministic under `seed`; structural (not exact-XGI) parity (§9.4).
+pub fn spectral_clustering(
+    h: &Hypergraph,
+    k: usize,
+    max_iter: usize,
+    seed: Option<u64>,
+) -> Result<IndexMap<String, usize>, SpectralError> {
+    let n = h.num_nodes();
+    if k > n {
+        return Err(SpectralError::TooManyClusters { k, n });
+    }
+    let (l, rowdict) = normalized_laplacian(h)?;
+    let x = smallest_k_eigenvectors(&l, k, seed);
+    let labels = kmeans(&x, k, max_iter, seed);
+    let mut out = IndexMap::new();
+    for (i, node_id) in rowdict.into_iter().enumerate() {
+        out.insert(node_id, labels[i]);
+    }
+    Ok(out)
 }

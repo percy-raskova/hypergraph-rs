@@ -113,3 +113,42 @@ fn test_kmeans_deterministic_with_seed() {
     let b = kmeans(&x, 2, 100, Some(5));
     assert_eq!(a, b);
 }
+
+use hypergraph_rs::communities::spectral_clustering;
+
+#[test]
+fn test_spectral_two_triangles_separated() {
+    let h = two_triangles();
+    let clusters = spectral_clustering(&h, 2, 1000, Some(42)).unwrap();
+    assert_eq!(clusters.len(), 6);
+    // Each triangle is internally coherent; the two triangles differ.
+    let ca = clusters["a"];
+    assert_eq!(clusters["b"], ca);
+    assert_eq!(clusters["c"], ca);
+    let cd = clusters["d"];
+    assert_eq!(clusters["e"], cd);
+    assert_eq!(clusters["f"], cd);
+    assert_ne!(ca, cd);
+}
+
+#[test]
+fn test_spectral_too_many_clusters_errors() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e".into()), serde_json::Value::Null).unwrap();
+    assert!(spectral_clustering(&h, 5, 100, Some(1)).is_err());
+}
+
+#[test]
+fn test_spectral_k1_all_zero() {
+    let h = two_triangles();
+    let clusters = spectral_clustering(&h, 1, 100, Some(1)).unwrap();
+    assert!(clusters.values().all(|&c| c == 0));
+}
+
+#[test]
+fn test_spectral_deterministic_with_seed() {
+    let h = two_triangles();
+    let a = spectral_clustering(&h, 2, 1000, Some(3)).unwrap();
+    let b = spectral_clustering(&h, 2, 1000, Some(3)).unwrap();
+    assert_eq!(a, b);
+}
