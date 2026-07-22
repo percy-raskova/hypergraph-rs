@@ -8,6 +8,10 @@
 #[cfg(feature = "algorithms")]
 pub mod algorithms;
 pub mod core;
+#[cfg(feature = "layout")]
+pub mod layout;
+#[cfg(feature = "viz")]
+pub mod viz;
 #[cfg(feature = "generators")]
 pub mod generators;
 pub mod linalg;
