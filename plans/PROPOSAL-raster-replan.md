@@ -40,6 +40,29 @@ below cites the babylon-side source it derives from.
 | 9 CLI | inspect/convert/validate/matrix/run/generate/render/selftest | **KEEP — promoted.** The CLI is a named plug-in surface. Re-scope `render` output formats to: `--format json` (SceneGraph), `--format svg` (Tier 2), `--format cells` (Phase R glyph raster), `--format ordering` (PAOH/Levi/incidence orderings). Drop nothing else. |
 | 10 React | `@hypergraph-rs/react` SVG components | **CANCEL as written.** Salvage its one durable idea — the wire contract — into Phase R's `SceneGraph`/`CellGrid`/ordering JSON schemas, versioned and fixture-tested the same way the plan intended for React props. |
 
+## Phase R extension: 3D cell rasterization (owner suggestion, 2026-07-22)
+
+Reference: https://github.com/ludvigsandberg/tui-3d-renderer — Rust, MIT, a CPU
+software rasterizer drawing 3D meshes into terminal cells (ANSI + Unicode block
+shading). It is an application, not a library crate, so we would mine the technique
+(projection, depth-buffered triangle fill, block-character shading) and implement it
+natively in Phase R rather than depend on it. Proposed shape:
+
+- **`SceneGraph3D`**: 3D node positions via **spectral embedding** — eigenvectors 2–4
+  of the hypergraph Laplacian we already ship (Phase 6's power-iteration eigensolver
+  reused). Deterministic with NO seed and no new formalism: existing mathematics,
+  re-projected. Hyperedges as translucent hulls; **simplices rendered as actual
+  shaded 3D faces** (our `SimplicialComplex` faces are literally triangles/tetrahedra —
+  the depth buffer is the honest renderer for them).
+- **Rasterizer**: pure function `(SceneGraph3D, camera, cols, rows) → CellGrid` —
+  no wall-clock, no randomness, byte-exact frames, golden-testable. Static plates at
+  fixed camera angles first; an optional pre-rendered "turntable" frame ring later.
+- **Babylon consumption is owner-gated**: the graph-render lane ruling has topology
+  surfaces consuming orderings, never layouts (S9) — a 3D spatial embedding needs an
+  explicit lane extension ruling. Until then this is a hypergraph-rs library/CLI
+  capability (`render --format cells3d`), with the 3D SceneGraph JSON as the
+  assert-the-source golden artifact and cell frames as presentation tier.
+
 ## What does NOT change
 
 - The current critical path (reconciliation → Phase 4 → 6 → 7 → swap) is untouched;
