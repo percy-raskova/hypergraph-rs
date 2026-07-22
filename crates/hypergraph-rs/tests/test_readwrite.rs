@@ -2,6 +2,7 @@ use hypergraph_rs::readwrite::bipartite::{
     parse_bipartite_edgelist, read_bipartite_edgelist, write_bipartite_edgelist,
 };
 use hypergraph_rs::readwrite::edgelist::{parse_edgelist, read_edgelist, write_edgelist};
+use hypergraph_rs::readwrite::incidence::{read_incidence_matrix, write_incidence_matrix};
 use hypergraph_rs::readwrite::json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};
 use hypergraph_rs::Hypergraph;
 
@@ -145,5 +146,23 @@ fn test_write_read_bipartite_round_trip() {
     let h2 = read_bipartite_edgelist(&path, None, "#", false).unwrap();
     assert_eq!(h2.num_edges(), 1);
     assert_eq!(h2.num_nodes(), 2);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn test_write_read_incidence_round_trip() {
+    // 3 nodes, 2 edges: edge0={0,1}, edge1={1,2}
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["0".into(), "1".into()], Some("0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("1".into()), serde_json::Value::Null).unwrap();
+    let path = std::env::temp_dir().join("hypergraph_rs_test_incidence.csv");
+    write_incidence_matrix(&h, &path, ' ').unwrap();
+    let h2 = read_incidence_matrix(&path, None).unwrap();
+    assert_eq!(h2.num_nodes(), 3);
+    assert_eq!(h2.num_edges(), 2);
+    // positional edge "0" has members {0,1}
+    let mut m = h2.members("0").unwrap();
+    m.sort();
+    assert_eq!(m, vec!["0".to_string(), "1".to_string()]);
     let _ = std::fs::remove_file(&path);
 }
