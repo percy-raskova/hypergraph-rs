@@ -378,7 +378,11 @@ impl PyDiHypergraph {
     /// `DH.add_node(n, **attr)` — merges the incoming dict into any existing attrs
     /// (core `add_node` REPLACES; the binding composes the merge on top, as Task 4's D6 shim).
     #[pyo3(signature = (n, **attr))]
-    pub(crate) fn add_node(&mut self, n: &Bound<'_, PyAny>, attr: Option<Bound<'_, PyDict>>) -> PyResult<()> {
+    pub(crate) fn add_node(
+        &mut self,
+        n: &Bound<'_, PyAny>,
+        attr: Option<Bound<'_, PyDict>>,
+    ) -> PyResult<()> {
         self.frozen_check()?;
         let core_id = self.node_ids.intern(n)?;
         let mut merged = match self.inner.node_attrs(&core_id) {

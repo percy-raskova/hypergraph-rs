@@ -41,6 +41,15 @@ enum NodeStatKind {
     /// call is cheap) so `H.nodes.two_node_clustering_coefficient(kind="min")` re-parametrizes
     /// correctly via `__call__`, unlike `Precomputed`.
     TwoNodeClustering(String),
+    /// `local_edit_simpliciality`/`local_face_edit_simpliciality`/`local_simplicial_fraction`
+    /// (`min_size`, `exclude_min_size`) — recomputed on each `values()` call via
+    /// `algorithms::local_simpliciality_stat_map` so `H.nodes.local_edit_simpliciality(min_size=1)`
+    /// re-parametrizes correctly via `__call__`, like `TwoNodeClustering`.
+    LocalSimpliciality {
+        min_size: usize,
+        exclude_min_size: bool,
+        func: fn(&hypergraph_rs::Hypergraph<Value, Value, Value>, usize, bool) -> f64,
+    },
 }
 
 #[pyclass(name = "NodeStat", module = "hypergraph_rs")]
@@ -95,6 +104,24 @@ impl PyNodeStat {
             hg,
             ids,
             kind: NodeStatKind::TwoNodeClustering("union".to_string()),
+        }
+    }
+
+    pub fn local_simpliciality(
+        py: Python<'_>,
+        hg: Py<PyHypergraph>,
+        ids: Vec<String>,
+        func: fn(&hypergraph_rs::Hypergraph<Value, Value, Value>, usize, bool) -> f64,
+    ) -> Self {
+        let _ = py;
+        Self {
+            hg,
+            ids,
+            kind: NodeStatKind::LocalSimpliciality {
+                min_size: 2,
+                exclude_min_size: true,
+                func,
+            },
         }
     }
 
@@ -192,6 +219,25 @@ impl PyNodeStat {
                     })
                     .collect()
             }
+            NodeStatKind::LocalSimpliciality {
+                min_size,
+                exclude_min_size,
+                func,
+            } => {
+                let values = crate::algorithms::local_simpliciality_stat_map(
+                    &hg,
+                    *min_size,
+                    *exclude_min_size,
+                    *func,
+                );
+                self.ids
+                    .iter()
+                    .map(|c| {
+                        let val = values.get(c).copied().unwrap_or(f64::NAN);
+                        (c.clone(), Value::from(val))
+                    })
+                    .collect()
+            }
         }
     }
 }
@@ -205,13 +251,15 @@ impl PyNodeStat {
     /// raises `ValueError` for a non-str/None value, matching `stats/nodestats.py:95-96`'s
     /// `raise ValueError('"attr" must be str or None')`). `Precomputed` stats take no
     /// parameters — calling one is a same-value no-op, mirroring XGI's parameterless nodestats.
-    #[pyo3(signature = (order=None, weight=None, kind=None))]
+    #[pyo3(signature = (order=None, weight=None, kind=None, min_size=None, exclude_min_size=None))]
     fn __call__(
         &self,
         py: Python<'_>,
         order: Option<&Bound<'_, PyAny>>,
         weight: Option<String>,
         kind: Option<String>,
+        min_size: Option<usize>,
+        exclude_min_size: Option<bool>,
     ) -> PyResult<PyNodeStat> {
         match &self.kind {
             NodeStatKind::Degree {
@@ -233,9 +281,9 @@ impl PyNodeStat {
                 let attr = match order {
                     None => cur.clone(),
                     Some(v) if v.is_none() => cur.clone(),
-                    Some(v) => v.extract::<String>().map_err(|_| {
-                        PyValueError::new_err("\"attr\" must be str or None")
-                    })?,
+                    Some(v) => v
+                        .extract::<String>()
+                        .map_err(|_| PyValueError::new_err("\"attr\" must be str or None"))?,
                 };
                 Ok(PyNodeStat {
                     hg: self.hg.clone_ref(py),
@@ -261,6 +309,19 @@ impl PyNodeStat {
                     kind: NodeStatKind::TwoNodeClustering(k),
                 })
             }
+            NodeStatKind::LocalSimpliciality {
+                min_size: cur_min_size,
+                exclude_min_size: cur_exclude_min_size,
+                func,
+            } => Ok(PyNodeStat {
+                hg: self.hg.clone_ref(py),
+                ids: self.ids.clone(),
+                kind: NodeStatKind::LocalSimpliciality {
+                    min_size: min_size.unwrap_or(*cur_min_size),
+                    exclude_min_size: exclude_min_size.unwrap_or(*cur_exclude_min_size),
+                    func: *func,
+                },
+            }),
         }
     }
 

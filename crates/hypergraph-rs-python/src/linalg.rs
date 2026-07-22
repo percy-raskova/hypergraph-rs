@@ -221,14 +221,30 @@ fn incidence_matrix(
             Some(d) => to_scipy_csr_data(py, &m, d)?,
             None => to_scipy_csr(py, &m)?,
         };
-        with_index2(py, arr, &rows, &h_ref.node_ids, &cols, &h_ref.edge_ids, index)
+        with_index2(
+            py,
+            arr,
+            &rows,
+            &h_ref.node_ids,
+            &cols,
+            &h_ref.edge_ids,
+            index,
+        )
     } else {
         let dense = match &data {
             Some(d) => weighted_incidence_dense(&m, d),
             None => hypergraph_rs::linalg::incidence_matrix(&h_ref.inner, order).0,
         };
         let arr = dense2_to_pyarray(py, dense)?;
-        with_index2(py, arr, &rows, &h_ref.node_ids, &cols, &h_ref.edge_ids, index)
+        with_index2(
+            py,
+            arr,
+            &rows,
+            &h_ref.node_ids,
+            &cols,
+            &h_ref.edge_ids,
+            index,
+        )
     }
 }
 

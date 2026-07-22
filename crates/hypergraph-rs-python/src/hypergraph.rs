@@ -166,7 +166,7 @@ impl PyHypergraph {
                     Some(Value::Object(m)) => m,
                     _ => serde_json::Map::new(),
                 };
-                result.try_add_one_edge(py, members_list.as_any(), None, attrs, false)?;
+                result.try_add_one_edge(py, members_list.as_any(), None, attrs, false, false)?;
             }
         }
         for (k, v) in &h2.net_attr {
@@ -288,7 +288,7 @@ impl PyHypergraph {
                 e_attrs.insert(k.str()?.to_string(), py_any_to_json(&v)?);
             }
         }
-        self.try_add_one_edge(py, &members, idx.as_ref(), e_attrs, false)
+        self.try_add_one_edge(py, &members, idx.as_ref(), e_attrs, false, true)
     }
 
     /// `H.add_edges_from(ebunch_to_add, **attr)` — Formats 1-5 (hypergraph.py:633-819).
@@ -310,7 +310,7 @@ impl PyHypergraph {
         // Format 5: dict of {idx: members}.
         if let Ok(dict) = ebunch_to_add.cast::<PyDict>() {
             for (idx, members) in dict.iter() {
-                self.try_add_one_edge(py, &members, Some(&idx), base_attr.clone(), true)?;
+                self.try_add_one_edge(py, &members, Some(&idx), base_attr.clone(), true, false)?;
             }
             return Ok(());
         }
@@ -418,7 +418,7 @@ impl PyHypergraph {
             for (k, v) in extra_attrs {
                 merged.insert(k, v);
             }
-            self.try_add_one_edge(py, &members, idx.as_ref(), merged, true)?;
+            self.try_add_one_edge(py, &members, idx.as_ref(), merged, true, false)?;
 
             match iter.next() {
                 Some(r) => current = r?,
@@ -786,6 +786,13 @@ impl PyHypergraph {
         Ok(d.unbind())
     }
 
+    /// `H.average_neighbor_degree()` — `Hypergraph.__getattr__` dispatch to the
+    /// `average_neighbor_degree` nodestat (`stats/nodestats.py`).
+    fn average_neighbor_degree(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let m = crate::algorithms::average_neighbor_degree_map(self);
+        crate::algorithms::node_f64_dict(py, m, &self.node_ids)
+    }
+
     /// `H.clustering_coefficient()` — `Hypergraph.__getattr__` dispatch to the
     /// `clustering_coefficient` nodestat.
     fn clustering_coefficient(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
@@ -800,6 +807,60 @@ impl PyHypergraph {
         crate::algorithms::node_f64_dict(py, m, &self.node_ids)
     }
 
+    /// `H.local_edit_simpliciality(min_size=2, exclude_min_size=True)` — `Hypergraph.__getattr__`
+    /// dispatch to the `local_edit_simpliciality` nodestat (`stats/nodestats.py`).
+    #[pyo3(signature = (min_size=2, exclude_min_size=true))]
+    fn local_edit_simpliciality(
+        &self,
+        py: Python<'_>,
+        min_size: usize,
+        exclude_min_size: bool,
+    ) -> PyResult<Py<PyDict>> {
+        let m = crate::algorithms::local_simpliciality_stat_map(
+            self,
+            min_size,
+            exclude_min_size,
+            hypergraph_rs::algorithms::simpliciality::edit_simpliciality,
+        );
+        crate::algorithms::node_f64_dict(py, m, &self.node_ids)
+    }
+
+    /// `H.local_face_edit_simpliciality(min_size=2, exclude_min_size=True)` — `Hypergraph.__getattr__`
+    /// dispatch to the `local_face_edit_simpliciality` nodestat.
+    #[pyo3(signature = (min_size=2, exclude_min_size=true))]
+    fn local_face_edit_simpliciality(
+        &self,
+        py: Python<'_>,
+        min_size: usize,
+        exclude_min_size: bool,
+    ) -> PyResult<Py<PyDict>> {
+        let m = crate::algorithms::local_simpliciality_stat_map(
+            self,
+            min_size,
+            exclude_min_size,
+            hypergraph_rs::algorithms::simpliciality::face_edit_simpliciality,
+        );
+        crate::algorithms::node_f64_dict(py, m, &self.node_ids)
+    }
+
+    /// `H.local_simplicial_fraction(min_size=2, exclude_min_size=True)` — `Hypergraph.__getattr__`
+    /// dispatch to the `local_simplicial_fraction` nodestat.
+    #[pyo3(signature = (min_size=2, exclude_min_size=true))]
+    fn local_simplicial_fraction(
+        &self,
+        py: Python<'_>,
+        min_size: usize,
+        exclude_min_size: bool,
+    ) -> PyResult<Py<PyDict>> {
+        let m = crate::algorithms::local_simpliciality_stat_map(
+            self,
+            min_size,
+            exclude_min_size,
+            hypergraph_rs::algorithms::simpliciality::simplicial_fraction,
+        );
+        crate::algorithms::node_f64_dict(py, m, &self.node_ids)
+    }
+
     /// `H.two_node_clustering_coefficient(kind="union")` — `Hypergraph.__getattr__` dispatch to
     /// the `two_node_clustering_coefficient` nodestat.
     #[pyo3(signature = (kind="union"))]
@@ -807,11 +868,10 @@ impl PyHypergraph {
         if !matches!(kind, "union" | "min" | "max") {
             return Err(xgi_error(format!("invalid kind of clustering: {kind}")));
         }
-        let m =
-            hypergraph_rs::algorithms::clustering::two_node_clustering_coefficient(
-                &self.inner,
-                kind,
-            );
+        let m = hypergraph_rs::algorithms::clustering::two_node_clustering_coefficient(
+            &self.inner,
+            kind,
+        );
         crate::algorithms::node_f64_dict(py, m, &self.node_ids)
     }
 
@@ -1169,13 +1229,20 @@ impl PyHypergraph {
     fn ingest(&mut self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
         if let Ok(list) = data.cast::<PyList>() {
             for edge in list.iter() {
-                self.try_add_one_edge(py, &edge, None, serde_json::Map::new(), false)?;
+                self.try_add_one_edge(py, &edge, None, serde_json::Map::new(), false, false)?;
             }
             return Ok(());
         }
         if let Ok(dict) = data.cast::<PyDict>() {
             for (idx, members) in dict.iter() {
-                self.try_add_one_edge(py, &members, Some(&idx), serde_json::Map::new(), false)?;
+                self.try_add_one_edge(
+                    py,
+                    &members,
+                    Some(&idx),
+                    serde_json::Map::new(),
+                    false,
+                    false,
+                )?;
             }
             return Ok(());
         }
@@ -1194,6 +1261,15 @@ impl PyHypergraph {
     /// Attempt to add ONE edge, replicating XGI's per-edge `add_edge`/`add_edges_from` duplicate-id
     /// warning (hypergraph.py:566-632, 633-819). `warn_with_period` selects the exact message XGI
     /// uses (`add_edge` omits the trailing period; `add_edges_from` includes it).
+    ///
+    /// `set_order`: real XGI's single-edge `add_edge` reassigns `members = set(members)` BEFORE
+    /// scanning for new nodes, so newly-seen-node insertion order follows CPython's hash-set
+    /// iteration order (verified: `hypergraph.py` source of `Hypergraph.add_edge`). Its bulk
+    /// `add_edges_from` (all formats, incl. the dict format) stores `_edge[idx] = set(members)` for
+    /// the edge's member set but scans `for n in members:` — the ORIGINAL iterable — for node
+    /// discovery, so bulk paths (and the `Hypergraph(data)` constructor, `__lshift__`, pickle
+    /// reconstruction, all of which delegate to bulk semantics) keep list order. Callers pass
+    /// `true` only from the single-edge `add_edge` method.
     fn try_add_one_edge(
         &mut self,
         py: Python<'_>,
@@ -1201,6 +1277,7 @@ impl PyHypergraph {
         idx_obj: Option<&Bound<'_, PyAny>>,
         attrs: serde_json::Map<String, Value>,
         warn_with_period: bool,
+        set_order: bool,
     ) -> PyResult<()> {
         let mut member_pyobjs: Vec<Bound<PyAny>> = Vec::new();
         match members_obj.try_iter() {
@@ -1210,6 +1287,10 @@ impl PyHypergraph {
                 }
             }
             Err(_) => return Err(xgi_error("Invalid ebunch format")),
+        }
+        if set_order {
+            let member_set = PySet::new(py, &member_pyobjs)?;
+            member_pyobjs = member_set.try_iter()?.collect::<PyResult<Vec<_>>>()?;
         }
 
         if let Some(idx) = idx_obj {
@@ -1631,7 +1712,7 @@ fn reconstruct_hypergraph(py: Python<'_>, state: Bound<'_, PyDict>) -> PyResult<
         for (k, v) in attrd.iter() {
             m.insert(k.str()?.to_string(), py_any_to_json(&v)?);
         }
-        hg.try_add_one_edge(py, &members, Some(&idx), m, false)?;
+        hg.try_add_one_edge(py, &members, Some(&idx), m, false, false)?;
     }
     let net: Bound<PyDict> = state
         .get_item("net_attr")?

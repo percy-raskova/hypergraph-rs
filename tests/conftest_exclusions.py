@@ -57,39 +57,29 @@ TEST_EXCLUSIONS = {
     ],
     "generators/test_uniform.py": [
         ("test_uniform_configuration_model_hypergraph",
-         "core deviation (documented in `uniform.rs::uniform_hypergraph_configuration_model`): "
-         "remainder stubs are dropped and within-edge stub picks are deduplicated so the loop "
-         "terminates deterministically (Power-of-10 rule 2) — the resulting degree sequence is "
-         "close to but not always bit-exact with the requested `k`, so `dict(H.degree()) == k` "
-         "does not hold in general. Documented core-level deviation from an earlier phase; not "
-         "reopened here (Task 15 triage bucket 2 — not pre-approved for this pass)."),
+         "core deviation, degree-sequence PARITY gap (documented in "
+         "`uniform.rs::uniform_hypergraph_configuration_model`): remainder stubs are dropped and "
+         "within-edge stub picks are deduplicated so the loop terminates deterministically "
+         "(Power-of-10 rule 2) — the resulting degree sequence is close to but not always "
+         "bit-exact with the requested `k`, so `dict(H.degree()) == k` does not hold in general. "
+         "Documented core-level deviation from an earlier phase; not reopened here (Task 15 "
+         "triage bucket 2 — not pre-approved for this pass; reviewed again at Task 19 and left "
+         "as-is, exact parity with XGI's configuration model is unattainable under the bounded-"
+         "loop policy, not a fixable binding bug)."),
         ("test_uniform_HSBM", "deferred: uniform_HSBM (generators, §A ledger)."),
         ("test_uniform_HPPM", "deferred: uniform_HPPM (generators, §A ledger)."),
     ],
-    "stats/test_nodestats.py": [
-        ("test_average_neighbor_degree",
-         "core gap: no `average_neighbor_degree` algorithm in the core (only "
-         "clustering_coefficient/local_clustering_coefficient/two_node_clustering_coefficient/"
-         "clique_eigenvector_centrality/katz_centrality exist) — not pre-approved to add "
-         "(Task 15 triage bucket 2)."),
-        ("test_local_edit_simpliciality",
-         "core gap: simpliciality.rs has edit_simpliciality/face_edit_simpliciality (whole-hypergraph "
-         "scalars) but no per-node `local_edit_simpliciality` — not pre-approved to add "
-         "(Task 15 triage bucket 2)."),
-        ("test_local_face_edit_simpliciality", "core gap: no per-node `local_face_edit_simpliciality` (same as test_local_edit_simpliciality)."),
-        ("test_local_simplicial_fraction", "core gap: no per-node `local_simplicial_fraction` (same as test_local_edit_simpliciality)."),
-    ],
     "readwrite/test_edgelist.py": [
         ("test_write_edgelist_compressed",
-         "gzip/xz compression (write_edgelist(**kwargs) -> xopen) not implemented — would "
-         "require adding flate2 (pure-Rust, fine) AND a system-liblzma-linked xz crate; the "
+         "deferred: gzip/xz compression (write_edgelist(**kwargs) -> xopen) not implemented — "
+         "would require adding flate2 (pure-Rust, fine) AND a system-liblzma-linked xz crate; the "
          "latter is a risky new native dependency to introduce mid-binding-fix, out of scope "
          "for this pass (Task 15 triage bucket 3)."),
-        ("test_write_edgelist_compressed_format", "same compression gap as test_write_edgelist_compressed."),
+        ("test_write_edgelist_compressed_format", "deferred: same compression gap as test_write_edgelist_compressed."),
     ],
     "readwrite/test_bipartite_edgelist.py": [
-        ("test_write_bipartite_edgelist_compressed", "same compression gap as test_edgelist.py::test_write_edgelist_compressed."),
-        ("test_write_bipartite_edgelist_compressed_format", "same compression gap as test_edgelist.py::test_write_edgelist_compressed."),
+        ("test_write_bipartite_edgelist_compressed", "deferred: same compression gap as test_edgelist.py::test_write_edgelist_compressed."),
+        ("test_write_bipartite_edgelist_compressed_format", "deferred: same compression gap as test_edgelist.py::test_write_edgelist_compressed."),
     ],
     "readwrite/test_hif.py": [
         ("test_write_hif_collection_compressed",
@@ -98,12 +88,12 @@ TEST_EXCLUSIONS = {
          "Hypergraph/undirected branch exists, per hif.rs's own module doc: 'Undirected only; "
          "directed HIF requires DiHypergraph (deferred)'); compounded by the compression gap."),
         ("test_write_hif",
-         "core gap: to_hif_dict only exists for (undirected) Hypergraph (hif.rs module doc); "
+         "deferred: to_hif_dict only exists for (undirected) Hypergraph (hif.rs module doc); "
          "SimplicialComplex ('asc' network-type) and DiHypergraph ('directed') HIF export are "
          "genuinely unbuilt, not a binding-level fix — not pre-approved this pass (Task 15 "
          "triage bucket 2). The Hypergraph portion of this test (verified separately) is green; "
          "the SC/DiHypergraph portions in the same test function are not."),
-        ("test_read_hif", "same core gap as test_write_hif — exercises write_hif on SimplicialComplex/DiHypergraph."),
+        ("test_read_hif", "deferred: same core gap as test_write_hif — exercises write_hif on SimplicialComplex/DiHypergraph."),
         ("test_read_hif_collection",
          "same core gap as test_write_hif (needs DiHypergraph HIF export), plus write_hif_collection/"
          "read_hif_collection are unbound deferred symbols."),
@@ -119,62 +109,65 @@ TEST_EXCLUSIONS = {
          "deferred: numpy incidence-matrix (from_incidence_matrix) and pandas-dataframe "
          "constructors — convert dispatchers not ported (§A ledger, spec §4.4)."),
         ("test_merge_duplicate_edges",
-         "merge_rule='union' stores each attr as a Python `set`; the core/binding edge-attr "
-         "channel is JSON-typed (serde_json::Value has no Set variant), so a deduplicated JSON "
-         "array stands in instead — documented representational deviation (Task 16 execution "
-         "note, hypergraph.rs merge_duplicate_edges_impl). rename='first'/'tuple'/'new' and "
-         "merge_rule='first'/'intersection' are fully implemented and exercised by the earlier "
-         "assertions in this same test function; only the union-attrs assertion is unattainable."),
+         "deferred: merge_rule='union' stores each attr as a Python `set`; the core/binding "
+         "edge-attr channel is JSON-typed (serde_json::Value has no Set variant), so a "
+         "deduplicated JSON array stands in instead — documented representational deviation "
+         "(Task 16 execution note, hypergraph.rs merge_duplicate_edges_impl). "
+         "rename='first'/'tuple'/'new' and merge_rule='first'/'intersection' are fully "
+         "implemented and exercised by the earlier assertions in this same test function; only "
+         "the union-attrs assertion is unattainable."),
     ],
     "core/test_simplicialcomplex.py": [
         ("test_constructor",
          "pandas-dataframe constructor path (SimplicialComplex(dataframe5)) — pandas integration "
          "not ported (spec §4.4), same deferral as Hypergraph's constructor."),
         ("test_add_simplices_from_format2",
-         "core-gap: auto-assigned FACE ids (from add_simplex's closure-under-faces) are minted in "
+         "deferred: auto-assigned FACE ids (from add_simplex's closure-under-faces) are minted in "
          "a different enumeration order than real XGI's `_faces`/`add_simplex` subface iteration, "
          "so `H._edge == simplices1` (which pins exact face ids like `H._edge[3] == frozenset({2,4})`) "
          "diverges even though the SET of simplices is identical. Fixing requires matching the "
          "core's face-closure generation order to XGI's exactly — not a binding-level fix."),
-        ("test_add_simplices_from_format3", "same face-id-ordering core gap as test_add_simplices_from_format2."),
-        ("test_add_simplices_from_format4", "same face-id-ordering core gap as test_add_simplices_from_format2."),
-        ("test_add_edges_from_dict", "same face-id-ordering core gap as test_add_simplices_from_format2."),
+        ("test_add_simplices_from_format3", "deferred: same face-id-ordering core gap as test_add_simplices_from_format2."),
+        ("test_add_simplices_from_format4", "deferred: same face-id-ordering core gap as test_add_simplices_from_format2."),
+        ("test_add_edges_from_dict", "deferred: same face-id-ordering core gap as test_add_simplices_from_format2."),
         ("test_add_simplices_from",
-         "uses add_simplices_from(..., max_order=...) — XGI's max_order truncation kwarg is not "
-         "built (no phase implemented it; not in the Task 7 scope any binding wired)."),
+         "deferred: uses add_simplices_from(..., max_order=...) — XGI's max_order truncation kwarg "
+         "is not built (no phase implemented it; not in the Task 7 scope any binding wired)."),
         ("test_freeze",
-         "core-gap: exercises SC.remove_node, which has no core primitive (see test_remove_node)."),
+         "deferred: exercises SC.remove_node, which has no core primitive (see test_remove_node)."),
         ("test_cleanup",
-         "core-gap: SimplicialComplex has no isolate_node_ids/node-removal primitive in the core "
+         "deferred: SimplicialComplex has no isolate_node_ids/node-removal primitive in the core "
          "(unlike Hypergraph/DiHypergraph); cleanup(isolates=...) cannot be implemented at the "
          "binding level without one."),
         ("test_remove_node",
-         "core-gap: hypergraph_rs::SimplicialComplex has no method to physically remove a node "
+         "deferred: hypergraph_rs::SimplicialComplex has no method to physically remove a node "
          "from the underlying bipartite graph (no `memberships`/node-delete primitive exists, "
          "unlike Hypergraph::remove_node) — real XGI implements it via direct `_node`/`_edge` dict "
          "surgery the Rust core has no equivalent internal access path for. Genuine core gap per "
          "the Task 15 triage protocol category 2 — not a binding fix; escalate for a future phase."),
-        ("test_issue_445", "same core-gap as test_remove_node (also calls SC.remove_node)."),
+        ("test_issue_445", "deferred: same core-gap as test_remove_node (also calls SC.remove_node)."),
     ],
     "core/test_views.py": [
         ("test_maximal",
-         "SCEdgeView.maximal()/scoped-call not yet ported for SimplicialComplex (Task 7 rebuild "
-         "still open in this pass); tracked for the simplicial-complex tier, not a P0-tier gap."),
+         "deferred: SCEdgeView.maximal()/scoped-call not yet ported for SimplicialComplex (Task 7 "
+         "rebuild still open in this pass); tracked for the simplicial-complex tier, not a P0-tier "
+         "gap."),
         ("test_stat_discoverability",
-         "asserts algorithm-derived stats (e.g. clustering_coefficient) appear in dir(); the "
-         "nodestat/edgestat dispatch-registry machinery is replaced by idiomatic Rust getters "
-         "(spec §4.4), same category as stats/test_core_stats_functions.py."),
+         "decorator machinery: asserts algorithm-derived stats (e.g. clustering_coefficient) "
+         "appear in dir(); the nodestat/edgestat dispatch-registry machinery is replaced by "
+         "idiomatic Rust getters (spec §4.4), same category as stats/test_core_stats_functions.py."),
         ("test_stat_caching",
-         "asserts H.nodes.degree returns the SAME cached Stat object on repeated access; the "
-         "binding recomputes a fresh Stat per getter call (no caching layer) — dispatch-machinery "
-         "category, same as stats/test_core_stats_functions.py."),
+         "decorator machinery: asserts H.nodes.degree returns the SAME cached Stat object on "
+         "repeated access; the binding recomputes a fresh Stat per getter call (no caching layer) "
+         "— dispatch-machinery category, same as stats/test_core_stats_functions.py."),
         ("test_custom_stat_still_works",
          "exercises @xgi.nodestat_func, a DEFERRED symbol (dispatch-registry decorator; §A ledger "
          "'stats' deferred set)."),
         ("test_stat_docstring_forwarding",
-         "asserts Stat.__doc__ forwards the underlying Python function's docstring; the binding's "
-         "Stat objects are native PyO3 classes with no XGI Python function to forward from — "
-         "dispatch-machinery category, same as stats/test_core_stats_functions.py."),
+         "decorator machinery: asserts Stat.__doc__ forwards the underlying Python function's "
+         "docstring; the binding's Stat objects are native PyO3 classes with no XGI Python "
+         "function to forward from — dispatch-machinery category, same as "
+         "stats/test_core_stats_functions.py."),
     ],
     "algorithms/test_centrality.py": [
         ("test_h_eigenvector_centrality", "deferred: tensor centrality (Phase 3)."),
@@ -196,7 +189,7 @@ TEST_EXCLUSIONS = {
         # earlier `test__choose_degrees` (double underscore) never matched, so the skip never fired.
         ("test_choose_degrees", "imports private _choose_degrees; helper not part of the port."),
         ("test_degree_assortativity",
-         "documented deviation (algorithms.rs module doc): degree_assortativity(exact=False) "
+         "deferred (documented deviation, algorithms.rs module doc): degree_assortativity(exact=False) "
          "(random-sampling path) awaits the Phase-4 rand_pcg pin; raises NotImplementedError."),
     ],
     "algorithms/test_connected.py": [
@@ -223,7 +216,7 @@ TEST_EXCLUSIONS = {
     # so both entries were misdirected no-ops and are deleted.
     "utils/test_utilities.py": [
         ("test_iddict",
-         "binding gap: `H._edge`/`H._node` return snapshot copies, not a live mutable reference "
+         "deferred: `H._edge`/`H._node` return snapshot copies, not a live mutable reference "
          "into the binding's Rust-side store — `H._edge[None] = {1,2,3}` (expected to raise "
          "XGIError) and `del H._node[\"test\"]` (expected IDNotFound) mutate a throwaway dict "
          "instead. Same category as algorithms/test_properties.py::test_equal's `_net_attr` gap "
@@ -234,7 +227,7 @@ TEST_EXCLUSIONS = {
         ("test_binomial_sequence", "deferred: binomial_sequence (utils, §A ledger)."),
         ("test_geometric", "deferred: geometric (utils, §A ledger)."),
         ("test_convert_labels_to_integers",
-         "core gap: `convert_labels_to_integers` only exists for (undirected) Hypergraph "
+         "deferred: `convert_labels_to_integers` only exists for (undirected) Hypergraph "
          "(utils/mod.rs) — the Hypergraph portion of this test (verified separately, including "
          "the label-type binding fix in Task 17 execution notes) is green; the SimplicialComplex/"
          "DiHypergraph portions in the same test function need an equivalent core relabeling "

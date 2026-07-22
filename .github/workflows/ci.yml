@@ -65,3 +65,30 @@ jobs:
 
       - name: "MSRV floor check (identical to local — mise run rust:msrv)"
         run: mise run rust:msrv
+
+  # Phase 7 — the XGI conformance gate (build+test only; no publish, per the hard constraint
+  # in plans/phase-7-python-conformance.md). DORMANT alongside rust-gate/rust-msrv above until
+  # this repo has a remote (plans/EXECUTION-STATE.md), but wired now so the gate is ready.
+  xgi-conformance:
+    name: Python bindings — XGI conformance gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install maturin pytest -r tests/requirements-dev.txt
+      - run: pip install "xgi==0.10.2"                 # test-only differential oracle
+      - run: maturin develop
+      - run: python tools/audit_symbols.py             # regenerate + assert the deferred ledger
+      - run: pytest tests/ported -q                    # the 51 ported files, adapted + excluded
+
+  wheel-build:
+    name: Python bindings — release wheel smoke (no publish)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - run: pip install maturin
+      - run: maturin build --release --out dist        # build wheel to dist/, do NOT upload
+      - run: python -c "import glob; assert glob.glob('dist/*.whl'), 'no wheel built'"

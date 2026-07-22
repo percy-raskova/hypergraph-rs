@@ -42,14 +42,21 @@ impl PyKey {
 }
 impl PartialEq for PyKey {
     fn eq(&self, o: &Self) -> bool {
-        self.hash == o.hash && self.repr == o.repr
+        // Match CPython dict/set key semantics exactly (real `hash()`/`==`), not repr:
+        // `1 == True` and `hash(1) == hash(True)` in real Python, so `set([1, True])` collapses
+        // to one element — real XGI's `members = set(members)` (hypergraph.py) exhibits this, and
+        // the property-differential oracle (tests/ported/test_property_differential.py) catches any
+        // drift from it. `1` vs `"1"` stay distinct because `1 == "1"` is `False` in real Python.
+        if self.hash != o.hash {
+            return false;
+        }
+        Python::attach(|py| self.obj.bind(py).eq(o.obj.bind(py)).unwrap_or(false))
     }
 }
 impl Eq for PyKey {}
 impl Hash for PyKey {
     fn hash<H: Hasher>(&self, s: &mut H) {
         self.hash.hash(s);
-        self.repr.hash(s);
     }
 }
 

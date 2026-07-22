@@ -50,6 +50,70 @@ pub(crate) fn node_f64_dict<'py>(
     Ok(d.unbind())
 }
 
+/// Shared building block for the three `local_*_simpliciality`/`local_simplicial_fraction`
+/// nodestats (`stats/nodestats.py::local_edit_simpliciality` / `local_face_edit_simpliciality` /
+/// `local_simplicial_fraction`): for each node `n`, induce the subhypergraph over `n` plus its
+/// neighbors, then apply `scalar_fn` (one of the already-bound whole-hypergraph algorithms) to
+/// it — `f64::NAN` for isolated nodes (XGI parity: `np.nan`). No new core logic — pure
+/// binding-level composition of `subhypergraph` (Task 7) + the existing scalar algorithm.
+pub(crate) fn local_simpliciality_stat_map(
+    h: &PyHypergraph,
+    min_size: usize,
+    exclude_min_size: bool,
+    scalar_fn: fn(&hypergraph_rs::Hypergraph<Value, Value, Value>, usize, bool) -> f64,
+) -> indexmap::IndexMap<String, f64> {
+    let mut result = indexmap::IndexMap::new();
+    for nid in h.inner.node_ids() {
+        let mut neighbors: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for eid in h.inner.memberships(&nid).unwrap_or_default() {
+            for m in h.inner.members(&eid).unwrap_or_default() {
+                if m != nid {
+                    neighbors.insert(m);
+                }
+            }
+        }
+        if neighbors.is_empty() {
+            result.insert(nid, f64::NAN);
+            continue;
+        }
+        neighbors.insert(nid.clone());
+        let node_list: Vec<String> = neighbors.into_iter().collect();
+        let sub = hypergraph_rs::subhypergraph(&h.inner, Some(&node_list), None, true);
+        result.insert(nid, scalar_fn(&sub, min_size, exclude_min_size));
+    }
+    result
+}
+
+/// `H.average_neighbor_degree()` / `H.nodes.average_neighbor_degree` — XGI parity:
+/// `stats/nodestats.py::average_neighbor_degree`. Not a core algorithm — synthesized here purely
+/// from already-exposed core primitives (`memberships`/`members`), matching the Task 11 pattern
+/// ("the binding synthesizes the observable surface over `Stat<T>`"). For each node, the mean
+/// plain (unweighted, all-orders) degree of its neighbors (nodes sharing >=1 edge), 0 if isolated.
+pub(crate) fn average_neighbor_degree_map(h: &PyHypergraph) -> indexmap::IndexMap<String, f64> {
+    let mut result = indexmap::IndexMap::new();
+    for nid in h.inner.node_ids() {
+        let mut neighbors: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for eid in h.inner.memberships(&nid).unwrap_or_default() {
+            for m in h.inner.members(&eid).unwrap_or_default() {
+                if m != nid {
+                    neighbors.insert(m);
+                }
+            }
+        }
+        let value = if neighbors.is_empty() {
+            0.0
+        } else {
+            let total: usize = neighbors
+                .iter()
+                .map(|nbr| h.inner.memberships(nbr).map(|v| v.len()).unwrap_or(0))
+                .sum();
+            total as f64 / neighbors.len() as f64
+        };
+        result.insert(nid, value);
+    }
+    result
+}
+
 /// Translate a `Vec<String>` of core node ids to a `PySet` of original Python ids.
 fn node_set<'py>(py: Python<'py>, ids: &[String], map: &PyIdMap) -> PyResult<Bound<'py, PySet>> {
     let s = PySet::empty(py)?;
@@ -230,9 +294,10 @@ fn equal(
     let a = &h1.inner;
     let b = &h2.inner;
 
-    let members_of = |h: &hypergraph_rs::Hypergraph<Value, Value, Value>,
-                       e: &str|
-     -> BTreeSet<String> { h.members(e).unwrap_or_default().into_iter().collect() };
+    let members_of =
+        |h: &hypergraph_rs::Hypergraph<Value, Value, Value>, e: &str| -> BTreeSet<String> {
+            h.members(e).unwrap_or_default().into_iter().collect()
+        };
 
     if compare_edge_ids {
         let ea: BTreeMap<String, BTreeSet<String>> = a

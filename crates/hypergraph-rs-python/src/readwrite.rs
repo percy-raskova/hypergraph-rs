@@ -163,7 +163,12 @@ fn write_json_single(py: Python<'_>, h: &PyHypergraph, path: &str) -> PyResult<(
 /// files plus a `<collection_name>collection_information.json` index.
 #[pyfunction]
 #[pyo3(signature = (h, path, collection_name=""))]
-fn write_json(py: Python<'_>, h: &Bound<'_, PyAny>, path: &str, collection_name: &str) -> PyResult<()> {
+fn write_json(
+    py: Python<'_>,
+    h: &Bound<'_, PyAny>,
+    path: &str,
+    collection_name: &str,
+) -> PyResult<()> {
     let prefix = if collection_name.is_empty() {
         String::new()
     } else {
@@ -186,11 +191,8 @@ fn write_json(py: Python<'_>, h: &Bound<'_, PyAny>, path: &str, collection_name:
         let s: String = json_mod
             .call_method1("dumps", (collection_data,))?
             .extract()?;
-        std::fs::write(
-            format!("{path}/{prefix}collection_information.json"),
-            s,
-        )
-        .map_err(|e| xgi_error(e.to_string()))?;
+        std::fs::write(format!("{path}/{prefix}collection_information.json"), s)
+            .map_err(|e| xgi_error(e.to_string()))?;
         return Ok(());
     }
     if let Ok(dict) = h.cast::<PyDict>() {
@@ -211,11 +213,8 @@ fn write_json(py: Python<'_>, h: &Bound<'_, PyAny>, path: &str, collection_name:
         let s: String = json_mod
             .call_method1("dumps", (collection_data,))?
             .extract()?;
-        std::fs::write(
-            format!("{path}/{prefix}collection_information.json"),
-            s,
-        )
-        .map_err(|e| xgi_error(e.to_string()))?;
+        std::fs::write(format!("{path}/{prefix}collection_information.json"), s)
+            .map_err(|e| xgi_error(e.to_string()))?;
         return Ok(());
     }
     let hg: PyRef<PyHypergraph> = h.extract()?;
@@ -380,7 +379,14 @@ fn read_hif(
     let data: Value = serde_json::from_str(&s).map_err(|e| xgi_error(e.to_string()))?;
     let core = rw::from_hif_dict(&data).map_err(|e| xgi_error(e.to_string()))?;
     let metadata = data.get("metadata").and_then(|v| v.as_object());
-    wrap_core_ex(py, core, nodetype.as_ref(), edgetype.as_ref(), metadata, true)
+    wrap_core_ex(
+        py,
+        core,
+        nodetype.as_ref(),
+        edgetype.as_ref(),
+        metadata,
+        true,
+    )
 }
 
 // ---------------------------------------------------------------------------------------------

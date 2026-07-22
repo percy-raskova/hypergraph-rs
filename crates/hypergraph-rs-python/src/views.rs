@@ -371,6 +371,65 @@ impl PyNodeView {
         crate::stats::PyNodeStat::attr(py, self.hg.clone_ref(py), ids, String::new())
     }
 
+    /// `H.nodes.average_neighbor_degree` (bare/called) — XGI parity:
+    /// `stats/nodestats.py::average_neighbor_degree`.
+    #[getter]
+    fn average_neighbor_degree(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
+        let hg = self.hg.borrow(py);
+        let ids = self.effective_ids(&hg);
+        let values: std::collections::HashMap<String, f64> =
+            crate::algorithms::average_neighbor_degree_map(&hg)
+                .into_iter()
+                .collect();
+        drop(hg);
+        crate::stats::PyNodeStat::precomputed(py, self.hg.clone_ref(py), ids, values)
+    }
+
+    /// `H.nodes.local_edit_simpliciality` (bare/called, `min_size`/`exclude_min_size`
+    /// re-parametrizable) — XGI parity: `stats/nodestats.py::local_edit_simpliciality`.
+    #[getter]
+    fn local_edit_simpliciality(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
+        let hg = self.hg.borrow(py);
+        let ids = self.effective_ids(&hg);
+        drop(hg);
+        crate::stats::PyNodeStat::local_simpliciality(
+            py,
+            self.hg.clone_ref(py),
+            ids,
+            hypergraph_rs::algorithms::simpliciality::edit_simpliciality,
+        )
+    }
+
+    /// `H.nodes.local_face_edit_simpliciality` (bare/called) — XGI parity:
+    /// `stats/nodestats.py::local_face_edit_simpliciality`.
+    #[getter]
+    fn local_face_edit_simpliciality(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
+        let hg = self.hg.borrow(py);
+        let ids = self.effective_ids(&hg);
+        drop(hg);
+        crate::stats::PyNodeStat::local_simpliciality(
+            py,
+            self.hg.clone_ref(py),
+            ids,
+            hypergraph_rs::algorithms::simpliciality::face_edit_simpliciality,
+        )
+    }
+
+    /// `H.nodes.local_simplicial_fraction` (bare/called) — XGI parity:
+    /// `stats/nodestats.py::local_simplicial_fraction`.
+    #[getter]
+    fn local_simplicial_fraction(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
+        let hg = self.hg.borrow(py);
+        let ids = self.effective_ids(&hg);
+        drop(hg);
+        crate::stats::PyNodeStat::local_simpliciality(
+            py,
+            self.hg.clone_ref(py),
+            ids,
+            hypergraph_rs::algorithms::simpliciality::simplicial_fraction,
+        )
+    }
+
     /// `H.nodes.clustering_coefficient` (bare) / `H.nodes.clustering_coefficient()` (called) —
     /// XGI parity: `algorithms/clustering.py:clustering_coefficient`, wired via the
     /// `nodestat_func` registry (attribute access alone yields the realized `Stat`; a further

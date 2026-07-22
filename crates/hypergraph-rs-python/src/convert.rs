@@ -193,7 +193,10 @@ fn to_bipartite_edgelist(py: Python<'_>, h: &Bound<'_, PyAny>) -> PyResult<Py<Py
             let (tail, head) = dh.inner.dimembers(&eid).unwrap_or_default();
             for n in tail {
                 if let Some(nobj) = dh.node_ids.get_obj(py, &n) {
-                    out.append(PyTuple::new(py, [nobj, eobj.clone(), PyString::new(py, "in").into_any()])?)?;
+                    out.append(PyTuple::new(
+                        py,
+                        [nobj, eobj.clone(), PyString::new(py, "in").into_any()],
+                    )?)?;
                 }
             }
             let Some(eobj) = dh.edge_ids.get_obj(py, &eid) else {
@@ -201,7 +204,10 @@ fn to_bipartite_edgelist(py: Python<'_>, h: &Bound<'_, PyAny>) -> PyResult<Py<Py
             };
             for n in head {
                 if let Some(nobj) = dh.node_ids.get_obj(py, &n) {
-                    out.append(PyTuple::new(py, [nobj, eobj.clone(), PyString::new(py, "out").into_any()])?)?;
+                    out.append(PyTuple::new(
+                        py,
+                        [nobj, eobj.clone(), PyString::new(py, "out").into_any()],
+                    )?)?;
                 }
             }
         }
@@ -298,9 +304,11 @@ fn to_bipartite_graph(py: Python<'_>, h: &Bound<'_, PyAny>, index: bool) -> PyRe
         for (j, obj) in edge_objs.into_iter().enumerate() {
             edge_dict.set_item(n + j, obj)?;
         }
-        return Ok(PyTuple::new(py, [g, node_dict.into_any(), edge_dict.into_any()])?
-            .into_any()
-            .unbind());
+        return Ok(
+            PyTuple::new(py, [g, node_dict.into_any(), edge_dict.into_any()])?
+                .into_any()
+                .unbind(),
+        );
     }
 
     let h: PyRef<'_, PyHypergraph> = h.extract()?;
@@ -338,9 +346,11 @@ fn to_bipartite_graph(py: Python<'_>, h: &Bound<'_, PyAny>, index: bool) -> PyRe
     for (j, obj) in edge_objs.into_iter().enumerate() {
         edge_dict.set_item(n + j, obj)?;
     }
-    Ok(PyTuple::new(py, [g, node_dict.into_any(), edge_dict.into_any()])?
-        .into_any()
-        .unbind())
+    Ok(
+        PyTuple::new(py, [g, node_dict.into_any(), edge_dict.into_any()])?
+            .into_any()
+            .unbind(),
+    )
 }
 
 /// `xgi.from_bipartite_graph(G, dual=False)`. `G` an `nx.Graph` -> `Hypergraph` (`dual=True`

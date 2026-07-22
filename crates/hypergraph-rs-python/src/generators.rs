@@ -171,7 +171,9 @@ fn parse_order_arg(
     };
     if let Ok(scalar) = o.extract::<usize>() {
         if !ps_is_scalar {
-            return Err(PyValueError::new_err("If order is an int, ps must be a float"));
+            return Err(PyValueError::new_err(
+                "If order is an int, ps must be a float",
+            ));
         }
         return Ok(Some(vec![scalar]));
     }
@@ -345,8 +347,8 @@ fn random_simplicial_complex(
     ps: Vec<f64>,
     seed: Option<u64>,
 ) -> PyResult<PySimplicialComplex> {
-    let core =
-        gen::random_simplicial_complex(n, &ps, seed).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let core = gen::random_simplicial_complex(n, &ps, seed)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     PySimplicialComplex::from_core_with_int_ids(py, core)
 }
 
