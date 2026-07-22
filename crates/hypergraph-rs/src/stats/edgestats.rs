@@ -21,7 +21,11 @@ pub fn edge_order(h: &Hypergraph, degree: Option<usize>) -> Stat<usize> {
     let mut out: IndexMap<String, usize> = IndexMap::new();
     for eid in h.edge_ids() {
         let val = match degree {
-            None => h.members(&eid).map(|m| m.len()).unwrap_or(0).saturating_sub(1),
+            None => h
+                .members(&eid)
+                .map(|m| m.len())
+                .unwrap_or(0)
+                .saturating_sub(1),
             Some(d) => members_with_degree(h, &eid, d).saturating_sub(1),
         };
         out.insert(eid, val);

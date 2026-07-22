@@ -51,7 +51,11 @@ pub fn read_incidence_matrix(
         .filter(|l| !l.trim().is_empty())
         .map(|line| {
             let cells: Vec<&str> = match delimiter {
-                Some(d) => line.split(d).map(|c| c.trim()).filter(|c| !c.is_empty()).collect(),
+                Some(d) => line
+                    .split(d)
+                    .map(|c| c.trim())
+                    .filter(|c| !c.is_empty())
+                    .collect(),
                 None => line.split_whitespace().collect(),
             };
             cells

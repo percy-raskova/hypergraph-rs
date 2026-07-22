@@ -313,10 +313,10 @@ fn test_watts_strogatz_is_deterministic() {
     assert!(a == b);
 }
 
+use hypergraph_rs::generators::uniform::PType;
 use hypergraph_rs::generators::{
     uniform_erdos_renyi_hypergraph, uniform_hypergraph_configuration_model,
 };
-use hypergraph_rs::generators::uniform::PType;
 
 #[test]
 fn test_uniform_er_is_m_uniform() {

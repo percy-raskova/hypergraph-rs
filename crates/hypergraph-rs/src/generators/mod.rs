@@ -16,9 +16,9 @@ pub use classic::{
     complement, complete_hypergraph, empty_hypergraph, trivial_hypergraph, GeneratorError,
 };
 pub use lattice::ring_lattice;
-pub use simple::{star_clique, sunflower};
 pub use random::{
     chung_lu_hypergraph, fast_random_hypergraph, random_hypergraph, watts_strogatz_hypergraph,
 };
-pub use uniform::{uniform_erdos_renyi_hypergraph, uniform_hypergraph_configuration_model};
+pub use simple::{star_clique, sunflower};
 pub use simplicial::random_simplicial_complex;
+pub use uniform::{uniform_erdos_renyi_hypergraph, uniform_hypergraph_configuration_model};

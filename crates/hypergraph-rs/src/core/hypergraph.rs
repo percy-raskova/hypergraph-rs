@@ -1,8 +1,11 @@
 //! The core `Hypergraph` data structure.
 
 use indexmap::IndexMap;
+#[cfg(feature = "generators")]
 use rand::RngExt;
+#[cfg(feature = "generators")]
 use rand_core::SeedableRng;
+#[cfg(feature = "generators")]
 use rand_pcg::Pcg64Mcg;
 use rustworkx_core::petgraph::graph::{NodeIndex as GraphNodeIndex, UnGraph};
 use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
@@ -712,6 +715,11 @@ impl<N, E, M> Hypergraph<N, E, M> {
     /// (hypergraph.py:994-1078). Requires an explicit seed (deviation #3);
     /// the rand_pcg sequence does not match numpy, so only structural
     /// invariants are guaranteed across implementations.
+    ///
+    /// Gated on `generators` (the feature that owns the `rand_pcg`/`rand_core`
+    /// optional deps this method needs) so the core module stays buildable
+    /// under `--no-default-features` (Phase 4 Task 19 feature-matrix check).
+    #[cfg(feature = "generators")]
     pub fn random_edge_shuffle(
         &mut self,
         e_id1: Option<&str>,

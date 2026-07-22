@@ -12,12 +12,18 @@ use crate::Hypergraph;
 pub fn to_hypergraph_dict(h: &Hypergraph) -> Value {
     let mut node_data = Map::new();
     for nid in h.node_ids() {
-        node_data.insert(nid.clone(), h.node_attrs(&nid).cloned().unwrap_or(Value::Null));
+        node_data.insert(
+            nid.clone(),
+            h.node_attrs(&nid).cloned().unwrap_or(Value::Null),
+        );
     }
     let mut edge_data = Map::new();
     let mut edge_dict = Map::new();
     for eid in h.edge_ids() {
-        edge_data.insert(eid.clone(), h.edge_attrs(&eid).cloned().unwrap_or(Value::Null));
+        edge_data.insert(
+            eid.clone(),
+            h.edge_attrs(&eid).cloned().unwrap_or(Value::Null),
+        );
         let mut members = h.members(&eid).unwrap_or_default();
         members.sort();
         edge_dict.insert(eid.clone(), json!(members));

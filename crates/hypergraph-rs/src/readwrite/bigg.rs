@@ -66,7 +66,11 @@ pub fn bigg_dict_to_dihypergraph(
             let mut products = Vec::new();
             for (met, val) in coeffs {
                 let v = val.as_f64().unwrap_or(0.0);
-                let is_product = if positive_is_product { v > 0.0 } else { v >= 0.0 };
+                let is_product = if positive_is_product {
+                    v > 0.0
+                } else {
+                    v >= 0.0
+                };
                 if is_product {
                     products.push(met.clone());
                 } else {

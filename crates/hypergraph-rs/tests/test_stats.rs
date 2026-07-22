@@ -142,8 +142,18 @@ fn test_edge_order_degree_filter_zero_matches_clamps_at_zero() {
 #[test]
 fn test_edge_attrs_single_with_missing() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into()], Some("one".into()), serde_json::json!({"color": "red"})).unwrap();
-    h.add_edge(vec!["b".into()], Some("two".into()), serde_json::json!({"age": 30})).unwrap();
+    h.add_edge(
+        vec!["a".into()],
+        Some("one".into()),
+        serde_json::json!({"color": "red"}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".into()],
+        Some("two".into()),
+        serde_json::json!({"age": 30}),
+    )
+    .unwrap();
     let colors = edge_attrs(&h, Some("color"));
     assert_eq!(colors.get("one").unwrap(), &serde_json::json!("red"));
     assert_eq!(colors.get("two").unwrap(), &serde_json::Value::Null);

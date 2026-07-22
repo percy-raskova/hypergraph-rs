@@ -4,7 +4,9 @@ use hypergraph_rs::readwrite::bipartite::{
 use hypergraph_rs::readwrite::edgelist::{parse_edgelist, read_edgelist, write_edgelist};
 use hypergraph_rs::readwrite::hif::{from_hif_dict, read_hif, to_hif_dict, write_hif};
 use hypergraph_rs::readwrite::incidence::{read_incidence_matrix, write_incidence_matrix};
-use hypergraph_rs::readwrite::json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};
+use hypergraph_rs::readwrite::json::{
+    from_hypergraph_dict, read_json, to_hypergraph_dict, write_json,
+};
 use hypergraph_rs::Hypergraph;
 
 fn sample() -> Hypergraph {
@@ -41,10 +43,7 @@ fn test_to_hypergraph_dict_schema() {
     assert!(d["node-data"].get("1").is_some());
     assert!(d["edge-data"].get("e0").is_some());
     // edge-dict members are sorted strings
-    assert_eq!(
-        d["edge-dict"]["e0"],
-        serde_json::json!(["1", "2", "3"])
-    );
+    assert_eq!(d["edge-dict"]["e0"], serde_json::json!(["1", "2", "3"]));
 }
 
 #[test]
@@ -80,7 +79,11 @@ fn test_write_read_json_file_round_trip() {
 
 #[test]
 fn test_parse_edgelist_whitespace() {
-    let lines = vec!["1 2 3".to_string(), "2 3 4 5".to_string(), "# a comment".to_string()];
+    let lines = vec![
+        "1 2 3".to_string(),
+        "2 3 4 5".to_string(),
+        "# a comment".to_string(),
+    ];
     let h = parse_edgelist(lines, None, "#").unwrap();
     assert_eq!(h.num_edges(), 2);
     assert_eq!(h.num_nodes(), 5);
@@ -99,8 +102,14 @@ fn test_parse_edgelist_custom_delimiter() {
 #[test]
 fn test_write_read_edgelist_round_trip() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into(), "3".into()], None, serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["3".into(), "4".into()], None, serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into(), "3".into()],
+        None,
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(vec!["3".into(), "4".into()], None, serde_json::Value::Null)
+        .unwrap();
     let path = std::env::temp_dir().join("hypergraph_rs_test_edgelist.csv");
     write_edgelist(&h, &path, ',').unwrap();
     let h2 = read_edgelist(&path, Some(','), "#").unwrap();
@@ -141,7 +150,12 @@ fn test_parse_bipartite_rejects_short_line() {
 #[test]
 fn test_write_read_bipartite_round_trip() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let path = std::env::temp_dir().join("hypergraph_rs_test_bipartite.csv");
     write_bipartite_edgelist(&h, &path, ' ').unwrap();
     let h2 = read_bipartite_edgelist(&path, None, "#", false).unwrap();
@@ -154,8 +168,18 @@ fn test_write_read_bipartite_round_trip() {
 fn test_write_read_incidence_round_trip() {
     // 3 nodes, 2 edges: edge0={0,1}, edge1={1,2}
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["0".into(), "1".into()], Some("0".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["1".into(), "2".into()], Some("1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["0".into(), "1".into()],
+        Some("0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let path = std::env::temp_dir().join("hypergraph_rs_test_incidence.csv");
     write_incidence_matrix(&h, &path, ' ').unwrap();
     let h2 = read_incidence_matrix(&path, None).unwrap();
@@ -171,7 +195,12 @@ fn test_write_read_incidence_round_trip() {
 #[test]
 fn test_to_hif_dict_schema() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), serde_json::json!({"w": 3})).unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("e0".into()),
+        serde_json::json!({"w": 3}),
+    )
+    .unwrap();
     h.add_node("iso", serde_json::json!({"color": "red"}));
     h.set_graph_attr("name", serde_json::json!("hif-sample"));
     h.set_graph_attr("note", serde_json::json!("second graph attr"));
@@ -179,7 +208,10 @@ fn test_to_hif_dict_schema() {
     assert_eq!(d["network-type"], serde_json::json!("undirected"));
     // every graph attr is serialized into metadata, not just "name"
     assert_eq!(d["metadata"]["name"], serde_json::json!("hif-sample"));
-    assert_eq!(d["metadata"]["note"], serde_json::json!("second graph attr"));
+    assert_eq!(
+        d["metadata"]["note"],
+        serde_json::json!("second graph attr")
+    );
     // two incidences for e0
     let inc = d["incidences"].as_array().unwrap();
     assert_eq!(inc.len(), 2);
@@ -194,8 +226,18 @@ fn test_to_hif_dict_schema() {
 #[test]
 fn test_hif_round_trip() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), serde_json::json!({"w": 3})).unwrap();
-    h.add_edge(vec!["2".into(), "3".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("e0".into()),
+        serde_json::json!({"w": 3}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["2".into(), "3".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let d = to_hif_dict(&h);
     let h2 = from_hif_dict(&d).unwrap();
     assert_eq!(h2.num_nodes(), 3);
@@ -206,7 +248,12 @@ fn test_hif_round_trip() {
 #[test]
 fn test_write_read_hif_file() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let path = std::env::temp_dir().join("hypergraph_rs_test_hif.json");
     write_hif(&h, &path).unwrap();
     let h2 = read_hif(&path).unwrap();
