@@ -292,10 +292,12 @@ version = "0.1.0"
 dependencies = [
  "hypergraph-rs",
  "indexmap",
+ "ndarray",
  "numpy",
  "pyo3",
  "rustworkx-core",
  "serde_json",
+ "sprs",
 ]
 
 [[package]]

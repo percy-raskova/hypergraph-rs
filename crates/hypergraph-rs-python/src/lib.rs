@@ -8,10 +8,10 @@ use pyo3::prelude::*;
 mod dihypergraph; // Task 6
 mod errors;
 mod hypergraph;
+mod linalg; // Task 8
 mod pyid;
 mod simplicial; // Task 7
 mod views; // Task 5
-// mod linalg;       // Task 8
 // mod algorithms;   // Task 9
 // mod generators;   // Task 10
 // mod stats;        // Task 11
@@ -25,5 +25,6 @@ fn _hypergraph_rs_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     views::register(m)?;
     dihypergraph::register(m)?;
     simplicial::register(m)?;
+    linalg::register(m)?;
     Ok(())
 }
