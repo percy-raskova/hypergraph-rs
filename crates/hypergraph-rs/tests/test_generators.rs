@@ -312,3 +312,67 @@ fn test_watts_strogatz_is_deterministic() {
     let b = watts_strogatz_hypergraph(12, 3, 4, 1, 0.3, Some(11)).unwrap();
     assert!(a == b);
 }
+
+use hypergraph_rs::generators::{
+    uniform_erdos_renyi_hypergraph, uniform_hypergraph_configuration_model,
+};
+use hypergraph_rs::generators::uniform::PType;
+
+#[test]
+fn test_uniform_er_is_m_uniform() {
+    let h = uniform_erdos_renyi_hypergraph(30, 3, 0.05, PType::Prob, false, Some(2)).unwrap();
+    assert_eq!(h.num_nodes(), 30);
+    for e in h.edge_ids() {
+        assert_eq!(h.members(&e).unwrap().len(), 3);
+    }
+}
+
+#[test]
+fn test_uniform_er_p_zero_is_empty_edges() {
+    let h = uniform_erdos_renyi_hypergraph(10, 2, 0.0, PType::Prob, false, Some(1)).unwrap();
+    assert_eq!(h.num_nodes(), 10);
+    assert_eq!(h.num_edges(), 0);
+}
+
+#[test]
+fn test_uniform_er_p_one_is_complete() {
+    // q==1, no multiedges -> complete_hypergraph(n, order=m-1) = comb(n, m) edges
+    let h = uniform_erdos_renyi_hypergraph(5, 2, 1.0, PType::Prob, false, Some(1)).unwrap();
+    assert_eq!(h.num_edges(), 10); // comb(5,2)
+}
+
+#[test]
+fn test_uniform_er_is_deterministic() {
+    let a = uniform_erdos_renyi_hypergraph(30, 3, 0.05, PType::Prob, false, Some(9)).unwrap();
+    let b = uniform_erdos_renyi_hypergraph(30, 3, 0.05, PType::Prob, false, Some(9)).unwrap();
+    assert!(a == b);
+}
+
+#[test]
+fn test_uniform_er_rejects_bad_probability() {
+    assert!(uniform_erdos_renyi_hypergraph(10, 2, 2.0, PType::Prob, false, Some(1)).is_err());
+}
+
+#[test]
+fn test_configuration_model_is_m_uniform() {
+    let mut k: IndexMap<String, usize> = IndexMap::new();
+    for i in 0..30 {
+        k.insert(i.to_string(), 3);
+    }
+    let h = uniform_hypergraph_configuration_model(&k, 3, Some(5));
+    assert_eq!(h.num_nodes(), 30);
+    for e in h.edge_ids() {
+        assert_eq!(h.members(&e).unwrap().len(), 3);
+    }
+}
+
+#[test]
+fn test_configuration_model_is_deterministic() {
+    let mut k: IndexMap<String, usize> = IndexMap::new();
+    for i in 0..30 {
+        k.insert(i.to_string(), 3);
+    }
+    let a = uniform_hypergraph_configuration_model(&k, 3, Some(5));
+    let b = uniform_hypergraph_configuration_model(&k, 3, Some(5));
+    assert!(a == b);
+}
