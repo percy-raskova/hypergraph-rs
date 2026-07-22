@@ -2,6 +2,7 @@ use hypergraph_rs::readwrite::bipartite::{
     parse_bipartite_edgelist, read_bipartite_edgelist, write_bipartite_edgelist,
 };
 use hypergraph_rs::readwrite::edgelist::{parse_edgelist, read_edgelist, write_edgelist};
+use hypergraph_rs::readwrite::hif::{from_hif_dict, read_hif, to_hif_dict, write_hif};
 use hypergraph_rs::readwrite::incidence::{read_incidence_matrix, write_incidence_matrix};
 use hypergraph_rs::readwrite::json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};
 use hypergraph_rs::Hypergraph;
@@ -164,5 +165,52 @@ fn test_write_read_incidence_round_trip() {
     let mut m = h2.members("0").unwrap();
     m.sort();
     assert_eq!(m, vec!["0".to_string(), "1".to_string()]);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn test_to_hif_dict_schema() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), serde_json::json!({"w": 3})).unwrap();
+    h.add_node("iso", serde_json::json!({"color": "red"}));
+    h.set_graph_attr("name", serde_json::json!("hif-sample"));
+    h.set_graph_attr("note", serde_json::json!("second graph attr"));
+    let d = to_hif_dict(&h);
+    assert_eq!(d["network-type"], serde_json::json!("undirected"));
+    // every graph attr is serialized into metadata, not just "name"
+    assert_eq!(d["metadata"]["name"], serde_json::json!("hif-sample"));
+    assert_eq!(d["metadata"]["note"], serde_json::json!("second graph attr"));
+    // two incidences for e0
+    let inc = d["incidences"].as_array().unwrap();
+    assert_eq!(inc.len(), 2);
+    // isolate node with attrs appears in nodes
+    let nodes = d["nodes"].as_array().unwrap();
+    assert!(nodes.iter().any(|n| n["node"] == serde_json::json!("iso")));
+    // edge with attrs appears in edges
+    let edges = d["edges"].as_array().unwrap();
+    assert!(edges.iter().any(|e| e["edge"] == serde_json::json!("e0")));
+}
+
+#[test]
+fn test_hif_round_trip() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into(), "2".into(), "3".into()], Some("e0".into()), serde_json::json!({"w": 3})).unwrap();
+    h.add_edge(vec!["2".into(), "3".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    let d = to_hif_dict(&h);
+    let h2 = from_hif_dict(&d).unwrap();
+    assert_eq!(h2.num_nodes(), 3);
+    assert_eq!(h2.num_edges(), 2);
+    assert_eq!(h2.edge_attrs("e0").unwrap()["w"], 3);
+}
+
+#[test]
+fn test_write_read_hif_file() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    let path = std::env::temp_dir().join("hypergraph_rs_test_hif.json");
+    write_hif(&h, &path).unwrap();
+    let h2 = read_hif(&path).unwrap();
+    assert_eq!(h2.num_nodes(), 2);
+    assert_eq!(h2.num_edges(), 1);
     let _ = std::fs::remove_file(&path);
 }
