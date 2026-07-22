@@ -2242,3 +2242,52 @@ coordinate parity is not achievable with `rand_pcg`. `test_draw.py` /
 (spec §9.3).
 
 **Next: Phase 6** — convert / dynamics / communities / utils.
+
+---
+
+### Task 12: Ordering providers — `paoh_ordering` + `levi_ego_tree` (owner amendment, 2026-07-22)
+
+**Context (why this task exists):** `plans/PROPOSAL-raster-replan.md` was APPROVED by the
+owner 2026-07-22. Babylon's graph-render lane ruling has topology surfaces consuming
+ORDERINGS, never force layouts (design canon S9); these two providers mirror the exact
+shapes babylon's TUI already renders (`src/babylon/projection/topology/paoh.py`,
+`levi.py` — the Levi ego-tree is explicitly modeled on this crate's own bipartite
+representation). They are re-expressions of existing structure: no new mathematics.
+
+**Steps (strict TDD):**
+
+1. Write failing tests in a NEW integration file `crates/hypergraph-rs/tests/test_orderings.rs`
+   (gated `#![cfg(feature = "layout")]` like the other Phase 5 test files):
+   - `test_paoh_ordering_default_is_insertion_order`: build H with nodes a,b,c and edges
+     e1={a,b}, e0={b,c} (inserted in that order); `paoh_ordering(&h, None)` returns
+     `(vec!["a","b","c"], vec!["e1","e0"])` — both pure insertion order.
+   - `test_paoh_ordering_sorts_by_numeric_attr_missing_last`: give e0 attr `{"formation_tick": 1}`
+     and e1 no attrs; `paoh_ordering(&h, Some("formation_tick"))` returns edges `["e0","e1"]`
+     (numeric ascending, missing/None sorted LAST, ties by insertion order — matches
+     babylon paoh.py's None-last rule).
+   - `test_levi_ego_tree_depth_and_dedup`: H with e1={a,b}, e2={b,c}; `levi_ego_tree(&h,"b",2)`
+     returns root Agent "b" with Hyperedge children [e1,e2] (membership insertion order),
+     e1's children = [Agent a] (b deduped as visited), e2's = [Agent c]. Depth counts
+     hyperedge expansions; agents at the frontier have no children.
+   - `test_levi_ego_tree_missing_root_none`: absent root id → `None`.
+   - `test_orderings_serde_json_round_trip`: `serde_json::to_string` of the `LeviNode`
+     tree and back preserves structure (derive Serialize/Deserialize).
+2. Run and CONFIRM the compile failure (unresolved imports), then implement
+   `crates/hypergraph-rs/src/layout/orderings.rs` (module gated with the rest of `layout`):
+   - `pub enum LeviKind { Agent, Hyperedge }` and
+     `pub struct LeviNode { pub id: String, pub kind: LeviKind, pub children: Vec<LeviNode> }`,
+     both `#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]`.
+   - `pub fn levi_ego_tree<N, E, M>(h: &Hypergraph<N, E, M>, root: &str, depth: usize) -> Option<LeviNode>`
+     — alternating bipartite walk, breadth-limited by `depth` hyperedge expansions, a
+     `HashSet<String>` visited guard per kind (bounded: each node/edge visited at most
+     once — Power-of-10 rule 2), children in insertion order (memberships()/members()).
+   - `pub fn paoh_ordering(h: &Hypergraph<serde_json::Value, serde_json::Value, serde_json::Value>, sort_attr: Option<&str>) -> (Vec<String>, Vec<String>)`
+     — nodes = `node_ids()`; edges = `edge_ids()` stable-sorted by the named attr's
+     `as_f64()` ascending when `sort_attr` is `Some`, entries with missing/non-numeric
+     attr AFTER all numeric ones, ties by insertion order; `None` → insertion order.
+   - Re-export both fns + types from `layout`'s mod.rs and, matching how Phase 5 exports
+     its other public layout symbols, from lib.rs.
+3. Gate: `mise run rust:check` (full workspace — fmt, clippy --all-targets -D warnings,
+   test, doc).
+4. Commit: `feat(layout): ordering providers paoh_ordering + levi_ego_tree (S9 ordering lane, owner amendment)`
+   with the standard Co-Authored-By trailer.

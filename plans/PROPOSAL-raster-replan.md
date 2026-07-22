@@ -1,7 +1,8 @@
 # PROPOSAL — Re-scope Phases 5/8/9/10 around Babylon's raster lane
 
-**Status: PROPOSAL for owner review — the phase plans in this directory stay canonical
-until the owner approves this.** Drafted 2026-07-22 after the owner directive
+**Status: APPROVED by the owner 2026-07-22** ("Approve as proposed" — Phase 5 amended with
+the ordering providers [now Task 12 of its plan]; H3-first-class snapping deferred to
+Phase R; Phase 8 deferred; Phase 10 cancelled; Phase 9 promoted.) Drafted 2026-07-22 after the owner directive
 ("contemplate rasterization … maybe factor that in over wasm/react — rasterization of
 the topology and hypergraphs") and a read-only scout of the babylon tree. Every claim
 below cites the babylon-side source it derives from.
