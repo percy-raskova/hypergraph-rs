@@ -8,6 +8,9 @@
 //! are structural, and results are deterministic under a fixed `seed`.
 
 use ndarray::{Array2, Array1};
+use rand::RngExt;
+use rand_core::SeedableRng;
+use rand_pcg::Pcg64Mcg;
 use thiserror::Error;
 
 use crate::Hypergraph;
@@ -82,8 +85,142 @@ pub fn normalized_laplacian(
         }
     }
 
-    // Silence the unused-import lint until the eigensolver (Task 14) uses Array1.
-    let _ = Array1::<f64>::zeros(0);
-
     Ok((l, node_ids))
+}
+
+/// Dot product of two column vectors.
+#[inline]
+fn dot(a: &Array1<f64>, b: &Array1<f64>) -> f64 {
+    let mut s = 0.0;
+    for i in 0..a.len() {
+        s += a[i] * b[i];
+    }
+    s
+}
+
+/// Matrix–vector product `m · v` for a dense symmetric matrix.
+fn matvec(m: &Array2<f64>, v: &Array1<f64>) -> Array1<f64> {
+    let n = m.nrows();
+    let mut out = Array1::<f64>::zeros(n);
+    for i in 0..n {
+        let mut s = 0.0;
+        for j in 0..n {
+            s += m[[i, j]] * v[j];
+        }
+        out[i] = s;
+    }
+    out
+}
+
+/// The `k` smallest-eigenvalue eigenvectors of the symmetric matrix `l`, as columns.
+///
+/// Replaces `scipy` `eigsh(which="SA")` (`communities/spectral.py:61`). Uses power
+/// iteration on `B = cI − L` (largest of `B` = smallest of `L`) with Gram–Schmidt
+/// deflation. Convergence tolerance `1e-9`; at most 1000 iterations per eigenvector.
+/// Eigenvector signs are arbitrary. Deterministic under `seed`.
+pub fn smallest_k_eigenvectors(l: &Array2<f64>, k: usize, seed: Option<u64>) -> Array2<f64> {
+    let n = l.nrows();
+    let k = k.min(n);
+
+    // Gershgorin bound on the spectral radius: c = max_i Σ_j |L[i,j]|.
+    let mut c = 0.0_f64;
+    for i in 0..n {
+        let mut row_abs = 0.0;
+        for j in 0..n {
+            row_abs += l[[i, j]].abs();
+        }
+        if row_abs > c {
+            c = row_abs;
+        }
+    }
+    // B = cI − L.
+    let mut b = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        for j in 0..n {
+            b[[i, j]] = if i == j { c - l[[i, j]] } else { -l[[i, j]] };
+        }
+    }
+
+    let mut rng = Pcg64Mcg::seed_from_u64(seed.unwrap_or(0));
+    let mut eigvecs: Vec<Array1<f64>> = Vec::with_capacity(k);
+
+    const TOL: f64 = 1e-9;
+    const MAX_ITER: usize = 1000;
+
+    for _ in 0..k {
+        // Random init.
+        let mut v = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            v[i] = rng.random_range(0.0..1.0) - 0.5;
+        }
+        // Deflate + normalize the initial vector.
+        deflate(&mut v, &eigvecs);
+        normalize(&mut v);
+
+        for _ in 0..MAX_ITER {
+            let mut w = matvec(&b, &v);
+            deflate(&mut w, &eigvecs);
+            normalize(&mut w);
+            // Fix sign for a stable convergence check (largest-|component| positive).
+            align_sign(&mut w);
+            let mut prev = v.clone();
+            align_sign(&mut prev);
+            let mut diff = 0.0;
+            for i in 0..n {
+                diff += (w[i] - prev[i]).powi(2);
+            }
+            v = w;
+            if diff.sqrt() < TOL {
+                break;
+            }
+        }
+        eigvecs.push(v);
+    }
+
+    // Pack as columns of an n x k array.
+    let mut x = Array2::<f64>::zeros((n, k));
+    for (col, vec) in eigvecs.iter().enumerate() {
+        for i in 0..n {
+            x[[i, col]] = vec[i];
+        }
+    }
+    x
+}
+
+/// Gram–Schmidt: remove the components of `v` along each already-found eigenvector.
+fn deflate(v: &mut Array1<f64>, basis: &[Array1<f64>]) {
+    for u in basis {
+        let proj = dot(v, u);
+        for i in 0..v.len() {
+            v[i] -= proj * u[i];
+        }
+    }
+}
+
+/// Normalize `v` to unit L2 norm (no-op on a zero vector).
+fn normalize(v: &mut Array1<f64>) {
+    let norm = dot(v, v).sqrt();
+    if norm > 1e-300 {
+        for i in 0..v.len() {
+            v[i] /= norm;
+        }
+    }
+}
+
+/// Flip the sign of `v` so its largest-magnitude component is non-negative
+/// (removes the eigenvector sign ambiguity for deterministic comparison).
+fn align_sign(v: &mut Array1<f64>) {
+    let mut max_abs = 0.0;
+    let mut sign = 1.0;
+    for i in 0..v.len() {
+        if v[i].abs() > max_abs {
+            max_abs = v[i].abs();
+            sign = if v[i] < 0.0 { -1.0 } else { 1.0 };
+        }
+    }
+    if sign < 0.0 {
+        for i in 0..v.len() {
+            v[i] = -v[i];
+        }
+    }
 }

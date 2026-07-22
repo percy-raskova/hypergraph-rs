@@ -39,3 +39,41 @@ fn test_laplacian_isolated_node_errors() {
     h.add_node("lonely", serde_json::Value::Null); // degree 0
     assert!(normalized_laplacian(&h).is_err());
 }
+
+use hypergraph_rs::communities::smallest_k_eigenvectors;
+
+#[test]
+fn test_eigen_returns_k_columns() {
+    let h = two_triangles();
+    let (l, _) = normalized_laplacian(&h).unwrap();
+    let x = smallest_k_eigenvectors(&l, 2, Some(1));
+    assert_eq!(x.nrows(), 6);
+    assert_eq!(x.ncols(), 2);
+}
+
+#[test]
+fn test_eigen_nullspace_separates_two_components() {
+    // Two disconnected triangles => the 2-dim smallest-eigenvalue subspace separates
+    // components: rows a,b,c share coordinates distinct from d,e,f.
+    let h = two_triangles();
+    let (l, _) = normalized_laplacian(&h).unwrap();
+    let x = smallest_k_eigenvectors(&l, 2, Some(1));
+    // Distance within a component is ~0; across components is not.
+    let dist = |i: usize, j: usize| -> f64 {
+        ((x[[i, 0]] - x[[j, 0]]).powi(2) + (x[[i, 1]] - x[[j, 1]]).powi(2)).sqrt()
+    };
+    // Rows 0,1,2 = a,b,c ; rows 3,4,5 = d,e,f (node insertion order).
+    assert!(dist(0, 1) < 1e-6, "a,b within component should coincide");
+    assert!(dist(0, 2) < 1e-6, "a,c within component should coincide");
+    assert!(dist(3, 4) < 1e-6, "d,e within component should coincide");
+    assert!(dist(0, 3) > 1e-3, "components should be separated");
+}
+
+#[test]
+fn test_eigen_deterministic_with_seed() {
+    let h = two_triangles();
+    let (l, _) = normalized_laplacian(&h).unwrap();
+    let a = smallest_k_eigenvectors(&l, 2, Some(7));
+    let b = smallest_k_eigenvectors(&l, 2, Some(7));
+    assert_eq!(a, b);
+}
