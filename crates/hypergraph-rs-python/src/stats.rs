@@ -10,6 +10,10 @@
 //! (Task 15 triage) — the binding only needs the observable `.asdict()`/`.aslist()`/subscript
 //! surface.
 
+use std::collections::HashMap;
+
+use numpy::IntoPyArray;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use serde_json::Value;
@@ -27,7 +31,16 @@ enum NodeStatKind {
         order: Option<usize>,
         weight: Option<String>,
     },
+    /// `""` = the whole per-node attr dict (`H.nodes.attrs.asdict()`); non-empty = a single key.
     Attr(String),
+    /// A stat whose values were computed once, up front, by an existing `algorithms::*`
+    /// function (e.g. `clustering_coefficient`, `clique_eigenvector_centrality`) — used for
+    /// stats that take no further parametrization.
+    Precomputed(HashMap<String, f64>),
+    /// `two_node_clustering_coefficient(kind)` — recomputed on each `values()` call (the core
+    /// call is cheap) so `H.nodes.two_node_clustering_coefficient(kind="min")` re-parametrizes
+    /// correctly via `__call__`, unlike `Precomputed`.
+    TwoNodeClustering(String),
 }
 
 #[pyclass(name = "NodeStat", module = "hypergraph_rs")]
@@ -59,6 +72,29 @@ impl PyNodeStat {
             hg,
             ids,
             kind: NodeStatKind::Attr(key),
+        }
+    }
+
+    pub fn precomputed(
+        py: Python<'_>,
+        hg: Py<PyHypergraph>,
+        ids: Vec<String>,
+        values: HashMap<String, f64>,
+    ) -> Self {
+        let _ = py;
+        Self {
+            hg,
+            ids,
+            kind: NodeStatKind::Precomputed(values),
+        }
+    }
+
+    pub fn two_node_clustering(py: Python<'_>, hg: Py<PyHypergraph>, ids: Vec<String>) -> Self {
+        let _ = py;
+        Self {
+            hg,
+            ids,
+            kind: NodeStatKind::TwoNodeClustering("union".to_string()),
         }
     }
 
@@ -110,40 +146,132 @@ impl PyNodeStat {
                 .ids
                 .iter()
                 .map(|c| {
-                    let v = hg
-                        .inner
-                        .node_attrs(c)
-                        .and_then(|a| a.get(key))
-                        .cloned()
-                        .unwrap_or(Value::Null);
+                    let v = if key.is_empty() {
+                        // `""` = the whole attr dict for this node (`H.nodes.attrs.asdict()`).
+                        hg.inner
+                            .node_attrs(c)
+                            .cloned()
+                            .unwrap_or(Value::Object(Default::default()))
+                    } else {
+                        hg.inner
+                            .node_attrs(c)
+                            .and_then(|a| a.get(key))
+                            .cloned()
+                            .unwrap_or(Value::Null)
+                    };
                     (c.clone(), v)
                 })
                 .collect(),
+            NodeStatKind::Precomputed(values) => self
+                .ids
+                .iter()
+                .map(|c| {
+                    let val = values.get(c).copied().unwrap_or(0.0);
+                    let jv = if val.is_finite() && val.fract() == 0.0 {
+                        Value::from(val as i64)
+                    } else {
+                        Value::from(val)
+                    };
+                    (c.clone(), jv)
+                })
+                .collect(),
+            NodeStatKind::TwoNodeClustering(kind) => {
+                let values = hypergraph_rs::algorithms::clustering::two_node_clustering_coefficient(
+                    &hg.inner, kind,
+                );
+                self.ids
+                    .iter()
+                    .map(|c| {
+                        let val = values.get(c).copied().unwrap_or(0.0);
+                        let jv = if val.is_finite() && val.fract() == 0.0 {
+                            Value::from(val as i64)
+                        } else {
+                            Value::from(val)
+                        };
+                        (c.clone(), jv)
+                    })
+                    .collect()
+            }
         }
     }
 }
 
 #[pymethods]
 impl PyNodeStat {
-    /// `H.nodes.degree(order=None, weight=None)` — re-parametrize a `Degree` stat.
-    /// XGI parity: `Stat.__call__` re-dispatches with new args (stats/__init__.py).
-    #[pyo3(signature = (order=None, weight=None))]
+    /// Re-parametrize a `Stat`. XGI parity: `Stat.__call__` re-dispatches with new args
+    /// (`stats/__init__.py`). `order` is the first positional slot for BOTH callers:
+    /// `H.nodes.degree(order=2)` (keyword) and `H.nodes.attrs("color")` /
+    /// `H.nodes.attrs(-1)` (positional; the `Attr` branch reinterprets it as the attr key and
+    /// raises `ValueError` for a non-str/None value, matching `stats/nodestats.py:95-96`'s
+    /// `raise ValueError('"attr" must be str or None')`). `Precomputed` stats take no
+    /// parameters — calling one is a same-value no-op, mirroring XGI's parameterless nodestats.
+    #[pyo3(signature = (order=None, weight=None, kind=None))]
     fn __call__(
         &self,
         py: Python<'_>,
-        order: Option<usize>,
+        order: Option<&Bound<'_, PyAny>>,
         weight: Option<String>,
+        kind: Option<String>,
     ) -> PyResult<PyNodeStat> {
         match &self.kind {
-            NodeStatKind::Degree { .. } => Ok(PyNodeStat {
+            NodeStatKind::Degree {
+                order: cur_order,
+                weight: cur_weight,
+            } => {
+                let order = match order {
+                    Some(o) if !o.is_none() => Some(o.extract::<usize>()?),
+                    _ => *cur_order,
+                };
+                let weight = weight.or_else(|| cur_weight.clone());
+                Ok(PyNodeStat {
+                    hg: self.hg.clone_ref(py),
+                    ids: self.ids.clone(),
+                    kind: NodeStatKind::Degree { order, weight },
+                })
+            }
+            NodeStatKind::Attr(cur) => {
+                let attr = match order {
+                    None => cur.clone(),
+                    Some(v) if v.is_none() => cur.clone(),
+                    Some(v) => v.extract::<String>().map_err(|_| {
+                        PyValueError::new_err("\"attr\" must be str or None")
+                    })?,
+                };
+                Ok(PyNodeStat {
+                    hg: self.hg.clone_ref(py),
+                    ids: self.ids.clone(),
+                    kind: NodeStatKind::Attr(attr),
+                })
+            }
+            NodeStatKind::Precomputed(_) => Ok(PyNodeStat {
                 hg: self.hg.clone_ref(py),
                 ids: self.ids.clone(),
-                kind: NodeStatKind::Degree { order, weight },
+                kind: self.kind.clone(),
             }),
-            NodeStatKind::Attr(_) => Err(pyo3::exceptions::PyNotImplementedError::new_err(
-                "this Stat does not accept parameters",
-            )),
+            NodeStatKind::TwoNodeClustering(cur) => {
+                let k = kind.unwrap_or_else(|| cur.clone());
+                if !matches!(k.as_str(), "union" | "min" | "max") {
+                    return Err(crate::errors::xgi_error(format!(
+                        "invalid kind of clustering: {k}"
+                    )));
+                }
+                Ok(PyNodeStat {
+                    hg: self.hg.clone_ref(py),
+                    ids: self.ids.clone(),
+                    kind: NodeStatKind::TwoNodeClustering(k),
+                })
+            }
         }
+    }
+
+    /// `H.nodes.<stat>.asnumpy()` — dense `numpy.ndarray` of values, in id order.
+    fn asnumpy<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let vals: Vec<f64> = self
+            .values(py)
+            .into_iter()
+            .map(|(_, v)| v.as_f64().unwrap_or(f64::NAN))
+            .collect();
+        Ok(vals.into_pyarray(py).into_any())
     }
 
     fn asdict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
@@ -185,8 +313,10 @@ impl PyNodeStat {
 
 #[derive(Clone)]
 enum EdgeStatKind {
-    Order,
-    Size,
+    /// `degree`, if given, counts only member nodes whose own node degree equals it (XGI
+    /// parity: `stats/edgestats.py::order`/`size`) — mirrors `PyHypergraph::order`/`size`.
+    Order(Option<usize>),
+    Size(Option<usize>),
     Attr(String),
 }
 
@@ -203,7 +333,7 @@ impl PyEdgeStat {
         Self {
             hg,
             ids,
-            kind: EdgeStatKind::Order,
+            kind: EdgeStatKind::Order(None),
         }
     }
 
@@ -212,7 +342,7 @@ impl PyEdgeStat {
         Self {
             hg,
             ids,
-            kind: EdgeStatKind::Size,
+            kind: EdgeStatKind::Size(None),
         }
     }
 
@@ -227,19 +357,28 @@ impl PyEdgeStat {
 
     fn values(&self, py: Python<'_>) -> Vec<(String, Value)> {
         let hg = self.hg.borrow(py);
+        let member_count = |c: &str, degree: Option<usize>| -> usize {
+            match degree {
+                None => hg.inner.edge_size(c).unwrap_or(0),
+                Some(target) => hg
+                    .inner
+                    .members(c)
+                    .unwrap_or_default()
+                    .iter()
+                    .filter(|n| hg.inner.node_degree(n, None).unwrap_or(0) == target)
+                    .count(),
+            }
+        };
         match &self.kind {
-            EdgeStatKind::Size | EdgeStatKind::Order => self
+            EdgeStatKind::Size(degree) => self
                 .ids
                 .iter()
-                .map(|c| {
-                    let size = hg.inner.edge_size(c).unwrap_or(0);
-                    let v = match self.kind {
-                        EdgeStatKind::Size => size,
-                        EdgeStatKind::Order => size.saturating_sub(1),
-                        EdgeStatKind::Attr(_) => unreachable!(),
-                    };
-                    (c.clone(), Value::from(v as i64))
-                })
+                .map(|c| (c.clone(), Value::from(member_count(c, *degree) as i64)))
+                .collect(),
+            EdgeStatKind::Order(degree) => self
+                .ids
+                .iter()
+                .map(|c| (c.clone(), Value::from(member_count(c, *degree) as i64 - 1)))
                 .collect(),
             EdgeStatKind::Attr(key) => self
                 .ids
@@ -260,6 +399,26 @@ impl PyEdgeStat {
 
 #[pymethods]
 impl PyEdgeStat {
+    /// Re-parametrize a `Size`/`Order` `EdgeStat` by member-node `degree` (XGI parity:
+    /// `Stat.__call__` / `stats/edgestats.py::order`/`size`); `Attr` stats are parameterless.
+    #[pyo3(signature = (degree=None))]
+    fn __call__(&self, py: Python<'_>, degree: Option<usize>) -> PyResult<PyEdgeStat> {
+        let kind = match &self.kind {
+            EdgeStatKind::Size(_) => EdgeStatKind::Size(degree),
+            EdgeStatKind::Order(_) => EdgeStatKind::Order(degree),
+            EdgeStatKind::Attr(_) => {
+                return Err(pyo3::exceptions::PyNotImplementedError::new_err(
+                    "this Stat does not accept parameters",
+                ))
+            }
+        };
+        Ok(PyEdgeStat {
+            hg: self.hg.clone_ref(py),
+            ids: self.ids.clone(),
+            kind,
+        })
+    }
+
     fn asdict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
         let hg = self.hg.borrow(py);
         let d = PyDict::new(py);
@@ -277,6 +436,32 @@ impl PyEdgeStat {
             list.append(json_to_py(py, &v)?)?;
         }
         Ok(list.unbind())
+    }
+
+    /// `H.edges.<stat>.asnumpy()` — dense `numpy.ndarray` of values, in id order.
+    fn asnumpy<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let vals: Vec<f64> = self
+            .values(py)
+            .into_iter()
+            .map(|(_, v)| v.as_f64().unwrap_or(f64::NAN))
+            .collect();
+        Ok(vals.into_pyarray(py).into_any())
+    }
+
+    /// `H.edges.<stat>.max()` — XGI parity: `stats/__init__.py::Stat.max`.
+    fn max(&self, py: Python<'_>) -> Option<f64> {
+        self.values(py)
+            .into_iter()
+            .filter_map(|(_, v)| v.as_f64())
+            .fold(None, |acc, x| Some(acc.map_or(x, |a: f64| a.max(x))))
+    }
+
+    /// `H.edges.<stat>.min()` — XGI parity: `stats/__init__.py::Stat.min`.
+    fn min(&self, py: Python<'_>) -> Option<f64> {
+        self.values(py)
+            .into_iter()
+            .filter_map(|(_, v)| v.as_f64())
+            .fold(None, |acc, x| Some(acc.map_or(x, |a: f64| a.min(x))))
     }
 
     fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {

@@ -29,3 +29,8 @@ class IDDict(dict):
 
 
 __all__ = ['binomial_sequence', 'convert_labels_to_integers', 'dual_dict', 'find_triangles', 'geometric', 'get_network_type', 'hist', 'pairwise_incidence', 'powerset', 'request_json_from_url', 'request_json_from_url_cached', 'subfaces', 'ttsv1', 'ttsv2', 'update_uid_counter']
+
+# Deep-import target `hypergraph_rs.utils.utilities` (mirrors `xgi.utils.utilities`), e.g.
+# `xgi.utils.utilities.min_where`. Imported LAST — `utilities.py` does `from . import *`,
+# so this module's own globals (above) must already be fully populated first.
+from . import utilities  # noqa: E402,F401

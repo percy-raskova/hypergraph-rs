@@ -102,6 +102,19 @@ impl PyIdMap {
         Ok(core)
     }
 
+    /// Bind a Python object to a SPECIFIC, already-known core key — unlike [`Self::intern`],
+    /// which computes its own `canonical()` key for a brand-new object (correct only when that
+    /// happens to match an existing core id, e.g. int/str casts of numeric strings; WRONG for
+    /// e.g. a `float`-cast id, whose `canonical()` mints an unrelated `"__idN"` key, silently
+    /// desynchronizing the map from the underlying core `Hypergraph`'s real id). Used by
+    /// readers (`readwrite.rs`) that already know the exact core string an object must map to.
+    pub fn bind(&mut self, obj: &Bound<'_, PyAny>, core: String) -> PyResult<()> {
+        let key = PyKey::new(obj)?;
+        self.to_key.insert(key, core.clone());
+        self.from_key.insert(core, obj.clone().unbind());
+        Ok(())
+    }
+
     /// Look up an existing core key WITHOUT interning (read-only queries / membership).
     pub fn get_key(&self, obj: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
         Ok(self.to_key.get(&PyKey::new(obj)?).cloned())

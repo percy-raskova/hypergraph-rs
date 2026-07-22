@@ -26,3 +26,4 @@ rustworkx-core = { workspace = true }
 indexmap = { workspace = true }
 ndarray = { workspace = true }
 sprs = { workspace = true }
+flate2 = "1.1.9"

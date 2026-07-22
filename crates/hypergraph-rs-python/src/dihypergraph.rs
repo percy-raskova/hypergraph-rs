@@ -42,7 +42,7 @@ pub struct PyDiHypergraph {
 impl PyDiHypergraph {
     #[new]
     #[pyo3(signature = (incoming_data=None, **attr))]
-    fn new(
+    pub(crate) fn new(
         py: Python<'_>,
         incoming_data: Option<Bound<'_, PyAny>>,
         attr: Option<Bound<'_, PyDict>>,
@@ -378,7 +378,7 @@ impl PyDiHypergraph {
     /// `DH.add_node(n, **attr)` — merges the incoming dict into any existing attrs
     /// (core `add_node` REPLACES; the binding composes the merge on top, as Task 4's D6 shim).
     #[pyo3(signature = (n, **attr))]
-    fn add_node(&mut self, n: &Bound<'_, PyAny>, attr: Option<Bound<'_, PyDict>>) -> PyResult<()> {
+    pub(crate) fn add_node(&mut self, n: &Bound<'_, PyAny>, attr: Option<Bound<'_, PyDict>>) -> PyResult<()> {
         self.frozen_check()?;
         let core_id = self.node_ids.intern(n)?;
         let mut merged = match self.inner.node_attrs(&core_id) {
@@ -537,7 +537,7 @@ impl PyDiHypergraph {
 
     /// `DH.add_node_to_edge(edge, node, direction)` — `direction` is `"in"` (tail) or `"out"`
     /// (head).
-    fn add_node_to_edge(
+    pub(crate) fn add_node_to_edge(
         &mut self,
         edge: &Bound<'_, PyAny>,
         node: &Bound<'_, PyAny>,
@@ -680,12 +680,27 @@ impl PyDiHypergraph {
 
     /// `DH.degree(node=None)` — the full dict when `node` is omitted, a single scalar (raising
     /// `KeyError`/`IDNotFound` for a missing node) otherwise (mirrors `PyHypergraph::degree`).
-    #[pyo3(signature = (node=None))]
-    fn degree(&self, py: Python<'_>, node: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+    #[pyo3(signature = (node=None, order=None))]
+    fn degree(
+        &self,
+        py: Python<'_>,
+        node: Option<&Bound<'_, PyAny>>,
+        order: Option<usize>,
+    ) -> PyResult<Py<PyAny>> {
         let d = PyDict::new(py);
         for nid in self.inner.node_ids() {
+            let deg = match order {
+                None => self.inner.degree(&nid),
+                Some(target) => self
+                    .inner
+                    .memberships(&nid)
+                    .unwrap_or_default()
+                    .iter()
+                    .filter(|e| self.inner.order(e) == target)
+                    .count(),
+            };
             if let Some(obj) = self.node_ids.get_obj(py, &nid) {
-                d.set_item(obj, self.inner.degree(&nid))?;
+                d.set_item(obj, deg)?;
             }
         }
         match node {
@@ -700,15 +715,84 @@ impl PyDiHypergraph {
     }
 
     /// Single-node in-degree (edges where the node is a head/receiver).
-    fn in_degree(&self, n: &Bound<'_, PyAny>) -> PyResult<usize> {
-        let core = self.require_node(n)?;
-        Ok(self.inner.in_degree(&core))
+    #[pyo3(signature = (n=None, order=None))]
+    fn in_degree(
+        &self,
+        py: Python<'_>,
+        n: Option<&Bound<'_, PyAny>>,
+        order: Option<usize>,
+    ) -> PyResult<Py<PyAny>> {
+        let deg_of = |nid: &str| -> usize {
+            match order {
+                None => self.inner.in_degree(nid),
+                Some(target) => self
+                    .inner
+                    .dimemberships(nid)
+                    .map(|(in_edges, _)| {
+                        in_edges
+                            .iter()
+                            .filter(|e| self.inner.order(e) == target)
+                            .count()
+                    })
+                    .unwrap_or(0),
+            }
+        };
+        match n {
+            Some(n) => {
+                let core = self.require_node(n)?;
+                Ok(deg_of(&core).into_pyobject(py)?.into_any().unbind())
+            }
+            None => {
+                let d = PyDict::new(py);
+                for nid in self.inner.node_ids() {
+                    if let Some(obj) = self.node_ids.get_obj(py, &nid) {
+                        d.set_item(obj, deg_of(&nid))?;
+                    }
+                }
+                Ok(d.into_any().unbind())
+            }
+        }
     }
 
-    /// Single-node out-degree (edges where the node is a tail/sender).
-    fn out_degree(&self, n: &Bound<'_, PyAny>) -> PyResult<usize> {
-        let core = self.require_node(n)?;
-        Ok(self.inner.out_degree(&core))
+    /// Out-degree (edges where the node is a tail/sender) — dict over all nodes when `n` is
+    /// omitted, else a single scalar.
+    #[pyo3(signature = (n=None, order=None))]
+    fn out_degree(
+        &self,
+        py: Python<'_>,
+        n: Option<&Bound<'_, PyAny>>,
+        order: Option<usize>,
+    ) -> PyResult<Py<PyAny>> {
+        let deg_of = |nid: &str| -> usize {
+            match order {
+                None => self.inner.out_degree(nid),
+                Some(target) => self
+                    .inner
+                    .dimemberships(nid)
+                    .map(|(_, out_edges)| {
+                        out_edges
+                            .iter()
+                            .filter(|e| self.inner.order(e) == target)
+                            .count()
+                    })
+                    .unwrap_or(0),
+            }
+        };
+        match n {
+            Some(n) => {
+                let core = self.require_node(n)?;
+                Ok(deg_of(&core).into_pyobject(py)?.into_any().unbind())
+            }
+            None => {
+                let d = PyDict::new(py);
+                for nid in self.inner.node_ids() {
+                    if let Some(obj) = self.node_ids.get_obj(py, &nid) {
+                        d.set_item(obj, deg_of(&nid))?;
+                    }
+                }
+                Ok(d.into_any().unbind())
+            }
+        }
     }
 
     /// `DH.nodes` — the directed `DiNodeView` proxy (Task 6, mirrors Task 5's `NodeView`).
@@ -1370,6 +1454,43 @@ impl PyDiNodeView {
         Ok(DiStat {
             items,
             degree_source: Some((self.dh.clone_ref(py), ids)),
+            edge_source: None,
+        })
+    }
+
+    /// `DH.nodes.in_degree` — XGI parity: `stats/dinodestats.py::in_degree`.
+    #[getter]
+    fn in_degree(&self, py: Python<'_>) -> PyResult<DiStat> {
+        let dh = self.dh.borrow(py);
+        let ids = self.effective_ids(&dh);
+        let mut items = Vec::new();
+        for nid in &ids {
+            if let Some(obj) = dh.node_ids.get_obj(py, nid) {
+                items.push((obj.unbind(), dh.inner.in_degree(nid) as f64));
+            }
+        }
+        Ok(DiStat {
+            items,
+            degree_source: None,
+            edge_source: None,
+        })
+    }
+
+    /// `DH.nodes.out_degree` — XGI parity: `stats/dinodestats.py::out_degree`.
+    #[getter]
+    fn out_degree(&self, py: Python<'_>) -> PyResult<DiStat> {
+        let dh = self.dh.borrow(py);
+        let ids = self.effective_ids(&dh);
+        let mut items = Vec::new();
+        for nid in &ids {
+            if let Some(obj) = dh.node_ids.get_obj(py, nid) {
+                items.push((obj.unbind(), dh.inner.out_degree(nid) as f64));
+            }
+        }
+        Ok(DiStat {
+            items,
+            degree_source: None,
+            edge_source: None,
         })
     }
 
@@ -1792,30 +1913,106 @@ impl PyDiEdgeView {
     #[getter]
     fn size(&self, py: Python<'_>) -> PyResult<DiStat> {
         let dh = self.dh.borrow(py);
+        let ids = self.effective_ids(&dh);
         let mut items = Vec::new();
-        for eid in self.effective_ids(&dh) {
-            if let Some(obj) = dh.edge_ids.get_obj(py, &eid) {
-                items.push((obj.unbind(), dh.inner.size(&eid) as f64));
+        for eid in &ids {
+            if let Some(obj) = dh.edge_ids.get_obj(py, eid) {
+                items.push((obj.unbind(), dh.inner.size(eid) as f64));
             }
         }
         Ok(DiStat {
             items,
             degree_source: None,
+            edge_source: Some((self.dh.clone_ref(py), ids, DiEdgeStatKind::Size)),
         })
     }
 
     #[getter]
     fn order(&self, py: Python<'_>) -> PyResult<DiStat> {
         let dh = self.dh.borrow(py);
+        let ids = self.effective_ids(&dh);
         let mut items = Vec::new();
-        for eid in self.effective_ids(&dh) {
-            if let Some(obj) = dh.edge_ids.get_obj(py, &eid) {
-                items.push((obj.unbind(), dh.inner.order(&eid) as f64));
+        for eid in &ids {
+            if let Some(obj) = dh.edge_ids.get_obj(py, eid) {
+                items.push((obj.unbind(), dh.inner.order(eid) as f64));
             }
         }
         Ok(DiStat {
             items,
             degree_source: None,
+            edge_source: Some((self.dh.clone_ref(py), ids, DiEdgeStatKind::Order)),
+        })
+    }
+
+    /// `DH.edges.tail_size` — XGI parity: `stats/diedgestats.py::tail_size`.
+    #[getter]
+    fn tail_size(&self, py: Python<'_>) -> PyResult<DiStat> {
+        let dh = self.dh.borrow(py);
+        let ids = self.effective_ids(&dh);
+        let mut items = Vec::new();
+        for eid in &ids {
+            if let Some(obj) = dh.edge_ids.get_obj(py, eid) {
+                items.push((obj.unbind(), dh.inner.tail_size(eid) as f64));
+            }
+        }
+        Ok(DiStat {
+            items,
+            degree_source: None,
+            edge_source: Some((self.dh.clone_ref(py), ids, DiEdgeStatKind::TailSize)),
+        })
+    }
+
+    /// `DH.edges.tail_order` — XGI parity: `stats/diedgestats.py::tail_order`.
+    #[getter]
+    fn tail_order(&self, py: Python<'_>) -> PyResult<DiStat> {
+        let dh = self.dh.borrow(py);
+        let ids = self.effective_ids(&dh);
+        let mut items = Vec::new();
+        for eid in &ids {
+            if let Some(obj) = dh.edge_ids.get_obj(py, eid) {
+                items.push((obj.unbind(), dh.inner.tail_order(eid) as f64));
+            }
+        }
+        Ok(DiStat {
+            items,
+            degree_source: None,
+            edge_source: Some((self.dh.clone_ref(py), ids, DiEdgeStatKind::TailOrder)),
+        })
+    }
+
+    /// `DH.edges.head_size` — XGI parity: `stats/diedgestats.py::head_size`.
+    #[getter]
+    fn head_size(&self, py: Python<'_>) -> PyResult<DiStat> {
+        let dh = self.dh.borrow(py);
+        let ids = self.effective_ids(&dh);
+        let mut items = Vec::new();
+        for eid in &ids {
+            if let Some(obj) = dh.edge_ids.get_obj(py, eid) {
+                items.push((obj.unbind(), dh.inner.head_size(eid) as f64));
+            }
+        }
+        Ok(DiStat {
+            items,
+            degree_source: None,
+            edge_source: Some((self.dh.clone_ref(py), ids, DiEdgeStatKind::HeadSize)),
+        })
+    }
+
+    /// `DH.edges.head_order` — XGI parity: `stats/diedgestats.py::head_order`.
+    #[getter]
+    fn head_order(&self, py: Python<'_>) -> PyResult<DiStat> {
+        let dh = self.dh.borrow(py);
+        let ids = self.effective_ids(&dh);
+        let mut items = Vec::new();
+        for eid in &ids {
+            if let Some(obj) = dh.edge_ids.get_obj(py, eid) {
+                items.push((obj.unbind(), dh.inner.head_order(eid) as f64));
+            }
+        }
+        Ok(DiStat {
+            items,
+            degree_source: None,
+            edge_source: Some((self.dh.clone_ref(py), ids, DiEdgeStatKind::HeadOrder)),
         })
     }
 
@@ -1903,21 +2100,82 @@ impl PyDiEdgeView {
 /// (not lazy) since `DiHypergraph`'s stat surface is small (Task 6 scope: just degree/size).
 /// `degree_source`, when present, lets `__call__(order=, weight=)` re-parametrize a degree stat
 /// (XGI parity: `Stat.__call__`, `stats/dinodestats.py::degree`), matching `stats::PyNodeStat`.
+/// Which per-edge quantity an edge-side `DiStat` (`size`/`order`/`tail_size`/`tail_order`/
+/// `head_size`/`head_order`) computes, so `__call__(degree=…)` (XGI parity:
+/// `stats/diedgestats.py::order`/`size`, which filter by *member node degree*) can recompute it.
+#[derive(Clone, Copy)]
+enum DiEdgeStatKind {
+    Size,
+    Order,
+    TailSize,
+    TailOrder,
+    HeadSize,
+    HeadOrder,
+}
+
 #[pyclass(name = "DiStat", module = "hypergraph_rs")]
 pub struct DiStat {
     items: Vec<(Py<PyAny>, f64)>,
     degree_source: Option<(Py<PyDiHypergraph>, Vec<String>)>,
+    edge_source: Option<(Py<PyDiHypergraph>, Vec<String>, DiEdgeStatKind)>,
 }
 
 #[pymethods]
 impl DiStat {
-    #[pyo3(signature = (order=None, weight=None))]
+    #[pyo3(signature = (order=None, weight=None, degree=None))]
     fn __call__(
         &self,
         py: Python<'_>,
         order: Option<usize>,
         weight: Option<String>,
+        degree: Option<usize>,
     ) -> PyResult<DiStat> {
+        if let Some((dh, ids, kind)) = &self.edge_source {
+            let dh_ref = dh.borrow(py);
+            let mut items = Vec::new();
+            for eid in ids {
+                let Some(obj) = dh_ref.edge_ids.get_obj(py, eid) else {
+                    continue;
+                };
+                // XGI parity: `stats/diedgestats.py::order`/`size` filter by *member node
+                // degree* (not edge order) — `degree=None` is the plain size/order.
+                let count_of = |members: Vec<String>| -> usize {
+                    match degree {
+                        None => members.len(),
+                        Some(target) => members
+                            .iter()
+                            .filter(|n| dh_ref.inner.degree(n) == target)
+                            .count(),
+                    }
+                };
+                let val = match kind {
+                    DiEdgeStatKind::Size => {
+                        count_of(dh_ref.inner.members(eid).unwrap_or_default()) as f64
+                    }
+                    DiEdgeStatKind::Order => {
+                        count_of(dh_ref.inner.members(eid).unwrap_or_default()) as f64 - 1.0
+                    }
+                    DiEdgeStatKind::TailSize => {
+                        count_of(dh_ref.inner.tail(eid).unwrap_or_default()) as f64
+                    }
+                    DiEdgeStatKind::TailOrder => {
+                        count_of(dh_ref.inner.tail(eid).unwrap_or_default()) as f64 - 1.0
+                    }
+                    DiEdgeStatKind::HeadSize => {
+                        count_of(dh_ref.inner.head(eid).unwrap_or_default()) as f64
+                    }
+                    DiEdgeStatKind::HeadOrder => {
+                        count_of(dh_ref.inner.head(eid).unwrap_or_default()) as f64 - 1.0
+                    }
+                };
+                items.push((obj.unbind(), val));
+            }
+            return Ok(DiStat {
+                items,
+                degree_source: None,
+                edge_source: Some((dh.clone_ref(py), ids.clone(), *kind)),
+            });
+        }
         let Some((dh, ids)) = &self.degree_source else {
             return Err(pyo3::exceptions::PyNotImplementedError::new_err(
                 "this Stat does not accept parameters",
@@ -1965,6 +2223,7 @@ impl DiStat {
         Ok(DiStat {
             items,
             degree_source: Some((dh.clone_ref(py), ids.clone())),
+            edge_source: None,
         })
     }
 

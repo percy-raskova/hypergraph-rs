@@ -17,6 +17,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PySet, PyTuple};
 use pyo3::{PyRefMut, Python};
 
+use serde_json::Value;
+
 use hypergraph_rs::utils as core_utils;
 
 use crate::errors::xgi_error;
@@ -142,8 +144,30 @@ fn convert_labels_to_integers(
     in_place: bool,
 ) -> PyResult<Py<PyAny>> {
     let mut h: PyRefMut<'_, PyHypergraph> = net.extract()?;
+    // Old-id enumeration order matches `core_utils::convert_labels_to_integers`'s own
+    // `h.node_ids()`/`h.edge_ids()` enumeration exactly (new int id `i` <-> old id at index `i`).
+    let old_node_ids = h.inner.node_ids();
+    let old_edge_ids = h.inner.edge_ids();
     let new_core = core_utils::convert_labels_to_integers(&h.inner, label_attribute);
-    let new_hg = PyHypergraph::from_core_with_int_ids(py, new_core)?;
+    let mut new_hg = PyHypergraph::from_core_with_int_ids(py, new_core)?;
+    // XGI parity: the `label_attribute` value is the ORIGINAL Python id (its native type — e.g.
+    // `int` `0`, not the core's `String` "0"), not a stringified core id.
+    for (i, old_id) in old_node_ids.iter().enumerate() {
+        if let Some(obj) = h.node_ids.get_obj(py, old_id) {
+            let label = crate::pyid::py_any_to_json(&obj)?;
+            if let Some(Value::Object(attrs)) = new_hg.inner.node_attrs_mut(&i.to_string()) {
+                attrs.insert(label_attribute.to_string(), label);
+            }
+        }
+    }
+    for (i, old_id) in old_edge_ids.iter().enumerate() {
+        if let Some(obj) = h.edge_ids.get_obj(py, old_id) {
+            let label = crate::pyid::py_any_to_json(&obj)?;
+            if let Some(Value::Object(attrs)) = new_hg.inner.edge_attrs_mut(&i.to_string()) {
+                attrs.insert(label_attribute.to_string(), label);
+            }
+        }
+    }
     if in_place {
         h.inner = new_hg.inner;
         h.node_ids = new_hg.node_ids;

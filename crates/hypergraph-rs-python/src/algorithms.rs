@@ -15,9 +15,9 @@
 //! - `clique_eigenvector_centrality(H, tol=1e-6)`: XGI has no `max_iter` (uses scipy `eigsh`'s
 //!   unbounded default); the core's hand-rolled power iteration (deviation #5) needs a bound
 //!   (Power-of-10 rule 2), so `max_iter` is accepted as an extra keyword, default `1000`.
-//! - `equal(H1, H2, compare_edge_ids=True, compare_attrs=True)`: the core `PartialEq` always
-//!   compares both edge structure/attrs and node/edge attrs together; the two flags are accepted
-//!   for signature compatibility but not independently honored (deviation).
+//! - `equal(H1, H2, compare_edge_ids=True, compare_attrs=True)` independently honors both flags
+//!   via core accessors (`node_ids`/`edge_ids`/`members`/`*_attrs`), not the core's derived
+//!   `PartialEq` (`properties.py:22-88` parity; Task 17 execution note).
 //! - `connected_components` returns a materialized `list[set]`, not XGI's generator of sets.
 //! - `density`/`incidence_density` precondition checks (`ValueError`/`XGIError`) are duplicated
 //!   here (mirroring the Task 8 `multiorder_laplacian` pattern) so violations raise catchable
@@ -26,7 +26,8 @@
 use pyo3::exceptions::PyNotImplementedError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PySet};
+use pyo3::types::{PyBool, PyDict, PyList, PySet};
+use serde_json::Value;
 
 use hypergraph_rs::algorithms::assortativity::AssortKind;
 
@@ -35,7 +36,7 @@ use crate::hypergraph::PyHypergraph;
 use crate::pyid::PyIdMap;
 
 /// Translate a core `IndexMap<String, f64>` (node-keyed) to a `{orig_id: value}` `PyDict`.
-fn node_f64_dict<'py>(
+pub(crate) fn node_f64_dict<'py>(
     py: Python<'py>,
     map: indexmap::IndexMap<String, f64>,
     ids: &PyIdMap,
@@ -214,14 +215,108 @@ fn node_connected_component<'py>(
 /// honored — see module doc).
 #[pyfunction]
 #[pyo3(signature = (h1, h2, compare_edge_ids=true, compare_attrs=true))]
+/// `xgi.equal(H1, H2, compare_edge_ids=True, compare_attrs=True)` — XGI parity
+/// (`algorithms/properties.py:22-88`). Node/edge identity across the two hypergraphs is
+/// compared via the core `String` keys, which are deterministic for hashable-primitive
+/// (int/str/bool) Python ids — the case exercised by the oracle tests.
 fn equal(
     h1: PyRef<'_, PyHypergraph>,
     h2: PyRef<'_, PyHypergraph>,
     compare_edge_ids: bool,
     compare_attrs: bool,
 ) -> bool {
-    let _ = (compare_edge_ids, compare_attrs);
-    h1.inner == h2.inner
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let a = &h1.inner;
+    let b = &h2.inner;
+
+    let members_of = |h: &hypergraph_rs::Hypergraph<Value, Value, Value>,
+                       e: &str|
+     -> BTreeSet<String> { h.members(e).unwrap_or_default().into_iter().collect() };
+
+    if compare_edge_ids {
+        let ea: BTreeMap<String, BTreeSet<String>> = a
+            .edge_ids()
+            .into_iter()
+            .map(|e| {
+                let m = members_of(a, &e);
+                (e, m)
+            })
+            .collect();
+        let eb: BTreeMap<String, BTreeSet<String>> = b
+            .edge_ids()
+            .into_iter()
+            .map(|e| {
+                let m = members_of(b, &e);
+                (e, m)
+            })
+            .collect();
+        if ea != eb {
+            return false;
+        }
+    } else {
+        let count = |h: &hypergraph_rs::Hypergraph<Value, Value, Value>| {
+            let mut m: BTreeMap<BTreeSet<String>, usize> = BTreeMap::new();
+            for e in h.edge_ids() {
+                *m.entry(members_of(h, &e)).or_insert(0) += 1;
+            }
+            m
+        };
+        if count(a) != count(b) {
+            return false;
+        }
+    }
+
+    if compare_attrs {
+        if h1.net_attr != h2.net_attr {
+            return false;
+        }
+        let node_attrs = |h: &hypergraph_rs::Hypergraph<Value, Value, Value>| {
+            h.node_ids()
+                .into_iter()
+                .map(|n| {
+                    let v = h.node_attrs(&n).cloned().unwrap_or(Value::Null);
+                    (n, v)
+                })
+                .collect::<BTreeMap<String, Value>>()
+        };
+        if node_attrs(a) != node_attrs(b) {
+            return false;
+        }
+        if compare_edge_ids {
+            let edge_attrs = |h: &hypergraph_rs::Hypergraph<Value, Value, Value>| {
+                h.edge_ids()
+                    .into_iter()
+                    .map(|e| {
+                        let v = h.edge_attrs(&e).cloned().unwrap_or(Value::Null);
+                        (e, v)
+                    })
+                    .collect::<BTreeMap<String, Value>>()
+            };
+            if edge_attrs(a) != edge_attrs(b) {
+                return false;
+            }
+        } else {
+            let grouped = |h: &hypergraph_rs::Hypergraph<Value, Value, Value>| {
+                let mut m: BTreeMap<BTreeSet<String>, Vec<String>> = BTreeMap::new();
+                for e in h.edge_ids() {
+                    let attrs = h.edge_attrs(&e).cloned().unwrap_or(Value::Null);
+                    m.entry(members_of(h, &e))
+                        .or_default()
+                        .push(attrs.to_string());
+                }
+                for v in m.values_mut() {
+                    v.sort();
+                }
+                m
+            };
+            if grouped(a) != grouped(b) {
+                return false;
+            }
+        }
+    }
+
+    true
 }
 
 /// `xgi.num_edges_order(H, d=None)`.
@@ -237,17 +332,25 @@ fn max_edge_order(h: PyRef<'_, PyHypergraph>) -> Option<usize> {
     hypergraph_rs::algorithms::properties::max_edge_order(&h.inner)
 }
 
-/// `xgi.is_uniform(H)` — `None`/`False` collapse (XGI returns `False`; we return `None`, both
-/// falsy in Python, so `if not xgi.is_uniform(H)` reads the same).
+/// `xgi.is_uniform(H)`. XGI returns the order `int` when uniform, else the literal `False`
+/// (`properties.py:164-197`) — the oracle tests assert `is False` (identity), so `None` does
+/// not suffice; return the exact Python object.
 #[pyfunction]
-fn is_uniform(h: PyRef<'_, PyHypergraph>) -> Option<usize> {
-    hypergraph_rs::algorithms::properties::is_uniform(&h.inner)
+fn is_uniform(py: Python<'_>, h: PyRef<'_, PyHypergraph>) -> Py<PyAny> {
+    match hypergraph_rs::algorithms::properties::is_uniform(&h.inner) {
+        Some(d) => d.into_pyobject(py).unwrap().into_any().unbind(),
+        None => PyBool::new(py, false).to_owned().into_any().unbind(),
+    }
 }
 
-/// `xgi.is_possible_order(H, d)`.
+/// `xgi.is_possible_order(H, d)`. `d` accepts negative ints (XGI: `(d >= 0) and (d <= d_max)`,
+/// `properties.py:159-160` — a negative `d` is simply `False`, not an error).
 #[pyfunction]
-fn is_possible_order(h: PyRef<'_, PyHypergraph>, d: usize) -> bool {
-    hypergraph_rs::algorithms::properties::is_possible_order(&h.inner, d)
+fn is_possible_order(h: PyRef<'_, PyHypergraph>, d: i64) -> bool {
+    if d < 0 {
+        return false;
+    }
+    hypergraph_rs::algorithms::properties::is_possible_order(&h.inner, d as usize)
 }
 
 /// `xgi.edge_neighborhood(H, n, include_self=False)`.
@@ -301,18 +404,23 @@ fn density(
     if n < 1 {
         return Err(xgi_error("Density not defined for empty hypergraph"));
     }
-    if let Some(mo) = max_order {
-        if order.is_none() && mo >= n {
-            return Err(PyValueError::new_err(
-                "max_order must be smaller than the number of nodes",
-            ));
+    // XGI parity: the zero-edges short-circuit (`return 0.0`) comes BEFORE the order/max_order
+    // range checks (`properties.py:387-389`), so an out-of-range order on an edgeless
+    // hypergraph never raises.
+    if h.inner.num_edges() >= 1 {
+        if let Some(mo) = max_order {
+            if order.is_none() && mo >= n {
+                return Err(PyValueError::new_err(
+                    "max_order must be smaller than the number of nodes",
+                ));
+            }
         }
-    }
-    if let Some(o) = order {
-        if o >= n {
-            return Err(PyValueError::new_err(
-                "order must be smaller than the number of nodes",
-            ));
+        if let Some(o) = order {
+            if o >= n {
+                return Err(PyValueError::new_err(
+                    "order must be smaller than the number of nodes",
+                ));
+            }
         }
     }
     Ok(hypergraph_rs::algorithms::properties::density(
@@ -336,18 +444,21 @@ fn incidence_density(
     if n < 1 {
         return Err(xgi_error("Density not defined for empty hypergraph"));
     }
-    if let Some(mo) = max_order {
-        if order.is_none() && mo >= n {
-            return Err(PyValueError::new_err(
-                "max_order must be smaller than the number of nodes",
-            ));
+    // XGI parity: same zero-edges-before-range-check ordering as `density` (`properties.py:478-480`).
+    if h.inner.num_edges() >= 1 {
+        if let Some(mo) = max_order {
+            if order.is_none() && mo >= n {
+                return Err(PyValueError::new_err(
+                    "max_order must be smaller than the number of nodes",
+                ));
+            }
         }
-    }
-    if let Some(o) = order {
-        if o >= n {
-            return Err(PyValueError::new_err(
-                "order must be smaller than the number of nodes",
-            ));
+        if let Some(o) = order {
+            if o >= n {
+                return Err(PyValueError::new_err(
+                    "order must be smaller than the number of nodes",
+                ));
+            }
         }
     }
     Ok(hypergraph_rs::algorithms::properties::incidence_density(
@@ -375,15 +486,18 @@ fn single_source_shortest_path_length<'py>(
 
 /// `xgi.shortest_path_length(H)` → `{source: {target: dist}}`.
 #[pyfunction]
-fn shortest_path_length(py: Python<'_>, h: PyRef<'_, PyHypergraph>) -> PyResult<Py<PyDict>> {
+fn shortest_path_length(py: Python<'_>, h: PyRef<'_, PyHypergraph>) -> PyResult<Py<PyList>> {
+    // XGI parity: "a generator of tuples (source, dists)" (shortest_path.py:82-96), not a dict
+    // keyed by source — iterating `for source, dists in shortest_path_length(H)` unpacks tuples.
     let all = hypergraph_rs::algorithms::shortest_path::shortest_path_length(&h.inner);
-    let d = PyDict::new(py);
+    let out = PyList::empty(py);
     for (src, dist) in all {
         if let Some(o) = h.node_ids.get_obj(py, &src) {
-            d.set_item(o, node_f64_dict(py, dist, &h.node_ids)?)?;
+            let dists = node_f64_dict(py, dist, &h.node_ids)?;
+            out.append((o, dists))?;
         }
     }
-    Ok(d.unbind())
+    Ok(out.unbind())
 }
 
 /// `xgi.edit_simpliciality(H, min_size=2, exclude_min_size=True)`.

@@ -56,6 +56,20 @@ impl PyHypergraph {
         Ok(hg)
     }
 
+    /// `iter(H)` — XGI parity: `Hypergraph.__iter__` = `iter(self._node)` (node ids, insertion
+    /// order). Without this, Python falls back to the legacy `__getitem__(0), __getitem__(1), …`
+    /// iteration protocol, which would instead call the network-attr `__getitem__` below with
+    /// integer indices — a `TypeError`, not node iteration.
+    fn __iter__(&self, py: Python<'_>) -> PyResult<Py<pyo3::types::PyIterator>> {
+        let list = PyList::empty(py);
+        for nid in self.inner.node_ids() {
+            if let Some(obj) = self.node_ids.get_obj(py, &nid) {
+                list.append(obj)?;
+            }
+        }
+        Ok(list.into_any().try_iter()?.unbind())
+    }
+
     /// `H["name"]` — network-level attr; missing → XGIError (tests/core/test_hypergraph.py:55-56).
     fn __getitem__(&self, py: Python<'_>, key: &str) -> PyResult<Py<PyAny>> {
         match self.net_attr.get(key) {
@@ -727,6 +741,78 @@ impl PyHypergraph {
                     .ok_or_else(|| id_not_found(&repr))
             }
         }
+    }
+
+    /// `H.size(degree=None)` — XGI parity: `Hypergraph.__getattr__` dispatch to the `size`
+    /// edgestat (`stats/edgestats.py:143-176`). `degree`, if given, counts only member nodes
+    /// whose own (order-agnostic) node degree equals it.
+    #[pyo3(signature = (degree=None))]
+    fn size(&self, py: Python<'_>, degree: Option<usize>) -> PyResult<Py<PyDict>> {
+        let d = PyDict::new(py);
+        for eid in self.inner.edge_ids() {
+            let members = self.inner.members(&eid).unwrap_or_default();
+            let count = match degree {
+                None => members.len(),
+                Some(target) => members
+                    .iter()
+                    .filter(|n| self.inner.node_degree(n, None).unwrap_or(0) == target)
+                    .count(),
+            };
+            if let Some(obj) = self.edge_ids.get_obj(py, &eid) {
+                d.set_item(obj, count)?;
+            }
+        }
+        Ok(d.unbind())
+    }
+
+    /// `H.order(degree=None)` — XGI parity: `Hypergraph.__getattr__` dispatch to the `order`
+    /// edgestat (`stats/edgestats.py:106-142`); `order = size - 1`.
+    #[pyo3(signature = (degree=None))]
+    fn order(&self, py: Python<'_>, degree: Option<usize>) -> PyResult<Py<PyDict>> {
+        let d = PyDict::new(py);
+        for eid in self.inner.edge_ids() {
+            let members = self.inner.members(&eid).unwrap_or_default();
+            let count: i64 = match degree {
+                None => members.len() as i64,
+                Some(target) => members
+                    .iter()
+                    .filter(|n| self.inner.node_degree(n, None).unwrap_or(0) == target)
+                    .count() as i64,
+            };
+            if let Some(obj) = self.edge_ids.get_obj(py, &eid) {
+                d.set_item(obj, count - 1)?;
+            }
+        }
+        Ok(d.unbind())
+    }
+
+    /// `H.clustering_coefficient()` — `Hypergraph.__getattr__` dispatch to the
+    /// `clustering_coefficient` nodestat.
+    fn clustering_coefficient(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let m = hypergraph_rs::algorithms::clustering::clustering_coefficient(&self.inner);
+        crate::algorithms::node_f64_dict(py, m, &self.node_ids)
+    }
+
+    /// `H.local_clustering_coefficient()` — `Hypergraph.__getattr__` dispatch to the
+    /// `local_clustering_coefficient` nodestat.
+    fn local_clustering_coefficient(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let m = hypergraph_rs::algorithms::clustering::local_clustering_coefficient(&self.inner);
+        crate::algorithms::node_f64_dict(py, m, &self.node_ids)
+    }
+
+    /// `H.two_node_clustering_coefficient(kind="union")` — `Hypergraph.__getattr__` dispatch to
+    /// the `two_node_clustering_coefficient` nodestat.
+    #[pyo3(signature = (kind="union"))]
+    fn two_node_clustering_coefficient(&self, py: Python<'_>, kind: &str) -> PyResult<Py<PyDict>> {
+        if !matches!(kind, "union" | "min" | "max") {
+            return Err(xgi_error(format!("invalid kind of clustering: {kind}")));
+        }
+        let m =
+            hypergraph_rs::algorithms::clustering::two_node_clustering_coefficient(
+                &self.inner,
+                kind,
+            );
+        crate::algorithms::node_f64_dict(py, m, &self.node_ids)
     }
 
     /// `H.dual()`.

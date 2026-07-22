@@ -359,13 +359,75 @@ impl PyNodeView {
         crate::stats::PyNodeStat::degree(py, self.hg.clone_ref(py), ids, None, None)
     }
 
-    /// `H.nodes.attrs(attr=None)` — the general node attribute `Stat` proxy.
-    #[pyo3(signature = (attr=None))]
-    fn attrs(&self, py: Python<'_>, attr: Option<String>) -> crate::stats::PyNodeStat {
+    /// `H.nodes.attrs` — the general node attribute `Stat` proxy (`""` key = whole attr dict).
+    /// Dispatched exactly like `degree`: attribute access alone yields the full-attrs `Stat`;
+    /// `H.nodes.attrs("color")` / `H.nodes.attrs(attr="color")` re-parametrizes it via
+    /// `Stat.__call__` (XGI parity: `attrs` is a `nodestat_func` like any other).
+    #[getter]
+    fn attrs(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
         let hg = self.hg.borrow(py);
         let ids = self.effective_ids(&hg);
         drop(hg);
-        crate::stats::PyNodeStat::attr(py, self.hg.clone_ref(py), ids, attr.unwrap_or_default())
+        crate::stats::PyNodeStat::attr(py, self.hg.clone_ref(py), ids, String::new())
+    }
+
+    /// `H.nodes.clustering_coefficient` (bare) / `H.nodes.clustering_coefficient()` (called) —
+    /// XGI parity: `algorithms/clustering.py:clustering_coefficient`, wired via the
+    /// `nodestat_func` registry (attribute access alone yields the realized `Stat`; a further
+    /// call just re-dispatches to an equivalent `Stat`, see `PyNodeStat::__call__`'s
+    /// `Precomputed` branch).
+    #[getter]
+    fn clustering_coefficient(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
+        let hg = self.hg.borrow(py);
+        let ids = self.effective_ids(&hg);
+        let values: std::collections::HashMap<String, f64> =
+            hypergraph_rs::algorithms::clustering::clustering_coefficient(&hg.inner)
+                .into_iter()
+                .collect();
+        drop(hg);
+        crate::stats::PyNodeStat::precomputed(py, self.hg.clone_ref(py), ids, values)
+    }
+
+    /// `H.nodes.local_clustering_coefficient` (bare/called) — XGI parity:
+    /// `clustering.py:local_clustering_coefficient`.
+    #[getter]
+    fn local_clustering_coefficient(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
+        let hg = self.hg.borrow(py);
+        let ids = self.effective_ids(&hg);
+        let values: std::collections::HashMap<String, f64> =
+            hypergraph_rs::algorithms::clustering::local_clustering_coefficient(&hg.inner)
+                .into_iter()
+                .collect();
+        drop(hg);
+        crate::stats::PyNodeStat::precomputed(py, self.hg.clone_ref(py), ids, values)
+    }
+
+    /// `H.nodes.two_node_clustering_coefficient` (bare, `kind="union"`) /
+    /// `H.nodes.two_node_clustering_coefficient(kind=...)` (called) — XGI parity:
+    /// `clustering.py:two_node_clustering_coefficient`. Re-parametrizable via
+    /// `PyNodeStat::__call__`'s `TwoNodeClustering` branch.
+    #[getter]
+    fn two_node_clustering_coefficient(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
+        let hg = self.hg.borrow(py);
+        let ids = self.effective_ids(&hg);
+        drop(hg);
+        crate::stats::PyNodeStat::two_node_clustering(py, self.hg.clone_ref(py), ids)
+    }
+
+    /// `H.nodes.clique_eigenvector_centrality` — XGI parity: `centrality.py:clique_eigenvector_centrality`
+    /// (accessed as a bare property, e.g. `H.nodes.clique_eigenvector_centrality.asnumpy()`).
+    #[getter]
+    fn clique_eigenvector_centrality(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
+        let hg = self.hg.borrow(py);
+        let ids = self.effective_ids(&hg);
+        let values: std::collections::HashMap<String, f64> =
+            hypergraph_rs::algorithms::centrality::clique_eigenvector_centrality(
+                &hg.inner, 1e-6, 1000,
+            )
+            .into_iter()
+            .collect();
+        drop(hg);
+        crate::stats::PyNodeStat::precomputed(py, self.hg.clone_ref(py), ids, values)
     }
 
     /// Sub-view of degree-0 nodes. XGI parity: `H.nodes.isolates()`.

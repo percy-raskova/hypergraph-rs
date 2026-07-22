@@ -53,13 +53,21 @@ pub fn to_hif_dict(h: &Hypergraph) -> Value {
         }
     }
 
-    json!({
-        "metadata": Value::Object(metadata),
-        "network-type": "undirected",
-        "nodes": nodes,
-        "edges": edges,
-        "incidences": incidences,
-    })
+    // XGI parity: `to_hif_dict` (`convert/hif_dict.py:56-82`) builds `data["nodes"]`/
+    // `data["edges"]` via `data["nodes"].append(...)` inside a loop over isolates/attributed
+    // nodes (edges: empty/attributed edges) — if that loop body never runs, the key is never
+    // created at all (not present as an empty list). Reproduced here: omit the key when empty.
+    let mut obj = Map::new();
+    obj.insert("metadata".to_string(), Value::Object(metadata));
+    obj.insert("network-type".to_string(), json!("undirected"));
+    if !nodes.is_empty() {
+        obj.insert("nodes".to_string(), Value::Array(nodes));
+    }
+    if !edges.is_empty() {
+        obj.insert("edges".to_string(), Value::Array(edges));
+    }
+    obj.insert("incidences".to_string(), Value::Array(incidences));
+    Value::Object(obj)
 }
 
 /// Rebuild a hypergraph from a HIF dict. XGI `from_hif_dict` (undirected/asc branch).
@@ -130,9 +138,12 @@ pub fn from_hif_dict(data: &Value) -> Result<Hypergraph, ReadWriteError> {
                             *slot = a;
                         }
                     }
+                } else {
+                    // Empty edge (in `edges` but no incidences) — Task 0's `add_empty_edge`
+                    // (the one sanctioned additive core method) represents exactly this XGI
+                    // deviation-shim case, which plain `add_edge` rejects.
+                    h.add_empty_edge(Some(eid), attrs.unwrap_or(Value::Null));
                 }
-                // empty edges (in `edges` but no incidences) can't be represented
-                // by our core (add_edge rejects empty members) — skipped, documented.
             }
         }
     }

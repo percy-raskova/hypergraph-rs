@@ -63,10 +63,17 @@ pub fn to_hypergraph_dict(h: &Hypergraph) -> Value {
 pub fn from_hypergraph_dict(data: &Value) -> Result<Hypergraph, ReadWriteError> {
     let mut h = Hypergraph::new();
 
-    if let Some(hd) = data.get("hypergraph-data").and_then(|v| v.as_object()) {
-        for (k, v) in hd {
-            h.set_graph_attr(k, v.clone());
-        }
+    // XGI parity: `from_hypergraph_dict` requires "hypergraph-data" and raises XGIError
+    // ("Failed to get hypergraph data attributes.") when absent — it is NOT optional
+    // (`convert/hypergraph_dict.py:106-110`).
+    let hd = data
+        .get("hypergraph-data")
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| {
+            ReadWriteError::Format("Failed to get hypergraph data attributes.".into())
+        })?;
+    for (k, v) in hd {
+        h.set_graph_attr(k, v.clone());
     }
 
     let node_data = data
@@ -81,7 +88,13 @@ pub fn from_hypergraph_dict(data: &Value) -> Result<Hypergraph, ReadWriteError> 
         .get("edge-dict")
         .and_then(|v| v.as_object())
         .ok_or_else(|| ReadWriteError::Format("missing edge-dict".into()))?;
-    let edge_data = data.get("edge-data").and_then(|v| v.as_object());
+    // XGI parity: `edge-data` is required too (`for idx, dd in data["edge-data"].items()`
+    // raises `KeyError` -> `XGIError` when absent, `convert/hypergraph_dict.py:125-133`).
+    let edge_data = data
+        .get("edge-data")
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| ReadWriteError::Format("Failed to import edge attributes.".into()))?;
+    let edge_data = Some(edge_data);
     for (eid, members) in edge_dict {
         let arr = members
             .as_array()

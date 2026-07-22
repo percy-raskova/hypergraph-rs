@@ -12,9 +12,11 @@
 //! unified 0.17.2 in this workspace, so the crossing would in fact typecheck today, but the plan's
 //! rule is followed regardless — it is the durable-safe contract, not a today-only workaround.
 //!
-//! **Deviation (documented):** XGI's `incidence_matrix(..., weight=lambda node, edge, H: 1)`
-//! accepts a per-(node, edge) weight callable; the core `incidence_matrix` has no weighted variant.
-//! `weight` is accepted for signature compatibility and ignored (binary incidence only).
+//! **`incidence_matrix` weight callable:** the core computes an unweighted (binary) incidence
+//! structure; the per-(node, edge) `weight` callable from XGI's signature is applied binding-side
+//! by calling it once per nonzero incidence entry (in CSR row-major order, matching XGI's own
+//! `for edge in edge_ids: for node in members: data.append(weight(node, edge, H))` iteration —
+//! `hypergraph_matrix.py:118-126`) and substituting the resulting values for the core's `1.0`s.
 
 use numpy::{IntoPyArray, PyArrayMethods};
 use pyo3::prelude::*;
@@ -91,10 +93,16 @@ fn dense1_to_pyarray<'py>(
     Ok(flat.into_pyarray(py).into_any())
 }
 
-/// Build `scipy.sparse.csr_matrix((data, indices, indptr), shape=…)` from a core `sprs::CsMat`.
-fn to_scipy_csr<'py>(py: Python<'py>, m: &sprs::CsMat<f64>) -> PyResult<Bound<'py, PyAny>> {
+/// Build `scipy.sparse.csr_array((data, indices, indptr), shape=…)` from a core `sprs::CsMat`,
+/// with `data` supplied explicitly (lets callers substitute weighted values for the core's
+/// binary `1.0`s while keeping the CSR index/indptr structure).
+fn to_scipy_csr_data<'py>(
+    py: Python<'py>,
+    m: &sprs::CsMat<f64>,
+    data: &[f64],
+) -> PyResult<Bound<'py, PyAny>> {
     let sp = py.import("scipy.sparse")?;
-    let data = m.data().to_vec().into_pyarray(py);
+    let data_arr = data.to_vec().into_pyarray(py);
     let indices: Vec<i32> = m.indices().iter().map(|&i| i as i32).collect();
     let indptr: Vec<i32> = m
         .indptr()
@@ -105,20 +113,74 @@ fn to_scipy_csr<'py>(py: Python<'py>, m: &sprs::CsMat<f64>) -> PyResult<Bound<'p
         .collect();
     let kwargs = PyDict::new(py);
     kwargs.set_item("shape", (m.rows(), m.cols()))?;
-    sp.getattr("csr_matrix")?.call(
-        ((data, indices.into_pyarray(py), indptr.into_pyarray(py)),),
+    sp.getattr("csr_array")?.call(
+        ((data_arr, indices.into_pyarray(py), indptr.into_pyarray(py)),),
         Some(&kwargs),
     )
 }
 
-/// `scipy.sparse.csr_matrix(dense_ndarray)` — used where the core only computes a dense matrix
+/// `to_scipy_csr_data` using the matrix's own (unweighted) data.
+fn to_scipy_csr<'py>(py: Python<'py>, m: &sprs::CsMat<f64>) -> PyResult<Bound<'py, PyAny>> {
+    to_scipy_csr_data(py, m, m.data())
+}
+
+/// `scipy.sparse.csr_array(dense_ndarray)` — used where the core only computes a dense matrix
 /// (adjacency/intersection/clique-motif/laplacian family) but `sparse=True` was requested.
 fn dense_to_scipy_csr<'py>(
     py: Python<'py>,
     dense: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let sp = py.import("scipy.sparse")?;
-    sp.getattr("csr_matrix")?.call1((dense,))
+    sp.getattr("csr_array")?.call1((dense,))
+}
+
+/// Apply an XGI `weight(node, edge, H)` callable to every nonzero entry of `m`, in CSR row-major
+/// order, returning the substituted data vector (same length/order as `m.data()`).
+fn weighted_incidence_data(
+    py: Python<'_>,
+    m: &sprs::CsMat<f64>,
+    rows: &[String],
+    cols: &[String],
+    node_map: &PyIdMap,
+    edge_map: &PyIdMap,
+    h_obj: &Bound<'_, PyAny>,
+    weight: &Bound<'_, PyAny>,
+) -> PyResult<Vec<f64>> {
+    let indptr_owned = m.indptr();
+    let indptr = indptr_owned.as_slice().unwrap_or(&[]);
+    let indices = m.indices();
+    let mut out = Vec::with_capacity(indices.len());
+    for r in 0..m.rows() {
+        let node_obj = node_map
+            .get_obj(py, &rows[r])
+            .expect("row id present in node map");
+        for pos in indptr[r]..indptr[r + 1] {
+            let c = indices[pos];
+            let edge_obj = edge_map
+                .get_obj(py, &cols[c])
+                .expect("col id present in edge map");
+            let val: f64 = weight
+                .call1((node_obj.clone(), edge_obj.clone(), h_obj.clone()))?
+                .extract()?;
+            out.push(val);
+        }
+    }
+    Ok(out)
+}
+
+/// Scatter a weighted CSR data vector into a dense `Array2<f64>` (zeros elsewhere) — matches
+/// XGI's dense path `I = np.zeros(...); I[rows, cols] = data` (`hypergraph_matrix.py:127-129`).
+fn weighted_incidence_dense(m: &sprs::CsMat<f64>, data: &[f64]) -> ndarray::Array2<f64> {
+    let mut dense = ndarray::Array2::<f64>::zeros((m.rows(), m.cols()));
+    let indptr_owned = m.indptr();
+    let indptr = indptr_owned.as_slice().unwrap_or(&[]);
+    let indices = m.indices();
+    for r in 0..m.rows() {
+        for pos in indptr[r]..indptr[r + 1] {
+            dense[[r, indices[pos]]] = data[pos];
+        }
+    }
+    dense
 }
 
 /// `xgi.incidence_matrix(H, order=None, sparse=True, index=False, weight=None)`.
@@ -126,21 +188,47 @@ fn dense_to_scipy_csr<'py>(
 #[pyo3(signature = (h, order=None, sparse=true, index=false, weight=None))]
 fn incidence_matrix(
     py: Python<'_>,
-    h: PyRef<'_, PyHypergraph>,
+    h: Bound<'_, PyHypergraph>,
     order: Option<usize>,
     sparse: bool,
     index: bool,
     weight: Option<Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
-    let _ = weight; // deviation: per-(node, edge) weight callable not supported by the core
+    let (m, rows, cols) = {
+        let h_ref = h.borrow();
+        hypergraph_rs::linalg::incidence_matrix_sparse(&h_ref.inner, order)
+    };
+    let h_any = h.clone().into_any();
+    let data: Option<Vec<f64>> = match &weight {
+        Some(w) => {
+            let h_ref = h.borrow();
+            Some(weighted_incidence_data(
+                py,
+                &m,
+                &rows,
+                &cols,
+                &h_ref.node_ids,
+                &h_ref.edge_ids,
+                &h_any,
+                w,
+            )?)
+        }
+        None => None,
+    };
+    let h_ref = h.borrow();
     if sparse {
-        let (m, rows, cols) = hypergraph_rs::linalg::incidence_matrix_sparse(&h.inner, order);
-        let arr = to_scipy_csr(py, &m)?;
-        with_index2(py, arr, &rows, &h.node_ids, &cols, &h.edge_ids, index)
+        let arr = match &data {
+            Some(d) => to_scipy_csr_data(py, &m, d)?,
+            None => to_scipy_csr(py, &m)?,
+        };
+        with_index2(py, arr, &rows, &h_ref.node_ids, &cols, &h_ref.edge_ids, index)
     } else {
-        let (m, rows, cols) = hypergraph_rs::linalg::incidence_matrix(&h.inner, order);
-        let arr = dense2_to_pyarray(py, m)?;
-        with_index2(py, arr, &rows, &h.node_ids, &cols, &h.edge_ids, index)
+        let dense = match &data {
+            Some(d) => weighted_incidence_dense(&m, d),
+            None => hypergraph_rs::linalg::incidence_matrix(&h_ref.inner, order).0,
+        };
+        let arr = dense2_to_pyarray(py, dense)?;
+        with_index2(py, arr, &rows, &h_ref.node_ids, &cols, &h_ref.edge_ids, index)
     }
 }
 
@@ -260,6 +348,18 @@ fn multiorder_laplacian(
         return Err(pyo3::exceptions::PyValueError::new_err(
             "orders and weights must have the same length.",
         ));
+    }
+    // XGI parity: warn (not error) for each order whose degree matrix is all-zero — its
+    // contribution is silently dropped rather than dividing by a zero mean (laplacian_matrix.py:172-179).
+    let warnings = py.import("warnings")?;
+    for &d in &orders {
+        let (k, _) = hypergraph_rs::linalg::degree_matrix(&h.inner, Some(d));
+        if k.iter().all(|&v| v == 0.0) {
+            let msg = format!(
+                "No edges of order {d}. Contribution of that order is zero. Its weight is effectively zero."
+            );
+            warnings.call_method1("warn", (msg,))?;
+        }
     }
     let (l, rows) =
         hypergraph_rs::linalg::multiorder_laplacian(&h.inner, &orders, &weights, rescale_per_node);

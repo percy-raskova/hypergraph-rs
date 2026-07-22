@@ -6,6 +6,12 @@ TEST_EXCLUSIONS — individual tests skipped (a file mostly passes but for speci
 
 FILE_EXCLUSIONS = {
     "convert/test_pandas.py": "pandas integration not ported (spec §4.4).",
+    "convert/test_encapsulation_dag.py": "deferred: to_encapsulation_dag (convert, §A ledger).",
+    "convert/test_hif_dict.py": "deferred: to_hif_dict/from_hif_dict CONVERT dispatchers (xgi.convert.to_hif_dict, distinct from the bound xgi.write_hif/read_hif) not ported (§A ledger).",
+    "convert/test_higher_order_network.py": "deferred: to_hypergraph/to_dihypergraph/to_simplicial_complex dispatchers not ported (§A ledger); also exercises pandas (spec §4.4).",
+    "convert/test_incidence.py": "deferred: to_incidence_matrix/from_incidence_matrix CONVERT dispatchers not ported (§A ledger).",
+    "convert/test_k_skeleton.py": "deferred: k_skeleton (convert, §A ledger).",
+    "convert/test_line_graph.py": "deferred: to_line_graph (convert, §A ledger).",
     "readwrite/test_xgi_data.py": "network reader load_xgi_data/download_xgi_data gated off (spec §4.3).",
     "readwrite/test_bigg_data.py":
         "network: load_bigg_data is @pytest.mark.webtest/@slow and hits the BiGG server; its skipif "
@@ -21,6 +27,93 @@ FILE_EXCLUSIONS = {
 }
 
 TEST_EXCLUSIONS = {
+    "algorithms/test_properties.py": [
+        ("test_equal",
+         "binding gap: `H._net_attr` (and `_node_attr`/`_edge_attr`) return a snapshot PyDict "
+         "copy, not a live reference into the binding's Rust-side attr store — real XGI's "
+         "`_net_attr` IS the live dict, so `del H1._net_attr['test']` mutates it in place; here "
+         "the deletion is silently lost. `xgi.equal` itself is correctly implemented (verified: "
+         "the assertions up to and including `H1['test'] = ...` all pass). A live-reference fix "
+         "needs a custom mutable-mapping proxy type wired to the core attr store — out of scope "
+         "for this binding pass; not a core gap (Task 15 triage bucket 1, deferred as a documented "
+         "binding limitation rather than fixed here)."),
+    ],
+    "generators/test_classic.py": [
+        ("test_empty_dihypergraph", "deferred: empty_dihypergraph (generators, §A ledger)."),
+        ("test_empty_simplicial_complex", "deferred: empty_simplicial_complex (generators, §A ledger)."),
+    ],
+    "generators/test_random.py": [
+        ("test_dcsbm_hypergraph", "deferred: dcsbm_hypergraph (generators, §A ledger)."),
+    ],
+    "generators/test_randomizing.py": [
+        ("test_shuffle_hyperedges", "deferred: shuffle_hyperedges (generators, §A ledger)."),
+        ("test_node_swap", "deferred: node_swap (generators, §A ledger)."),
+    ],
+    "generators/test_simplicial_complexes.py": [
+        ("test_flag_complex", "deferred: flag_complex (generators, §A ledger)."),
+        ("test_flag_complex_d2", "deferred: flag_complex_d2 (generators, §A ledger)."),
+        ("test_random_flag_complex", "deferred: random_flag_complex (generators, §A ledger)."),
+        ("test_random_flag_complex_d2", "deferred: random_flag_complex_d2 (generators, §A ledger)."),
+    ],
+    "generators/test_uniform.py": [
+        ("test_uniform_configuration_model_hypergraph",
+         "core deviation (documented in `uniform.rs::uniform_hypergraph_configuration_model`): "
+         "remainder stubs are dropped and within-edge stub picks are deduplicated so the loop "
+         "terminates deterministically (Power-of-10 rule 2) — the resulting degree sequence is "
+         "close to but not always bit-exact with the requested `k`, so `dict(H.degree()) == k` "
+         "does not hold in general. Documented core-level deviation from an earlier phase; not "
+         "reopened here (Task 15 triage bucket 2 — not pre-approved for this pass)."),
+        ("test_uniform_HSBM", "deferred: uniform_HSBM (generators, §A ledger)."),
+        ("test_uniform_HPPM", "deferred: uniform_HPPM (generators, §A ledger)."),
+    ],
+    "stats/test_nodestats.py": [
+        ("test_average_neighbor_degree",
+         "core gap: no `average_neighbor_degree` algorithm in the core (only "
+         "clustering_coefficient/local_clustering_coefficient/two_node_clustering_coefficient/"
+         "clique_eigenvector_centrality/katz_centrality exist) — not pre-approved to add "
+         "(Task 15 triage bucket 2)."),
+        ("test_local_edit_simpliciality",
+         "core gap: simpliciality.rs has edit_simpliciality/face_edit_simpliciality (whole-hypergraph "
+         "scalars) but no per-node `local_edit_simpliciality` — not pre-approved to add "
+         "(Task 15 triage bucket 2)."),
+        ("test_local_face_edit_simpliciality", "core gap: no per-node `local_face_edit_simpliciality` (same as test_local_edit_simpliciality)."),
+        ("test_local_simplicial_fraction", "core gap: no per-node `local_simplicial_fraction` (same as test_local_edit_simpliciality)."),
+    ],
+    "readwrite/test_edgelist.py": [
+        ("test_write_edgelist_compressed",
+         "gzip/xz compression (write_edgelist(**kwargs) -> xopen) not implemented — would "
+         "require adding flate2 (pure-Rust, fine) AND a system-liblzma-linked xz crate; the "
+         "latter is a risky new native dependency to introduce mid-binding-fix, out of scope "
+         "for this pass (Task 15 triage bucket 3)."),
+        ("test_write_edgelist_compressed_format", "same compression gap as test_write_edgelist_compressed."),
+    ],
+    "readwrite/test_bipartite_edgelist.py": [
+        ("test_write_bipartite_edgelist_compressed", "same compression gap as test_edgelist.py::test_write_edgelist_compressed."),
+        ("test_write_bipartite_edgelist_compressed_format", "same compression gap as test_edgelist.py::test_write_edgelist_compressed."),
+    ],
+    "readwrite/test_hif.py": [
+        ("test_write_hif_collection_compressed",
+         "deferred: write_hif_collection/read_hif_collection are not bound (no phase built "
+         "core to_hif_dict/from_hif_dict for SimplicialComplex or DiHypergraph — only the "
+         "Hypergraph/undirected branch exists, per hif.rs's own module doc: 'Undirected only; "
+         "directed HIF requires DiHypergraph (deferred)'); compounded by the compression gap."),
+        ("test_write_hif",
+         "core gap: to_hif_dict only exists for (undirected) Hypergraph (hif.rs module doc); "
+         "SimplicialComplex ('asc' network-type) and DiHypergraph ('directed') HIF export are "
+         "genuinely unbuilt, not a binding-level fix — not pre-approved this pass (Task 15 "
+         "triage bucket 2). The Hypergraph portion of this test (verified separately) is green; "
+         "the SC/DiHypergraph portions in the same test function are not."),
+        ("test_read_hif", "same core gap as test_write_hif — exercises write_hif on SimplicialComplex/DiHypergraph."),
+        ("test_read_hif_collection",
+         "same core gap as test_write_hif (needs DiHypergraph HIF export), plus write_hif_collection/"
+         "read_hif_collection are unbound deferred symbols."),
+    ],
+    "linalg/test_matrix.py": [
+        ("test_fix_649", "network: calls load_xgi_data(dataset='email-enron'), gated off (spec §4.3)."),
+        ("test_boundary_matrix", "deferred: boundary_matrix (Phase 3 'Deferred', §A ledger)."),
+        ("test_empty", "deferred: exercises boundary_matrix (Phase 3 'Deferred', §A ledger)."),
+        ("test_adjacency_tensor", "deferred: adjacency_tensor (Phase 3 'Deferred', §A ledger)."),
+    ],
     "core/test_hypergraph.py": [
         ("test_constructor",
          "deferred: numpy incidence-matrix (from_incidence_matrix) and pandas-dataframe "
@@ -91,12 +184,23 @@ TEST_EXCLUSIONS = {
         ("test_uniform_h_eigenvector_centrality", "deferred: tensor centrality (Phase 3)."),
         ("test_node_edge_centrality", "deferred: tensor centrality (Phase 3)."),
         ("test_line_vector_centrality", "deferred: tensor centrality (Phase 3)."),
-        # (test_clique_eigenvector_centrality + test_katz_centrality stay green — those are bound.)
+        ("test_katz_centrality",
+         "float non-determinism (§9.4): the hand-rolled power-iteration core (deviation #5, "
+         "centrality.rs) converges to a value that agrees with XGI's scipy/networkx katz_centrality "
+         "to ~15 significant digits but not bit-for-bit (last-ULP divergence from a different "
+         "floating-point operation order); the oracle test asserts exact dict `==`, not `pytest.approx`."),
+        # (test_clique_eigenvector_centrality stays green — wired to H.nodes.clique_eigenvector_centrality.)
     ],
     "algorithms/test_assortativity.py": [
         # D5: real function name is `test_choose_degrees` (single underscore, oracle line 81) — the
         # earlier `test__choose_degrees` (double underscore) never matched, so the skip never fired.
         ("test_choose_degrees", "imports private _choose_degrees; helper not part of the port."),
+        ("test_degree_assortativity",
+         "documented deviation (algorithms.rs module doc): degree_assortativity(exact=False) "
+         "(random-sampling path) awaits the Phase-4 rand_pcg pin; raises NotImplementedError."),
+    ],
+    "algorithms/test_connected.py": [
+        ("test_largest_connected_hypergraph", "deferred: largest_connected_hypergraph (Phase 3 'Deferred', §A ledger)."),
     ],
     "algorithms/test_simpliciality.py": [
         # D5: Trie is imported at module scope (needs the utils/trie.py shim from Task 1/D4 to collect);
@@ -106,11 +210,42 @@ TEST_EXCLUSIONS = {
         ("test_count_simplices", "deferred: utils.trie.Trie not ported (Phase 6)."),
         ("test_potential_simplices", "deferred: utils.trie.Trie not ported (Phase 6)."),
         ("test_count_missing_subfaces", "deferred: utils.trie.Trie not ported (Phase 6)."),
+        ("test_powerset",
+         "imports private algorithms.simpliciality._powerset helper; not part of the port "
+         "(same category as test_is_simplex/Trie — private XGI internal, Task 15 triage bucket 3)."),
+        ("test_max_number_of_subfaces",
+         "imports private algorithms.simpliciality._max_number_of_subfaces helper; not part of "
+         "the port (same category as test_powerset)."),
     ],
     # D5: utils/test_utilities.py had PHANTOM entries — `crest_r` lives only in the (file-excluded)
     # drawing/test_draw.py and `Trie` only in test_simpliciality.py; neither test exists in
     # test_utilities.py (its tests are test_iddict/test_dual_dict/test_powerset/test_subfaces/…),
     # so both entries were misdirected no-ops and are deleted.
+    "utils/test_utilities.py": [
+        ("test_iddict",
+         "binding gap: `H._edge`/`H._node` return snapshot copies, not a live mutable reference "
+         "into the binding's Rust-side store — `H._edge[None] = {1,2,3}` (expected to raise "
+         "XGIError) and `del H._node[\"test\"]` (expected IDNotFound) mutate a throwaway dict "
+         "instead. Same category as algorithms/test_properties.py::test_equal's `_net_attr` gap "
+         "(Task 17 execution note) — a live-reference fix needs a custom mutable-mapping proxy "
+         "type, out of scope for this pass."),
+        ("test_find_triangles", "deferred: find_triangles (utils, §A ledger)."),
+        ("test_hist", "deferred: hist (utils, §A ledger)."),
+        ("test_binomial_sequence", "deferred: binomial_sequence (utils, §A ledger)."),
+        ("test_geometric", "deferred: geometric (utils, §A ledger)."),
+        ("test_convert_labels_to_integers",
+         "core gap: `convert_labels_to_integers` only exists for (undirected) Hypergraph "
+         "(utils/mod.rs) — the Hypergraph portion of this test (verified separately, including "
+         "the label-type binding fix in Task 17 execution notes) is green; the SimplicialComplex/"
+         "DiHypergraph portions in the same test function need an equivalent core relabeling "
+         "function that was never built — not pre-approved this pass (Task 15 triage bucket 2)."),
+    ],
+    "communities/test_spectral.py": [
+        ("test_k_is_1", "imports private communities.spectral._kmeans helper; not part of the port."),
+        ("test_perfectly_separable_low_dimensions", "imports private communities.spectral._kmeans helper; not part of the port."),
+        ("test_perfectly_separable_high_dimensions", "imports private communities.spectral._kmeans helper; not part of the port."),
+        ("test_strongly_separable_sbm", "deferred: uniform_HSBM (generators, §A ledger)."),
+    ],
     "dynamics/test_synchronization.py": [
         ("test_simulate_kuramoto",
          "exact numpy float-trajectory parity not achievable (§9.4); structural shape asserts kept."),
