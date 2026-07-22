@@ -13,10 +13,10 @@ edition = "2021"
 rust-version = "1.85"
 license = "BSD-3-Clause"
 authors = ["Persephone Raskova <percy@percypedia.biz>"]
-# Mirrored on both forges under percy-raskova/babylon; Cargo has one
+# Mirrored on both forges under babylon-rpg/hypergraph-rs; Cargo has one
 # `repository` slot, so Codeberg rides in `homepage`.
-repository = "https://github.com/percy-raskova/babylon"
-homepage = "https://codeberg.org/percy-raskova/babylon"
+repository = "https://github.com/babylon-rpg/hypergraph-rs"
+homepage = "https://codeberg.org/babylon-rpg/hypergraph-rs"
 
 [workspace.dependencies]
 # NO direct petgraph dependency: rustworkx-core 0.18 re-exports petgraph 0.8;
