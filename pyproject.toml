@@ -26,6 +26,12 @@ requires-python = ">=3.12"
 # Version is single-sourced from the cargo workspace ([workspace.package]
 # version in Cargo.toml) via maturin's dynamic support.
 dynamic = ["version"]
+# Core install: NO matplotlib, NO pandas, NO networkx. The stack the core surface needs is
+# numpy (arrays out of linalg) + scipy (sparse matrices).
+dependencies = ["numpy>=1.24", "scipy>=1.10"]
+
+[project.optional-dependencies]
+mpl = ["matplotlib>=3.7"]  # spec Sec6.3: the matplotlib drawing shim is opt-in.
 
 [tool.maturin]
 manifest-path = "crates/hypergraph-rs-python/Cargo.toml"
