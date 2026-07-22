@@ -25,8 +25,7 @@ pub enum ReadWriteError {
 
 pub use json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};
 pub use edgelist::{parse_edgelist, read_edgelist, write_edgelist};
-// TASK 15: uncomment when bipartite.rs lands
-// pub use bipartite::{parse_bipartite_edgelist, read_bipartite_edgelist, write_bipartite_edgelist};
+pub use bipartite::{parse_bipartite_edgelist, read_bipartite_edgelist, write_bipartite_edgelist};
 // TASK 16: uncomment when incidence.rs lands
 // pub use incidence::{read_incidence_matrix, write_incidence_matrix};
 // TASK 17: uncomment when hif.rs lands

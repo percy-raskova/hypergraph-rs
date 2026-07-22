@@ -1,3 +1,6 @@
+use hypergraph_rs::readwrite::bipartite::{
+    parse_bipartite_edgelist, read_bipartite_edgelist, write_bipartite_edgelist,
+};
 use hypergraph_rs::readwrite::edgelist::{parse_edgelist, read_edgelist, write_edgelist};
 use hypergraph_rs::readwrite::json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};
 use hypergraph_rs::Hypergraph;
@@ -101,5 +104,46 @@ fn test_write_read_edgelist_round_trip() {
     let h2 = read_edgelist(&path, Some(','), "#").unwrap();
     assert_eq!(h2.num_edges(), 2);
     assert_eq!(h2.num_nodes(), 4);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn test_parse_bipartite_basic() {
+    // node edge pairs: 1->e0, 2->e0, 2->e1
+    let lines = vec!["1 e0".to_string(), "2 e0".to_string(), "2 e1".to_string()];
+    let h = parse_bipartite_edgelist(lines, None, "#", false).unwrap();
+    assert_eq!(h.num_nodes(), 2);
+    assert_eq!(h.num_edges(), 2);
+    let mut m = h.members("e0").unwrap();
+    m.sort();
+    assert_eq!(m, vec!["1".to_string(), "2".to_string()]);
+}
+
+#[test]
+fn test_parse_bipartite_dual_swaps_columns() {
+    // dual: first column is edge, second is node
+    let lines = vec!["e0 1".to_string(), "e0 2".to_string()];
+    let h = parse_bipartite_edgelist(lines, None, "#", true).unwrap();
+    assert_eq!(h.num_edges(), 1);
+    let mut m = h.members("e0").unwrap();
+    m.sort();
+    assert_eq!(m, vec!["1".to_string(), "2".to_string()]);
+}
+
+#[test]
+fn test_parse_bipartite_rejects_short_line() {
+    let lines = vec!["only-one-token".to_string()];
+    assert!(parse_bipartite_edgelist(lines, None, "#", false).is_err());
+}
+
+#[test]
+fn test_write_read_bipartite_round_trip() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into(), "2".into()], Some("e0".into()), serde_json::Value::Null).unwrap();
+    let path = std::env::temp_dir().join("hypergraph_rs_test_bipartite.csv");
+    write_bipartite_edgelist(&h, &path, ' ').unwrap();
+    let h2 = read_bipartite_edgelist(&path, None, "#", false).unwrap();
+    assert_eq!(h2.num_edges(), 1);
+    assert_eq!(h2.num_nodes(), 2);
     let _ = std::fs::remove_file(&path);
 }
