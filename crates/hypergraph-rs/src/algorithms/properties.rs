@@ -19,22 +19,29 @@ pub fn num_edges_order<N, E, M>(h: &Hypergraph<N, E, M>, d: Option<usize>) -> us
 
 /// Maximum edge order (max size − 1). `None` for an empty hypergraph with no
 /// nodes; `Some(0)` when there are nodes but no edges. XGI parity:
-/// `max_edge_order` (`properties.py:120-141`).
+/// `max_edge_order` (`properties.py:120-141`), with one documented deviation
+/// (see below).
 pub fn max_edge_order<N, E, M>(h: &Hypergraph<N, E, M>) -> Option<usize> {
+    let sizes: Vec<usize> = h.edge_ids().iter().filter_map(|e| h.edge_size(e)).collect();
+    if sizes.is_empty() {
+        // No edges at all: XGI's `H._edge` is falsy, so `d_max = 0 if
+        // H._node else None`.
+        return if h.num_nodes() > 0 { Some(0) } else { None };
+    }
     // D1-ripple: size-0 edges (constructible after D1) carry no order and are
     // excluded from the order-stat, matching XGI's order = size - 1 semantics
     // (a size-0 edge would otherwise underflow this usize subtraction).
-    let max_size = h
-        .edge_ids()
-        .iter()
-        .filter_map(|e| h.edge_size(e))
-        .filter(|&s| s > 0)
-        .max();
-    match max_size {
-        Some(s) => Some(s - 1),
-        None if h.num_nodes() > 0 => Some(0),
-        None => None,
-    }
+    //
+    // REV-2: if that filter leaves nothing, at least one edge exists, but
+    // every edge is size-0 (the largest edge is empty). XGI computes
+    // `max(len(edge) for edge in H._edge.values()) - 1 == -1` here
+    // (oracle-verified 2026-07-22: xgi 0.10.2, H.add_edge([]) ->
+    // xgi.max_edge_order(H) == -1, and this holds whether or not other nodes
+    // exist). usize cannot represent -1; None is the closest sane Rust
+    // rendering (deviation, oracle-verified 2026-07-22). This is distinct
+    // from the "no edges at all" case above, which XGI (and we) render as
+    // Some(0) when nodes are present.
+    sizes.into_iter().filter(|&s| s > 0).max().map(|s| s - 1)
 }
 
 /// Whether `d` is a possible order (0 ≤ d ≤ max order).
@@ -52,14 +59,26 @@ pub fn unique_edge_sizes<N, E, M>(h: &Hypergraph<N, E, M>) -> Vec<usize> {
 
 /// The order of uniformity if all non-singleton edges share one size, else
 /// `None`. XGI parity: `is_uniform` (`properties.py:164-197`) — returns
-/// `d = size − 1` on success, `False` otherwise (mapped to `None`).
+/// `d = size − 1` on success, `False` otherwise (mapped to `None`), with one
+/// documented deviation (see below).
 pub fn is_uniform<N, E, M>(h: &Hypergraph<N, E, M>) -> Option<usize> {
     let mut sizes: BTreeSet<usize> = unique_edge_sizes(h).into_iter().collect();
     sizes.remove(&1); // discard singletons
     if sizes.len() != 1 {
         return None;
     }
-    sizes.into_iter().next().map(|s| s - 1)
+    let s = *sizes.iter().next().expect("len checked == 1 above");
+    if s == 0 {
+        // REV-1: the only non-singleton edge size is 0 (constructible after
+        // D1). XGI computes `int(edge_sizes.pop() - 1) == -1` here — a
+        // truthy-but-negative "order" (oracle-verified 2026-07-22: xgi
+        // 0.10.2, H.add_edge([]) -> xgi.is_uniform(H) == -1). usize cannot
+        // represent -1; None ("not uniform") is the closest sane Rust
+        // rendering (deviation, oracle-verified 2026-07-22) — this is also
+        // what previously underflowed `s - 1` and panicked.
+        return None;
+    }
+    Some(s - 1)
 }
 
 /// Occurrences of each degree value, index = degree, from 0 to max degree.

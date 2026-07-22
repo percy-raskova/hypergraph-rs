@@ -51,6 +51,8 @@
 | D17 | keep-main (already exact) | main add_simplex already Option<String> honoring Some("0"). | simplicialcomplex.rs:179-183 |
 | Di shape | keep-main; adapt harness | tuple add_edge, infallible add_node_to_edge: pure shape, no outcome difference. | CORE DIFF; TEST MAP |
 | Test layout | keep-main flat tests/*.rs; graft tests/conformance/ dir; port tests/core/ bodies as appended #[test] fns | Preserves Phase 3/4 test files untouched. | TEST MAP |
+| REV-1 (post-review) | deviate-documented: `is_uniform` returns `None` when the only non-singleton edge size is 0 | Oracle (xgi 0.10.2, `H.add_edge([])`): `xgi.is_uniform(H) == -1` (truthy but unrepresentable in `usize`); prior code did `0usize - 1` and panicked. | properties.rs:56-84 (was 55-62); oracle-verified 2026-07-22 |
+| REV-2 (post-review) | deviate-documented: `max_edge_order` returns `None` when at least one edge exists but the largest edge is size 0 (corrects a false "matches XGI" claim/test that asserted `Some(0)` here) | Oracle (xgi 0.10.2): `H.add_edge([])` alone, or with a node also present, both give `xgi.max_edge_order(H) == -1` (unrepresentable in `usize`); distinct from the true "no edges, nodes present" case which XGI/we render as `Some(0)`. | properties.rs:20-47 (was 23-37); oracle-verified 2026-07-22 |
 
 ## 3. Ordered TDD task list
 

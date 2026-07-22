@@ -63,8 +63,15 @@ fn test_max_edge_order_excludes_empty_edges() {
     assert_eq!(num_edges_order(&h, Some(2)), 1);
 }
 
+// REV-2: XGI computes `max(len(edge) for edge in H._edge.values()) - 1 == -1`
+// when the only edge is empty, even with nodes present (oracle-verified
+// 2026-07-22: xgi 0.10.2, H.add_node(1); H.add_edge([]) -> max_edge_order ==
+// -1). usize cannot represent -1, so the "nodes-but-empty-edge" case is NOT
+// the same as "no edges at all" (which XGI/we render as Some(0)); we return
+// None here as a documented deviation. This corrects the prior false claim
+// (Some(0)) that this matched XGI.
 #[test]
-fn test_max_edge_order_all_empty_edges_with_nodes_is_zero() {
+fn test_max_edge_order_only_empty_edge_with_nodes_deviates_to_none() {
     let mut h: Hypergraph = Hypergraph::new();
     h.add_node("a", serde_json::Value::Null);
     h.add_edge(
@@ -73,7 +80,35 @@ fn test_max_edge_order_all_empty_edges_with_nodes_is_zero() {
         serde_json::Value::Null,
     )
     .unwrap();
+    assert_eq!(max_edge_order(&h), None);
+}
+
+// REV-2: no edges at all (edge set empty), only a node. XGI: `H._edge` is
+// falsy so `d_max = 0 if H._node else None` (oracle-verified 2026-07-22:
+// xgi.Hypergraph() with add_node(1), no edges -> max_edge_order == 0).
+#[test]
+fn test_max_edge_order_no_edges_with_nodes_is_zero() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", serde_json::Value::Null);
     assert_eq!(max_edge_order(&h), Some(0));
+}
+
+// REV-1: is_uniform must not panic (attempt to subtract with overflow) when
+// the only edge is size-0. unique_edge_sizes() == {0}; removing singleton 1
+// no-ops; len()==1 previously fed `0usize - 1` to the subtraction.
+// XGI itself returns -1 here (truthy weirdness: oracle-verified 2026-07-22,
+// xgi 0.10.2, H.add_edge([]) -> is_uniform(H) == -1); usize cannot represent
+// -1 so we return None (documented deviation) instead of panicking.
+#[test]
+fn test_is_uniform_only_empty_edge_does_not_panic() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        Vec::<String>::new(),
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    assert_eq!(is_uniform(&h), None);
 }
 
 #[test]
