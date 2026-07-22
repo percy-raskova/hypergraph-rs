@@ -14,7 +14,7 @@
 //! `include_full`/`include_singletons` swapped. This binding accepts XGI's order and remaps.
 
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyTuple};
+use pyo3::types::{PyDict, PyList, PySet, PyTuple};
 use pyo3::{PyRefMut, Python};
 
 use hypergraph_rs::utils as core_utils;
@@ -23,7 +23,8 @@ use crate::errors::xgi_error;
 use crate::hypergraph::PyHypergraph;
 use crate::pyid::PyIdMap;
 
-/// `xgi.dual_dict(edge_dict)`.
+/// `xgi.dual_dict(edge_dict)` — XGI parity: values are Python `set`s, not lists
+/// (`xgi/utils/utilities.py:65-94`: `node_dict = defaultdict(set)`).
 #[pyfunction]
 fn dual_dict(py: Python<'_>, edge_dict: Bound<'_, PyDict>) -> PyResult<Py<PyDict>> {
     let mut ids = PyIdMap::new();
@@ -42,13 +43,13 @@ fn dual_dict(py: Python<'_>, edge_dict: Bound<'_, PyDict>) -> PyResult<Py<PyDict
         let Some(node_obj) = ids.get_obj(py, &node_key) else {
             continue;
         };
-        let list = PyList::empty(py);
+        let set = PySet::empty(py)?;
         for ek in edge_keys {
             if let Some(obj) = ids.get_obj(py, &ek) {
-                list.append(obj)?;
+                set.add(obj)?;
             }
         }
-        out.set_item(node_obj, list)?;
+        out.set_item(node_obj, set)?;
     }
     Ok(out.unbind())
 }

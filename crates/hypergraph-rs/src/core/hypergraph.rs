@@ -162,10 +162,18 @@ impl<N, E, M> Hypergraph<N, E, M> {
             None => self.edge_uid_counter.to_string(),
         };
 
+        // Phase 7/Task 16 execution-time fix (deviation, cited xgi/utils/utilities.py
+        // `update_uid_counter`): real XGI only advances the counter for a TRUTHY explicit
+        // `idx` (`if idx:` — Python treats the int `0` / numeric-string `"0"` as falsy, so
+        // `add_edge(members, idx=0)` never calls `update_uid_counter` and the counter is left
+        // untouched). Skip the bump when `id == "0"` to reproduce that; every other numeric
+        // idx is truthy and bumps as before.
         if let Some(id) = &idx {
-            if let Ok(n) = id.parse::<u64>() {
-                if n >= self.edge_uid_counter {
-                    self.edge_uid_counter = n + 1;
+            if id != "0" {
+                if let Ok(n) = id.parse::<u64>() {
+                    if n >= self.edge_uid_counter {
+                        self.edge_uid_counter = n + 1;
+                    }
                 }
             }
         } else {
@@ -214,9 +222,11 @@ impl<N, E, M> Hypergraph<N, E, M> {
             None => self.edge_uid_counter.to_string(),
         };
         if let Some(id) = &idx {
-            if let Ok(n) = id.parse::<u64>() {
-                if n >= self.edge_uid_counter {
-                    self.edge_uid_counter = n + 1;
+            if id != "0" {
+                if let Ok(n) = id.parse::<u64>() {
+                    if n >= self.edge_uid_counter {
+                        self.edge_uid_counter = n + 1;
+                    }
                 }
             }
         } else {

@@ -47,7 +47,9 @@ fn with_index1<'py>(
         return Ok(matrix.unbind());
     }
     let d = id_dict(py, ids, map)?;
-    Ok(PyTuple::new(py, [matrix, d.into_any()])?.into_any().unbind())
+    Ok(PyTuple::new(py, [matrix, d.into_any()])?
+        .into_any()
+        .unbind())
 }
 
 /// `(matrix, rowdict, coldict)` when `index`, else bare `matrix`.
@@ -65,7 +67,9 @@ fn with_index2<'py>(
     }
     let rd = id_dict(py, row_ids, row_map)?;
     let cd = id_dict(py, col_ids, col_map)?;
-    Ok(PyTuple::new(py, [matrix, rd.into_any(), cd.into_any()])?.into_any().unbind())
+    Ok(PyTuple::new(py, [matrix, rd.into_any(), cd.into_any()])?
+        .into_any()
+        .unbind())
 }
 
 /// Dense `Array2<f64>` → row-major numpy `ndarray` (D11: flat `Vec<f64>` + reshape crossing).
@@ -101,13 +105,18 @@ fn to_scipy_csr<'py>(py: Python<'py>, m: &sprs::CsMat<f64>) -> PyResult<Bound<'p
         .collect();
     let kwargs = PyDict::new(py);
     kwargs.set_item("shape", (m.rows(), m.cols()))?;
-    sp.getattr("csr_matrix")?
-        .call(((data, indices.into_pyarray(py), indptr.into_pyarray(py)),), Some(&kwargs))
+    sp.getattr("csr_matrix")?.call(
+        ((data, indices.into_pyarray(py), indptr.into_pyarray(py)),),
+        Some(&kwargs),
+    )
 }
 
 /// `scipy.sparse.csr_matrix(dense_ndarray)` — used where the core only computes a dense matrix
 /// (adjacency/intersection/clique-motif/laplacian family) but `sparse=True` was requested.
-fn dense_to_scipy_csr<'py>(py: Python<'py>, dense: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+fn dense_to_scipy_csr<'py>(
+    py: Python<'py>,
+    dense: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
     let sp = py.import("scipy.sparse")?;
     sp.getattr("csr_matrix")?.call1((dense,))
 }
@@ -149,7 +158,11 @@ fn adjacency_matrix(
 ) -> PyResult<Py<PyAny>> {
     let (m, rows) = hypergraph_rs::linalg::adjacency_matrix(&h.inner, order, s, weighted);
     let dense = dense2_to_pyarray(py, m)?;
-    let matrix = if sparse { dense_to_scipy_csr(py, &dense)? } else { dense };
+    let matrix = if sparse {
+        dense_to_scipy_csr(py, &dense)?
+    } else {
+        dense
+    };
     with_index1(py, matrix, &rows, &h.node_ids, index)
 }
 
@@ -165,7 +178,11 @@ fn intersection_profile(
 ) -> PyResult<Py<PyAny>> {
     let (m, cols) = hypergraph_rs::linalg::intersection_profile(&h.inner, order);
     let dense = dense2_to_pyarray(py, m)?;
-    let matrix = if sparse { dense_to_scipy_csr(py, &dense)? } else { dense };
+    let matrix = if sparse {
+        dense_to_scipy_csr(py, &dense)?
+    } else {
+        dense
+    };
     with_index1(py, matrix, &cols, &h.edge_ids, index)
 }
 
@@ -195,7 +212,11 @@ fn clique_motif_matrix(
 ) -> PyResult<Py<PyAny>> {
     let (m, rows) = hypergraph_rs::linalg::clique_motif_matrix(&h.inner);
     let dense = dense2_to_pyarray(py, m)?;
-    let matrix = if sparse { dense_to_scipy_csr(py, &dense)? } else { dense };
+    let matrix = if sparse {
+        dense_to_scipy_csr(py, &dense)?
+    } else {
+        dense
+    };
     with_index1(py, matrix, &rows, &h.node_ids, index)
 }
 
@@ -212,7 +233,11 @@ fn laplacian(
 ) -> PyResult<Py<PyAny>> {
     let (l, rows) = hypergraph_rs::linalg::laplacian(&h.inner, order, rescale_per_node);
     let dense = dense2_to_pyarray(py, l)?;
-    let matrix = if sparse { dense_to_scipy_csr(py, &dense)? } else { dense };
+    let matrix = if sparse {
+        dense_to_scipy_csr(py, &dense)?
+    } else {
+        dense
+    };
     with_index1(py, matrix, &rows, &h.node_ids, index)
 }
 
@@ -236,14 +261,14 @@ fn multiorder_laplacian(
             "orders and weights must have the same length.",
         ));
     }
-    let (l, rows) = hypergraph_rs::linalg::multiorder_laplacian(
-        &h.inner,
-        &orders,
-        &weights,
-        rescale_per_node,
-    );
+    let (l, rows) =
+        hypergraph_rs::linalg::multiorder_laplacian(&h.inner, &orders, &weights, rescale_per_node);
     let dense = dense2_to_pyarray(py, l)?;
-    let matrix = if sparse { dense_to_scipy_csr(py, &dense)? } else { dense };
+    let matrix = if sparse {
+        dense_to_scipy_csr(py, &dense)?
+    } else {
+        dense
+    };
     with_index1(py, matrix, &rows, &h.node_ids, index)
 }
 
@@ -261,7 +286,11 @@ fn normalized_hypergraph_laplacian(
     let (l, rows) = hypergraph_rs::linalg::normalized_hypergraph_laplacian(&h.inner, weighted)
         .map_err(|e| xgi_error(e.to_string()))?;
     let dense = dense2_to_pyarray(py, l)?;
-    let matrix = if sparse { dense_to_scipy_csr(py, &dense)? } else { dense };
+    let matrix = if sparse {
+        dense_to_scipy_csr(py, &dense)?
+    } else {
+        dense
+    };
     with_index1(py, matrix, &rows, &h.node_ids, index)
 }
 

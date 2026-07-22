@@ -25,7 +25,11 @@ impl PyKey {
         // TypeError path (tests/core/test_hypergraph.py:70).
         let hash = obj.hash()?;
         let repr = obj.repr()?.to_string();
-        Ok(Self { obj: obj.clone().unbind(), hash, repr })
+        Ok(Self {
+            obj: obj.clone().unbind(),
+            hash,
+            repr,
+        })
     }
 
     fn hash_raw(&self) -> isize {
@@ -125,12 +129,20 @@ impl PyIdMap {
                 .iter()
                 .map(|(k, v)| {
                     (
-                        PyKey { obj: k.obj.clone_ref(py), hash: k.hash_raw(), repr: k.repr_raw() },
+                        PyKey {
+                            obj: k.obj.clone_ref(py),
+                            hash: k.hash_raw(),
+                            repr: k.repr_raw(),
+                        },
                         v.clone(),
                     )
                 })
                 .collect(),
-            from_key: self.from_key.iter().map(|(k, v)| (k.clone(), v.clone_ref(py))).collect(),
+            from_key: self
+                .from_key
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone_ref(py)))
+                .collect(),
             counter: self.counter,
         }
     }

@@ -9,6 +9,8 @@ module referencing them at top level collects cleanly.
 # cdylib build must fail HERE, loudly, not at first attribute access deep in
 # a consumer (babylon Constitution III.11 — Loud Failure).
 from hypergraph_rs import _hypergraph_rs_core as _core  # noqa: F401
+from hypergraph_rs._hypergraph_rs_core import _reconstruct_hypergraph  # noqa: F401
+from hypergraph_rs._hypergraph_rs_core import _reconstruct_dihypergraph  # noqa: F401
 
 from . import (  # noqa: F401
     utils,
