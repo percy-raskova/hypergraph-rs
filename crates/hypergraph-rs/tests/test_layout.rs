@@ -120,3 +120,85 @@ fn test_convex_hull_deterministic() {
     let pts = vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.3, 0.7)];
     assert_eq!(convex_hull(&pts), convex_hull(&pts));
 }
+
+use hypergraph_rs::layout::bipartite_layout;
+use hypergraph_rs::Hypergraph;
+
+fn sample_h() -> Hypergraph {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        Some("e1".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".to_string(), "c".to_string(), "d".to_string()],
+        Some("e2".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h
+}
+
+#[test]
+fn test_bipartite_positions_every_node() {
+    let h = sample_h();
+    let r = bipartite_layout(&h, BipartiteAlign::Vertical);
+    assert_eq!(r.node_positions.len(), h.num_nodes());
+    assert_eq!(r.edge_geometries.len(), h.num_edges());
+}
+
+#[test]
+fn test_bipartite_vertical_agents_in_left_column() {
+    let h = sample_h();
+    let r = bipartite_layout(&h, BipartiteAlign::Vertical);
+    // Vertical align: all agents share x = 0.0.
+    for (_, (x, _)) in &r.node_positions {
+        assert_eq!(*x, 0.0);
+    }
+}
+
+#[test]
+fn test_bipartite_insertion_order_preserved() {
+    let h = sample_h();
+    let r = bipartite_layout(&h, BipartiteAlign::Vertical);
+    let ids: Vec<&str> = r.node_positions.iter().map(|(id, _)| id.as_str()).collect();
+    assert_eq!(ids, vec!["a", "b", "c", "d"]);
+}
+
+#[test]
+fn test_bipartite_emits_stripe_geometry() {
+    let h = sample_h();
+    let r = bipartite_layout(&h, BipartiteAlign::Vertical);
+    for (_, g) in &r.edge_geometries {
+        assert!(matches!(g, HyperedgeGeometry::Stripe { .. }));
+    }
+}
+
+#[test]
+fn test_bipartite_deterministic() {
+    let h = sample_h();
+    assert_eq!(
+        bipartite_layout(&h, BipartiteAlign::Vertical),
+        bipartite_layout(&h, BipartiteAlign::Vertical)
+    );
+}
+
+#[test]
+fn test_bipartite_bounding_box_well_formed() {
+    let h = sample_h();
+    let r = bipartite_layout(&h, BipartiteAlign::Vertical);
+    let (min_x, min_y, max_x, max_y) = r.bounding_box;
+    assert!(max_x >= min_x);
+    assert!(max_y >= min_y);
+}
+
+#[test]
+fn test_bipartite_empty_hypergraph() {
+    let h: Hypergraph = Hypergraph::new();
+    let r = bipartite_layout(&h, BipartiteAlign::Vertical);
+    assert!(r.node_positions.is_empty());
+    assert!(r.edge_geometries.is_empty());
+    assert_eq!(r.bounding_box, (0.0, 0.0, 0.0, 0.0));
+}

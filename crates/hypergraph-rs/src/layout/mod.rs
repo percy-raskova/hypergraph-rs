@@ -9,8 +9,10 @@
 use serde::{Deserialize, Serialize};
 
 pub mod hull;
+pub mod place;
 
 pub use hull::convex_hull;
+pub use place::bipartite_layout;
 
 /// The default deterministic seed used when a strategy provides no explicit
 /// seed (or `seed = None`). XGI's `seed=None` is non-deterministic (numpy global
@@ -64,4 +66,52 @@ pub struct LayoutResult {
     pub node_positions: Vec<(String, (f64, f64))>,
     pub edge_geometries: Vec<(String, HyperedgeGeometry)>,
     pub bounding_box: (f64, f64, f64, f64),
+}
+
+/// Fold node positions + geometry extents into a bounding box
+/// (min_x, min_y, max_x, max_y). Empty input yields the zero box.
+pub(crate) fn bounding_box_of(
+    positions: &[(String, (f64, f64))],
+    geometries: &[(String, HyperedgeGeometry)],
+) -> (f64, f64, f64, f64) {
+    let mut bb = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+    fn fold(bb: &mut (f64, f64, f64, f64), x: f64, y: f64) {
+        if x < bb.0 {
+            bb.0 = x;
+        }
+        if y < bb.1 {
+            bb.1 = y;
+        }
+        if x > bb.2 {
+            bb.2 = x;
+        }
+        if y > bb.3 {
+            bb.3 = y;
+        }
+    }
+    for (_, (x, y)) in positions {
+        fold(&mut bb, *x, *y);
+    }
+    for (_, g) in geometries {
+        match g {
+            HyperedgeGeometry::ConvexHull { points }
+            | HyperedgeGeometry::Spline { control_points: points } => {
+                for (x, y) in points {
+                    fold(&mut bb, *x, *y);
+                }
+            }
+            HyperedgeGeometry::Stripe { x, y_min, y_max } => {
+                fold(&mut bb, *x, *y_min);
+                fold(&mut bb, *x, *y_max);
+            }
+            HyperedgeGeometry::Arc { center, radius, .. } => {
+                fold(&mut bb, center.0 - radius, center.1 - radius);
+                fold(&mut bb, center.0 + radius, center.1 + radius);
+            }
+        }
+    }
+    if !bb.0.is_finite() {
+        return (0.0, 0.0, 0.0, 0.0);
+    }
+    bb
 }
