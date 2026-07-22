@@ -321,3 +321,64 @@ fn test_spring_empty_hypergraph() {
     assert!(r.node_positions.is_empty());
     assert_eq!(r.bounding_box, (0.0, 0.0, 0.0, 0.0));
 }
+
+use hypergraph_rs::layout::hyperedge_aware_layout;
+
+#[test]
+fn test_hyperedge_aware_positions_every_node() {
+    let h = sample_h();
+    let r = hyperedge_aware_layout(&h, 50, 0.05);
+    assert_eq!(r.node_positions.len(), h.num_nodes());
+    assert_eq!(r.edge_geometries.len(), h.num_edges());
+}
+
+#[test]
+fn test_hyperedge_aware_emits_convex_hull_geometry() {
+    let h = sample_h();
+    let r = hyperedge_aware_layout(&h, 50, 0.05);
+    for (_, g) in &r.edge_geometries {
+        assert!(matches!(g, HyperedgeGeometry::ConvexHull { .. }));
+    }
+}
+
+#[test]
+fn test_hyperedge_aware_deterministic() {
+    let h = sample_h();
+    assert_eq!(
+        hyperedge_aware_layout(&h, 50, 0.05),
+        hyperedge_aware_layout(&h, 50, 0.05)
+    );
+}
+
+#[test]
+fn test_hyperedge_aware_padding_grows_hull() {
+    let h = sample_h();
+    let no_pad = hyperedge_aware_layout(&h, 50, 0.0);
+    let padded = hyperedge_aware_layout(&h, 50, 0.3);
+    // The bounding box must grow (or stay equal) when the halo padding grows.
+    let (nx0, ny0, nx1, ny1) = no_pad.bounding_box;
+    let (px0, py0, px1, py1) = padded.bounding_box;
+    let no_area = (nx1 - nx0) * (ny1 - ny0);
+    let pad_area = (px1 - px0) * (py1 - py0);
+    assert!(pad_area >= no_area - 1e-9);
+}
+
+#[test]
+fn test_hyperedge_aware_hull_has_at_least_two_points_for_triangle_edge() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        Some("e1".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    let r = hyperedge_aware_layout(&h, 80, 0.05);
+    let (_, geom) = &r.edge_geometries[0];
+    if let HyperedgeGeometry::ConvexHull { points } = geom {
+        // >= 2, not == 3: FR-placed members could be (near-)collinear, which
+        // collapses the hull to a 2-point segment. >= 2 is the safe bound.
+        assert!(points.len() >= 2, "a 3-member edge should yield at least a degenerate (segment) hull");
+    } else {
+        panic!("expected ConvexHull geometry");
+    }
+}

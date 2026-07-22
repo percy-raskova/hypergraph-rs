@@ -15,6 +15,7 @@ pub mod spring;
 pub use hull::convex_hull;
 pub use place::bipartite_layout;
 pub use place::radial_layout;
+pub use spring::hyperedge_aware_layout;
 pub use spring::spring_layout;
 
 /// The default deterministic seed used when a strategy provides no explicit

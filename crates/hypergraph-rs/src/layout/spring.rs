@@ -151,3 +151,62 @@ pub fn spring_layout<N, E, M>(
         bounding_box,
     }
 }
+
+/// Expand a convex hull outward from its centroid by `padding`. A degenerate
+/// hull (single point) is returned unchanged; a 2-point hull is pushed apart
+/// along its line.
+fn pad_hull(hull: &[(f64, f64)], padding: f64) -> Vec<(f64, f64)> {
+    if hull.is_empty() || padding == 0.0 {
+        return hull.to_vec();
+    }
+    let count = hull.len() as f64;
+    let cx = hull.iter().map(|p| p.0).sum::<f64>() / count;
+    let cy = hull.iter().map(|p| p.1).sum::<f64>() / count;
+    hull.iter()
+        .map(|&(x, y)| {
+            let dx = x - cx;
+            let dy = y - cy;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist < 1e-9 {
+                (x, y)
+            } else {
+                (x + dx / dist * padding, y + dy / dist * padding)
+            }
+        })
+        .collect()
+}
+
+/// Hyperedge-aware layout: FR agent positions (seeded at `DEFAULT_LAYOUT_SEED`),
+/// each hyperedge rendered as the `halo_padding`-expanded convex hull of its
+/// members. `halo_padding` corresponds to XGI's halo "radius margin"
+/// (`draw.py:199-200`, default 0.05).
+pub fn hyperedge_aware_layout<N, E, M>(
+    h: &Hypergraph<N, E, M>,
+    iterations: usize,
+    halo_padding: f64,
+) -> LayoutResult {
+    let (node_ids, edges) = skeleton_edges(h);
+    let raw = fruchterman_reingold(node_ids.len(), &edges, iterations, DEFAULT_LAYOUT_SEED);
+    let node_positions: Vec<(String, (f64, f64))> =
+        node_ids.iter().cloned().zip(raw.iter().copied()).collect();
+
+    let edge_geometries: Vec<(String, HyperedgeGeometry)> = h
+        .edge_ids()
+        .iter()
+        .map(|eid| {
+            let members = h.members(eid).unwrap_or_default();
+            let member_pts: Vec<(f64, f64)> =
+                members.iter().map(|m| pos_of(&node_positions, m)).collect();
+            let hull = convex_hull(&member_pts);
+            let padded = pad_hull(&hull, halo_padding);
+            (eid.clone(), HyperedgeGeometry::ConvexHull { points: padded })
+        })
+        .collect();
+
+    let bounding_box = bounding_box_of(&node_positions, &edge_geometries);
+    LayoutResult {
+        node_positions,
+        edge_geometries,
+        bounding_box,
+    }
+}
