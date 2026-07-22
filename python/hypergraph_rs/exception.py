@@ -1,6 +1,4 @@
-"""hypergraph_rs exception hierarchy — mirrors ``xgi/exception.py`` (deep-import
-target, Fact 2). Placeholder for Task 1; Task 3 owns wiring this into the
-binding's error-mapping helpers.
+"""XGI exception hierarchy (verbatim parity with xgi/exception.py).
 
 XGIException
 ├── XGIError        — domain-specific hypergraph errors (e.g. modifying a frozen network)
