@@ -9,10 +9,12 @@
 use serde::{Deserialize, Serialize};
 
 pub mod hull;
+pub mod orderings;
 pub mod place;
 pub mod spring;
 
 pub use hull::convex_hull;
+pub use orderings::{levi_ego_tree, paoh_ordering, LeviKind, LeviNode};
 pub use place::bipartite_layout;
 pub use place::radial_layout;
 pub use spring::hyperedge_aware_layout;
