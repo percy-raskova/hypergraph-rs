@@ -1,3 +1,4 @@
+use hypergraph_rs::readwrite::edgelist::{parse_edgelist, read_edgelist, write_edgelist};
 use hypergraph_rs::readwrite::json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};
 use hypergraph_rs::Hypergraph;
 
@@ -69,5 +70,36 @@ fn test_write_read_json_file_round_trip() {
     let h2 = read_json(&path).unwrap();
     assert_eq!(h2.num_nodes(), h.num_nodes());
     assert_eq!(h2.num_edges(), h.num_edges());
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn test_parse_edgelist_whitespace() {
+    let lines = vec!["1 2 3".to_string(), "2 3 4 5".to_string(), "# a comment".to_string()];
+    let h = parse_edgelist(lines, None, "#").unwrap();
+    assert_eq!(h.num_edges(), 2);
+    assert_eq!(h.num_nodes(), 5);
+}
+
+#[test]
+fn test_parse_edgelist_custom_delimiter() {
+    let lines = vec!["a,b,c".to_string(), "b,c".to_string()];
+    let h = parse_edgelist(lines, Some(','), "#").unwrap();
+    assert_eq!(h.num_edges(), 2);
+    let mut m = h.members("0").unwrap();
+    m.sort();
+    assert_eq!(m, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+}
+
+#[test]
+fn test_write_read_edgelist_round_trip() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["1".into(), "2".into(), "3".into()], None, serde_json::Value::Null).unwrap();
+    h.add_edge(vec!["3".into(), "4".into()], None, serde_json::Value::Null).unwrap();
+    let path = std::env::temp_dir().join("hypergraph_rs_test_edgelist.csv");
+    write_edgelist(&h, &path, ',').unwrap();
+    let h2 = read_edgelist(&path, Some(','), "#").unwrap();
+    assert_eq!(h2.num_edges(), 2);
+    assert_eq!(h2.num_nodes(), 4);
     let _ = std::fs::remove_file(&path);
 }
