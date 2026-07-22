@@ -1,4 +1,5 @@
 use hypergraph_rs::layout::{BipartiteAlign, HyperedgeGeometry, LayoutStrategy};
+use hypergraph_rs::viz::SceneGraph;
 use hypergraph_rs::Hypergraph;
 
 fn sample_h() -> Hypergraph {
@@ -70,4 +71,30 @@ fn test_render_empty_hypergraph() {
     let scene = h.render(LayoutStrategy::Spring { iterations: 50, seed: Some(1) });
     assert!(scene.nodes.is_empty());
     assert!(scene.hyperedges.is_empty());
+}
+
+#[test]
+fn test_render_to_json_round_trips() {
+    let h = sample_h();
+    let json = h.render_to_json(LayoutStrategy::Spring { iterations: 50, seed: Some(1) });
+    let scene: SceneGraph = serde_json::from_str(&json).unwrap();
+    assert_eq!(scene.nodes.len(), h.num_nodes());
+    assert_eq!(scene.hyperedges.len(), h.num_edges());
+}
+
+#[test]
+fn test_render_to_json_matches_render() {
+    let h = sample_h();
+    let strat = LayoutStrategy::Bipartite { align: BipartiteAlign::Vertical };
+    let direct = serde_json::to_string(&h.render(strat.clone())).unwrap();
+    let via = h.render_to_json(strat);
+    assert_eq!(direct, via);
+}
+
+#[test]
+fn test_render_to_json_deterministic() {
+    let h = sample_h();
+    let a = h.render_to_json(LayoutStrategy::Spring { iterations: 50, seed: Some(7) });
+    let b = h.render_to_json(LayoutStrategy::Spring { iterations: 50, seed: Some(7) });
+    assert_eq!(a, b);
 }

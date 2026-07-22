@@ -125,4 +125,10 @@ impl<M> Hypergraph<serde_json::Value, serde_json::Value, M> {
             metadata: serde_json::Map::new(),
         }
     }
+
+    /// Serialize the rendered scene-graph to JSON (spec §5.3).
+    pub fn render_to_json(&self, strategy: LayoutStrategy) -> String {
+        let scene = self.render(strategy);
+        serde_json::to_string(&scene).unwrap_or_else(|_| "{}".to_string())
+    }
 }
