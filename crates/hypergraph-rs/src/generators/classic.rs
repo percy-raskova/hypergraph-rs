@@ -34,7 +34,7 @@ fn combinations(n: usize, k: usize) -> Vec<Vec<usize>> {
     }
     let mut idx: Vec<usize> = (0..k).collect();
     loop {
-        result.push(idx.iter().map(|&i| i).collect());
+        result.push(idx.to_vec());
         // advance to next combination
         let mut i = k;
         // Bounded: at most k steps.
@@ -113,14 +113,22 @@ pub fn complement(h: &Hypergraph) -> Hypergraph {
     hc.add_nodes_from(nodes.iter().map(|nid| (nid.clone(), Value::Null)));
 
     // node id -> dense index 0..n
-    let index: std::collections::HashMap<&str, usize> =
-        nodes.iter().enumerate().map(|(i, nid)| (nid.as_str(), i)).collect();
+    let index: std::collections::HashMap<&str, usize> = nodes
+        .iter()
+        .enumerate()
+        .map(|(i, nid)| (nid.as_str(), i))
+        .collect();
 
     // existing edges as sorted index-tuples
     let mut existing: std::collections::HashSet<Vec<usize>> = std::collections::HashSet::new();
     let mut max_size = 0usize;
     for e in h.edge_ids() {
-        let mut idxs: Vec<usize> = h.members(&e).unwrap().iter().map(|m| index[m.as_str()]).collect();
+        let mut idxs: Vec<usize> = h
+            .members(&e)
+            .unwrap()
+            .iter()
+            .map(|m| index[m.as_str()])
+            .collect();
         idxs.sort_unstable();
         max_size = max_size.max(idxs.len());
         existing.insert(idxs);

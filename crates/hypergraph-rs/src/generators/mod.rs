@@ -4,13 +4,13 @@
 //! a `rand_pcg::Pcg64Mcg` from it. Determinism is per-call (III.7 parity); the
 //! conformance gate asserts structural properties, not numpy-sequence parity.
 
-pub mod rng;
 pub mod classic;
 pub mod lattice;
-pub mod simple;
 pub mod random;
-pub mod uniform;
+pub mod rng;
+pub mod simple;
 pub mod simplicial;
+pub mod uniform;
 
 pub use classic::{
     complement, complete_hypergraph, empty_hypergraph, trivial_hypergraph, GeneratorError,

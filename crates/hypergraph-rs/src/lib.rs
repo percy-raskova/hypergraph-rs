@@ -8,13 +8,13 @@
 #[cfg(feature = "algorithms")]
 pub mod algorithms;
 pub mod core;
-pub mod linalg;
 #[cfg(feature = "generators")]
 pub mod generators;
-#[cfg(feature = "stats")]
-pub mod stats;
+pub mod linalg;
 #[cfg(feature = "readwrite")]
 pub mod readwrite;
+#[cfg(feature = "stats")]
+pub mod stats;
 
 pub use core::dihypergraph::DiHypergraph;
 pub use core::error::{EdgeError, NodeError, SimplexError, SwapError};

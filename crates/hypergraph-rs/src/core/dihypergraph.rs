@@ -212,13 +212,19 @@ impl<N, E, M> DiHypergraph<N, E, M> {
             .map(|(k, _)| k.clone())
     }
 
-    /// (tail, head) node ids of an edge. XGI parity: `DH.edges.dimembers(e)`
-    /// = (edge["in"], edge["out"]) (views.py:1017-1071).
+    /// (tail, head) node ids of an edge, in membership-add order (D5 owner
+    /// upgrade: petgraph's `edges_directed` walks each node's adjacency list
+    /// in REVERSE insertion order, so we collect + reverse before splitting
+    /// by role). XGI parity: `DH.edges.dimembers(e)` = (edge["in"],
+    /// edge["out"]) (views.py:1017-1071), except XGI's sets are
+    /// hash-unordered; we are strictly more defined.
     pub fn dimembers(&self, edge_id: &str) -> Option<(Vec<String>, Vec<String>)> {
         let he = *self.hyperedge_ids.get(edge_id)?;
+        let mut incoming: Vec<_> = self.inner.edges_directed(he, Direction::Incoming).collect();
+        incoming.reverse();
         let mut tail = Vec::new();
         let mut head = Vec::new();
-        for er in self.inner.edges_directed(he, Direction::Incoming) {
+        for er in incoming {
             if let Some(nid) = self.node_id_of(er.source()) {
                 match er.weight().role {
                     DiRole::Tail => tail.push(nid),
@@ -239,24 +245,27 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         self.dimembers(edge_id).map(|(_, h)| h)
     }
 
-    /// Union of tail and head. XGI parity: `DH.edges.members(e)`.
+    /// Union of tail and head, tail-then-head first-seen order (D5 owner
+    /// upgrade). XGI parity: `DH.edges.members(e)`.
     pub fn members(&self, edge_id: &str) -> Option<Vec<String>> {
-        self.dimembers(edge_id).map(|(t, h)| {
-            let mut set: std::collections::BTreeSet<String> = t.into_iter().collect();
-            set.extend(h);
-            set.into_iter().collect()
+        self.dimembers(edge_id).map(|(mut t, h)| {
+            t.extend(h);
+            dedup_preserve(t)
         })
     }
 
     /// (in, out) edge ids for a node: `in` = edges where the node is a head
-    /// (receiver), `out` = edges where it is a tail (sender). XGI parity:
-    /// `DH.nodes.dimemberships(n)` = (node["in"], node["out"])
-    /// (views.py:889-918).
+    /// (receiver), `out` = edges where it is a tail (sender), in
+    /// membership-add order (D5 owner upgrade; see [`Self::dimembers`] for
+    /// the reverse-adjacency correction). XGI parity: `DH.nodes.dimemberships(n)`
+    /// = (node["in"], node["out"]) (views.py:889-918).
     pub fn dimemberships(&self, node_id: &str) -> Option<(Vec<String>, Vec<String>)> {
         let a = *self.agent_ids.get(node_id)?;
+        let mut outgoing: Vec<_> = self.inner.edges_directed(a, Direction::Outgoing).collect();
+        outgoing.reverse();
         let mut in_edges = Vec::new();
         let mut out_edges = Vec::new();
-        for er in self.inner.edges_directed(a, Direction::Outgoing) {
+        for er in outgoing {
             if let Some(eid) = self.edge_id_of(er.target()) {
                 match er.weight().role {
                     DiRole::Head => in_edges.push(eid),
@@ -267,14 +276,20 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         Some((in_edges, out_edges))
     }
 
-    /// All edge ids the node belongs to (head or tail). XGI parity:
+    /// All edge ids the node belongs to (head or tail), first-seen edge
+    /// order (D5 owner upgrade): the raw chronological order in which the
+    /// node was added to each edge, deduped (a node in both directions of
+    /// the same edge counts once, at its first occurrence). XGI parity:
     /// `DH.nodes.memberships(n)`.
     pub fn memberships(&self, node_id: &str) -> Option<Vec<String>> {
-        self.dimemberships(node_id).map(|(i, o)| {
-            let mut set: std::collections::BTreeSet<String> = i.into_iter().collect();
-            set.extend(o);
-            set.into_iter().collect()
-        })
+        let a = *self.agent_ids.get(node_id)?;
+        let mut outgoing: Vec<_> = self.inner.edges_directed(a, Direction::Outgoing).collect();
+        outgoing.reverse();
+        let ids: Vec<String> = outgoing
+            .into_iter()
+            .filter_map(|er| self.edge_id_of(er.target()))
+            .collect();
+        Some(dedup_preserve(ids))
     }
 
     /// Remove an edge. XGI parity: `DH.remove_edge(idx)` (dihypergraph.py:834-860).

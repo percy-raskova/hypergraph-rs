@@ -40,13 +40,19 @@ pub fn star_clique(
     d_max: usize,
 ) -> Result<Hypergraph, GeneratorError> {
     if n_star == 0 {
-        return Err(GeneratorError::InvalidParameter("n_star must be > 0".into()));
+        return Err(GeneratorError::InvalidParameter(
+            "n_star must be > 0".into(),
+        ));
     }
     if n_clique == 0 {
-        return Err(GeneratorError::InvalidParameter("n_clique must be > 0".into()));
+        return Err(GeneratorError::InvalidParameter(
+            "n_clique must be > 0".into(),
+        ));
     }
     if d_max > n_clique - 1 {
-        return Err(GeneratorError::InvalidParameter("d_max must be <= n_clique - 1".into()));
+        return Err(GeneratorError::InvalidParameter(
+            "d_max must be <= n_clique - 1".into(),
+        ));
     }
 
     let nodes_star: Vec<usize> = (0..n_star).collect();
@@ -83,7 +89,9 @@ pub fn star_clique(
 /// XGI `sunflower(l, c, m)`.
 pub fn sunflower(l: usize, c: usize, m: usize) -> Result<Hypergraph, GeneratorError> {
     if m < c {
-        return Err(GeneratorError::InvalidParameter("m cannot be smaller than c".into()));
+        return Err(GeneratorError::InvalidParameter(
+            "m cannot be smaller than c".into(),
+        ));
     }
     let core: Vec<String> = (0..c).map(|i| i.to_string()).collect();
     let mut h = Hypergraph::new();

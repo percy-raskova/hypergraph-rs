@@ -187,7 +187,7 @@ fn test_ring_lattice_node_count_and_uniformity() {
     // d-uniform: every edge has <= d members (dedup can shrink)
     for e in h.edge_ids() {
         let sz = h.members(&e).unwrap().len();
-        assert!(sz >= 1 && sz <= 3);
+        assert!((1..=3).contains(&sz));
     }
 }
 

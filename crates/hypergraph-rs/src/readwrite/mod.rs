@@ -1,11 +1,11 @@
 //! Read/write hypergraphs in various formats (XGI `xgi/readwrite/*.py` port).
 
-pub mod json;
-pub mod edgelist;
-pub mod bipartite;
-pub mod incidence;
-pub mod hif;
 pub mod bigg;
+pub mod bipartite;
+pub mod edgelist;
+pub mod hif;
+pub mod incidence;
+pub mod json;
 
 use thiserror::Error;
 

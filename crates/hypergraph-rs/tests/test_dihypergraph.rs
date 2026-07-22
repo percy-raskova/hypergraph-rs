@@ -318,3 +318,106 @@ fn test_dihypergraph_eq_and_debug() {
     let repr = format!("{a:?}");
     assert!(repr.contains("DiHypergraph"));
 }
+
+// ---------------------------------------------------------------------------
+// D5 owner upgrade (2026-07-22): DiHypergraph queries are insertion-ordered,
+// not sorted/hash-unordered. members() = tail-then-head first-seen order;
+// memberships() = first-seen edge order; dimembers/tail/head preserve
+// membership-add order.
+// ---------------------------------------------------------------------------
+
+/// e1 = tail [a, b], head [b, c] (b is in BOTH directions);
+/// e2 = tail [c], head [a].
+fn two_edge_fixture() -> DiHypergraph {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(
+        vec!["a".into(), "b".into()],
+        vec!["b".into(), "c".into()],
+        Some("e1".into()),
+        v(),
+    )
+    .unwrap();
+    dh.add_edge(vec!["c".into()], vec!["a".into()], Some("e2".into()), v())
+        .unwrap();
+    dh
+}
+
+#[test]
+fn test_dihypergraph_tail_head_dimembers_insertion_order() {
+    let dh = two_edge_fixture();
+    assert_eq!(
+        dh.tail("e1").unwrap(),
+        vec!["a".to_string(), "b".to_string()]
+    );
+    assert_eq!(
+        dh.head("e1").unwrap(),
+        vec!["b".to_string(), "c".to_string()]
+    );
+    assert_eq!(
+        dh.dimembers("e1").unwrap(),
+        (
+            vec!["a".to_string(), "b".to_string()],
+            vec!["b".to_string(), "c".to_string()]
+        )
+    );
+    assert_eq!(dh.tail("e2").unwrap(), vec!["c".to_string()]);
+    assert_eq!(dh.head("e2").unwrap(), vec!["a".to_string()]);
+}
+
+#[test]
+fn test_dihypergraph_members_is_tail_then_head_first_seen_order() {
+    let dh = two_edge_fixture();
+    // e1: dedup(tail ++ head) = dedup([a, b] ++ [b, c]) = [a, b, c].
+    assert_eq!(
+        dh.members("e1").unwrap(),
+        vec!["a".to_string(), "b".to_string(), "c".to_string()]
+    );
+    // e2: dedup(tail ++ head) = dedup([c] ++ [a]) = [c, a] -- tail-first,
+    // NOT global node-insertion order (which would be [a, c]).
+    assert_eq!(
+        dh.members("e2").unwrap(),
+        vec!["c".to_string(), "a".to_string()]
+    );
+}
+
+#[test]
+fn test_dihypergraph_memberships_is_first_seen_edge_order() {
+    let dh = two_edge_fixture();
+    // "a" joins e1 (as tail) before e2 (as head): memberships = [e1, e2].
+    assert_eq!(
+        dh.memberships("a").unwrap(),
+        vec!["e1".to_string(), "e2".to_string()]
+    );
+    // "b" joins e1 in both directions (dedup to one entry).
+    assert_eq!(dh.memberships("b").unwrap(), vec!["e1".to_string()]);
+    // "c" joins e1 (as head) before e2 (as tail): memberships = [e1, e2].
+    assert_eq!(
+        dh.memberships("c").unwrap(),
+        vec!["e1".to_string(), "e2".to_string()]
+    );
+}
+
+#[test]
+fn test_dihypergraph_queries_insertion_ordered_under_interleaved_adds() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["n1".into()], vec!["n2".into()], Some("e1".into()), v())
+        .unwrap();
+    dh.add_edge(vec!["n2".into()], vec!["n1".into()], Some("e2".into()), v())
+        .unwrap();
+    dh.add_edge(vec!["n3".into()], vec!["n1".into()], Some("e3".into()), v())
+        .unwrap();
+    // n1 is: tail of e1, head of e2, head of e3 -- arcs added in that order.
+    assert_eq!(
+        dh.dimemberships("n1").unwrap(),
+        (
+            vec!["e2".to_string(), "e3".to_string()],
+            vec!["e1".to_string()]
+        )
+    );
+    assert_eq!(
+        dh.memberships("n1").unwrap(),
+        vec!["e1".to_string(), "e2".to_string(), "e3".to_string()]
+    );
+    assert_eq!(dh.head("e2").unwrap(), vec!["n1".to_string()]);
+    assert_eq!(dh.tail("e3").unwrap(), vec!["n3".to_string()]);
+}

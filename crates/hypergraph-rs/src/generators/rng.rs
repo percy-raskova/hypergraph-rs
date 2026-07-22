@@ -64,7 +64,11 @@ pub fn geometric(p: f64, rng: &mut Pcg64Mcg) -> u64 {
         r = f64::MIN_POSITIVE; // avoid log(0)
     }
     let g = (r.ln() / (1.0 - p).ln()).ceil();
-    let g = if g.is_finite() && g >= 1.0 { g as u64 } else { 1 };
+    let g = if g.is_finite() && g >= 1.0 {
+        g as u64
+    } else {
+        1
+    };
     g.max(1)
 }
 
@@ -79,7 +83,7 @@ pub fn comb(n: u64, k: u64) -> u64 {
     let mut acc: u64 = 1;
     // Bounded loop: exactly k iterations.
     for i in 0..k {
-        acc = acc / 1 * (n - i) / (i + 1);
+        acc = acc * (n - i) / (i + 1);
     }
     acc
 }
@@ -95,7 +99,7 @@ pub fn index_to_edge_comb(index: u64, n: u64, m: u64) -> Vec<usize> {
         let mut cs = j + 1;
         // Bounded: cs climbs within 0..n, at most n steps.
         loop {
-            let take = comb((n as i128 - 1 - cs) as u64, (m - s) as u64) as i128;
+            let take = comb((n as i128 - 1 - cs) as u64, m - s) as i128;
             if r - take > 0 {
                 r -= take;
                 cs += 1;

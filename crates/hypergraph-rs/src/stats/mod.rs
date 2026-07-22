@@ -4,10 +4,10 @@
 //! `.filterby()`. We compute eagerly into an insertion-ordered [`Stat`] value that
 //! offers the same terminal operations as pure data.
 
-pub mod nodestats;
-pub mod edgestats;
-pub mod dinodestats;
 pub mod diedgestats;
+pub mod dinodestats;
+pub mod edgestats;
+pub mod nodestats;
 
 use indexmap::IndexMap;
 
