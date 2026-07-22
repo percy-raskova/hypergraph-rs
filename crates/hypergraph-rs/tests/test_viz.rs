@@ -98,3 +98,58 @@ fn test_render_to_json_deterministic() {
     let b = h.render_to_json(LayoutStrategy::Spring { iterations: 50, seed: Some(7) });
     assert_eq!(a, b);
 }
+
+#[test]
+fn test_render_to_svg_is_well_formed() {
+    let h = sample_h();
+    let svg = h.render_to_svg(LayoutStrategy::HyperedgeAware { iterations: 50, halo_padding: 0.05 });
+    assert!(svg.starts_with("<svg"));
+    assert!(svg.contains("viewBox="));
+    assert!(svg.trim_end().ends_with("</svg>"));
+    assert!(svg.contains("xmlns=\"http://www.w3.org/2000/svg\""));
+}
+
+#[test]
+fn test_render_to_svg_has_a_circle_per_node() {
+    let h = sample_h();
+    let svg = h.render_to_svg(LayoutStrategy::Spring { iterations: 50, seed: Some(1) });
+    let circles = svg.matches("<circle").count();
+    assert_eq!(circles, h.num_nodes());
+}
+
+#[test]
+fn test_render_to_svg_hyperedge_aware_has_polygon() {
+    let h = sample_h();
+    let svg = h.render_to_svg(LayoutStrategy::HyperedgeAware { iterations: 50, halo_padding: 0.05 });
+    assert!(svg.contains("<polygon"));
+}
+
+#[test]
+fn test_render_to_svg_bipartite_has_line() {
+    let h = sample_h();
+    let svg = h.render_to_svg(LayoutStrategy::Bipartite { align: BipartiteAlign::Vertical });
+    assert!(svg.contains("<line"));
+}
+
+#[test]
+fn test_render_to_svg_radial_has_path() {
+    let h = sample_h();
+    let svg = h.render_to_svg(LayoutStrategy::Radial { rings: 3 });
+    assert!(svg.contains("<path"));
+}
+
+#[test]
+fn test_render_to_svg_deterministic() {
+    let h = sample_h();
+    let a = h.render_to_svg(LayoutStrategy::Spring { iterations: 50, seed: Some(3) });
+    let b = h.render_to_svg(LayoutStrategy::Spring { iterations: 50, seed: Some(3) });
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_render_to_svg_empty_hypergraph_is_valid() {
+    let h: Hypergraph = Hypergraph::new();
+    let svg = h.render_to_svg(LayoutStrategy::Spring { iterations: 10, seed: Some(1) });
+    assert!(svg.starts_with("<svg"));
+    assert!(svg.trim_end().ends_with("</svg>"));
+}

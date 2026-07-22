@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::core::hypergraph::Hypergraph;
 use crate::layout::{compute_layout, LayoutStrategy};
 
+pub mod svg;
+
 /// Re-export so `viz::HyperedgeGeometry` resolves (spec §5.3 places it here).
 pub use crate::layout::HyperedgeGeometry;
 
@@ -130,5 +132,11 @@ impl<M> Hypergraph<serde_json::Value, serde_json::Value, M> {
     pub fn render_to_json(&self, strategy: LayoutStrategy) -> String {
         let scene = self.render(strategy);
         serde_json::to_string(&scene).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Render the scene-graph to a self-contained SVG string (spec §5.3).
+    pub fn render_to_svg(&self, strategy: LayoutStrategy) -> String {
+        let scene = self.render(strategy);
+        svg::scene_to_svg(&scene)
     }
 }
