@@ -41,6 +41,41 @@ fn test_is_uniform_false_when_mixed() {
     assert_eq!(is_uniform(&h), None);
 }
 
+// D1-ripple(c): a size-0 edge (constructible after D1) contributes no order
+// (XGI: order = size - 1 is excluded from order stats for empty edges) and
+// must not underflow max_edge_order's usize subtraction.
+#[test]
+fn test_max_edge_order_excludes_empty_edges() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        Vec::<String>::new(),
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    assert_eq!(max_edge_order(&h), Some(2));
+    assert_eq!(num_edges_order(&h, Some(2)), 1);
+}
+
+#[test]
+fn test_max_edge_order_all_empty_edges_with_nodes_is_zero() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", serde_json::Value::Null);
+    h.add_edge(
+        Vec::<String>::new(),
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    assert_eq!(max_edge_order(&h), Some(0));
+}
+
 #[test]
 fn test_unique_edge_sizes_and_num_edges_order() {
     let mut h: Hypergraph = Hypergraph::new();

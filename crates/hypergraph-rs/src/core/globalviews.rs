@@ -42,7 +42,9 @@ pub fn subhypergraph(
             continue;
         }
         let members = h.members(&eid).unwrap_or_default();
-        if !members.is_empty() && members.iter().all(|m| node_set.contains(m)) {
+        // D1-ripple: an empty edge is a trivial subset of any node set and is
+        // retained (matches XGI subhypergraph, which does not special-case size-0).
+        if members.iter().all(|m| node_set.contains(m)) {
             let attrs = h.edge_attrs(&eid).cloned().unwrap_or(Value::Null);
             let _ = new.add_edge(members, Some(eid.clone()), attrs);
         }

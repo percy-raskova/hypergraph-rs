@@ -21,18 +21,19 @@ pub fn num_edges_order<N, E, M>(h: &Hypergraph<N, E, M>, d: Option<usize>) -> us
 /// nodes; `Some(0)` when there are nodes but no edges. XGI parity:
 /// `max_edge_order` (`properties.py:120-141`).
 pub fn max_edge_order<N, E, M>(h: &Hypergraph<N, E, M>) -> Option<usize> {
-    if h.num_edges() > 0 {
-        let max_size = h
-            .edge_ids()
-            .iter()
-            .filter_map(|e| h.edge_size(e))
-            .max()
-            .unwrap_or(0);
-        Some(max_size - 1)
-    } else if h.num_nodes() > 0 {
-        Some(0)
-    } else {
-        None
+    // D1-ripple: size-0 edges (constructible after D1) carry no order and are
+    // excluded from the order-stat, matching XGI's order = size - 1 semantics
+    // (a size-0 edge would otherwise underflow this usize subtraction).
+    let max_size = h
+        .edge_ids()
+        .iter()
+        .filter_map(|e| h.edge_size(e))
+        .filter(|&s| s > 0)
+        .max();
+    match max_size {
+        Some(s) => Some(s - 1),
+        None if h.num_nodes() > 0 => Some(0),
+        None => None,
     }
 }
 

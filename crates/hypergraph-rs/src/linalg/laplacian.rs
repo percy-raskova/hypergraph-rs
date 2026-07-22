@@ -116,7 +116,10 @@ pub fn normalized_hypergraph_laplacian<M>(
     };
 
     let dv_invsqrt = diag(&dv.mapv(|x| x.powf(-0.5)));
-    let de_inv = diag(&de.mapv(|x| 1.0 / x));
+    // D1-ripple: a size-0 edge (constructible after D1) has De == 0; its
+    // incidence column is all zero, so its contribution must vanish rather
+    // than propagate as Inf/NaN through 1/0.
+    let de_inv = diag(&de.mapv(|x| if x == 0.0 { 0.0 } else { 1.0 / x }));
     let w = diag(&Array1::from(weights));
     let eye = Array2::<f64>::eye(n);
 

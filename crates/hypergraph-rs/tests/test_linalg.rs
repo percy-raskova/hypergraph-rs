@@ -290,3 +290,28 @@ fn test_normalized_laplacian_ok() {
     assert_eq!(rows, vec!["a", "b", "c"]);
     assert_eq!(l.shape(), &[3, 3]);
 }
+
+// D1-ripple(b): a size-0 edge (D1 makes these constructible) is an all-zero
+// incidence column; De^{-1} must not divide by that column's zero size and
+// leak Inf/NaN into the result.
+#[test]
+fn test_normalized_laplacian_empty_edge_no_nan_or_inf() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        Vec::<String>::new(),
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    let (l, rows) = normalized_hypergraph_laplacian(&h, false).unwrap();
+    assert_eq!(rows, vec!["a", "b"]);
+    for x in l.iter() {
+        assert!(x.is_finite(), "expected finite entry, got {x}");
+    }
+}

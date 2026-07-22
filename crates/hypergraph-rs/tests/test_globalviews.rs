@@ -55,3 +55,17 @@ fn test_subhypergraph_drop_isolates() {
     assert!(!sub.has_node("3"));
     assert!(sub.has_node("1"));
 }
+
+// D1-ripple(a): a selected empty edge is a trivial subset of any node set and
+// must be retained by subhypergraph, not dropped.
+#[test]
+fn test_subhypergraph_retains_selected_empty_edge() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(Vec::<String>::new(), Some("e0".into()), v())
+        .unwrap();
+    h.add_edge(vec!["1".into(), "2".into()], Some("e1".into()), v())
+        .unwrap();
+    let sub = subhypergraph(&h, None, Some(&["e0".to_string()]), true);
+    assert!(sub.has_edge("e0"));
+    assert!(!sub.has_edge("e1"));
+}
