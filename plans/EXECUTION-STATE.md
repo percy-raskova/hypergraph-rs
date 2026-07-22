@@ -123,6 +123,19 @@ Consequence for the phase table below: **Phase 7 Task 0** ("core `add_empty_edge
 create-empty-edge semantics landed on `main`, `EdgeError::EmptyMembers` removed). Phase 7's
 plan text still lists it; skip it when Phase 7 executes and start from its Task 1.
 
+## 2026-07-22 UPDATE 3 — Phase 4 DONE (+ review fixes)
+
+Phase 4 (19 tasks) completed via the executor (run `wf_d77f7d10-cef`): tasks 6-19 executed
+live (37daba5..e8af8b4), tasks 1-5 verified as pre-committed. Opus review verdict was
+fix-needed (1 blocker, 1 major, 3 lesser); all fixed oracle-verified in `05d7a6f`
+(comb/u128 overflow guards, zero-combination order skip, BIGG reaction-name attrs, JSON
+numeric member sort; review's JSON "name"-default claim was REFUTED by direct oracle probe
+and pinned as-is). Workspace: 353 tests green, full `mise run rust:check` clean.
+
+**Sequencing note:** Phase 6 executes next. Phase 5 (layout/viz) is HELD pending the
+owner's ruling on `plans/PROPOSAL-raster-replan.md` (TUI/raster re-scope of Phases
+5/8/9/10, incl. the Phase R cell rasterizer + Lawverian 3D instruments).
+
 **Phase 4 resumes at task 6** (tasks 1-5 were already committed pre-reconciliation and are
 untouched by any reconciliation task; the reconciliation work landed entirely in `crates/`
 core, `tests/conformance/`, and `.mise.toml`, not in `phase-4-generators-stats-readwrite.md`'s

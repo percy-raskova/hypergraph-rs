@@ -63,6 +63,39 @@ natively in Phase R rather than depend on it. Proposed shape:
   capability (`render --format cells3d`), with the 3D SceneGraph JSON as the
   assert-the-source golden artifact and cell frames as presentation tier.
 
+## Phase R vision: Lawverian 3D instruments (owner direction, 2026-07-22)
+
+The owner's target for 3D: "bizarre but algebraically coherent" renderings of the
+Lawverian topology and the laws of MLM-TW/value. A deep-dive against babylon's
+formalism docs (`docs/reference/dialectical-field-topology.rst`,
+`ai/_inbox/archive/lawvere-visualization.md`, NORTH_STAR §101) found five
+instruments, ALL rendering objects the engine already computes (no new formalism):
+
+1. **The adjoint cylinder** — Lawvere's unity-of-opposites as literal scene geometry:
+   bottom disc = class-in-itself (scattered points, Π₀ = n), top disc = the filled
+   simplicial solid; each community hovers at height = its organization degree, ghost
+   edges materializing as struts; Educate/Mobilize verbs move it up the cylinder.
+   *Recommended first target: most Lawverian, least design-ambiguous.*
+2. **Contradiction fields as terrain** — z = field value over the spectral/hex base;
+   stored per-edge gradients ARE the mesh slopes; negative Ollivier-Ricci curvature
+   renders bridges as taut passes with height cliffs ("curvature traps gradients"
+   as geography); principal contradiction = the sole animated pulse.
+3. **Time as z: worldtube stratigraphy** — agents trace worldlines, hyperedges
+   become worldtubes; "quantities flow, qualities cut" = smooth deformation vs
+   sheared fault planes at ruptures; a campaign becomes a rotatable rock core.
+4. **3D hyper-Sankey** — directed hyperedges as branched ribbons, z = imperial
+   hierarchy so Φ flows upward; extensive quantities = cross-sectional area (sums
+   under aggregation), intensive rates = color only; g₃₃ = opacity. Multilateral
+   extraction (many tails, one head) is drawable ONLY as a hypergraph ribbon.
+5. **Rasterizer-specific wins** — depth-buffered coalition solids (simpliciality =
+   fill fraction), the COP surveillance-lens toggle as a literal second camera,
+   zoom as extensive/intensive-respecting coarse-graining.
+
+Constraints carried over: every frame a pure function of (state, camera) —
+golden-testable, glyph-floor renderable per ADR097; cylinder height metric and
+worldtube parameterization each need one owner design decision; babylon-side
+consumption needs the S9 lane-extension ruling (these are layouts, not orderings).
+
 ## What does NOT change
 
 - The current critical path (reconciliation → Phase 4 → 6 → 7 → swap) is untouched;
