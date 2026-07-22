@@ -1,3 +1,4 @@
+use hypergraph_rs::stats::edgestats::{edge_attrs, edge_order, edge_size};
 use hypergraph_rs::stats::nodestats::{node_attrs, node_degree};
 use hypergraph_rs::Hypergraph;
 
@@ -81,4 +82,45 @@ fn test_node_attrs_missing_imputes_null() {
     let ages = node_attrs(&h, Some("age"));
     assert_eq!(ages.get("a").unwrap(), &serde_json::json!(20));
     assert_eq!(ages.get("b").unwrap(), &serde_json::Value::Null);
+}
+
+#[test]
+fn test_edge_order_and_size_match_xgi() {
+    let h = triangle_plus();
+    let ord = edge_order(&h, None);
+    // XGI: order {0:2, 1:3, 2:2}
+    assert_eq!(*ord.get("0").unwrap(), 2);
+    assert_eq!(*ord.get("1").unwrap(), 3);
+    assert_eq!(*ord.get("2").unwrap(), 2);
+    let sz = edge_size(&h, None);
+    // size {0:3, 1:4, 2:3}
+    assert_eq!(*sz.get("0").unwrap(), 3);
+    assert_eq!(*sz.get("1").unwrap(), 4);
+    assert_eq!(*sz.get("2").unwrap(), 3);
+}
+
+#[test]
+fn test_edge_size_aslist_order() {
+    let h = triangle_plus();
+    assert_eq!(edge_size(&h, None).aslist(), vec![3, 4, 3]);
+}
+
+#[test]
+fn test_edge_order_degree_filter_zero_matches_clamps_at_zero() {
+    let h = triangle_plus();
+    // No node in edge "0" ({1,2,3}) has degree 99. XGI's order(degree) would
+    // report -1 (sum(0) - 1); our Stat<usize> cannot represent a negative
+    // order, so this clamps at 0 (documented deviation #7).
+    let ord = edge_order(&h, Some(99));
+    assert_eq!(*ord.get("0").unwrap(), 0);
+}
+
+#[test]
+fn test_edge_attrs_single_with_missing() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into()], Some("one".into()), serde_json::json!({"color": "red"})).unwrap();
+    h.add_edge(vec!["b".into()], Some("two".into()), serde_json::json!({"age": 30})).unwrap();
+    let colors = edge_attrs(&h, Some("color"));
+    assert_eq!(colors.get("one").unwrap(), &serde_json::json!("red"));
+    assert_eq!(colors.get("two").unwrap(), &serde_json::Value::Null);
 }

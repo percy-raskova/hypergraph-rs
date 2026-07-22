@@ -9,6 +9,7 @@ pub mod dinodestats;
 pub mod edgestats;
 pub mod nodestats;
 
+pub use edgestats::{edge_attrs, edge_order, edge_size};
 pub use nodestats::{node_attrs, node_degree, node_degree_weighted};
 
 use indexmap::IndexMap;
