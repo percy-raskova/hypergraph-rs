@@ -223,14 +223,19 @@ impl PyHypergraph {
         Ok(list.unbind())
     }
 
-    /// Single-node degree (the full `H.degree()` Stat-dict proxy lands in Task 11).
-    fn degree(&self, n: &Bound<'_, PyAny>) -> PyResult<usize> {
-        let repr = n.repr().map(|r| r.to_string()).unwrap_or_default();
-        let core = self
-            .node_ids
-            .get_key(n)?
-            .ok_or_else(|| id_not_found(&repr))?;
-        Ok(self.inner.memberships(&core).map(|m| m.len()).unwrap_or(0))
+    /// `H.degree(order=None)` — a dict of every node's degree, optionally restricted to edges of
+    /// a given order. XGI parity: `tests/stats/test_nodestats.py:12`
+    /// (`H.degree() == degs`; `H.degree(order=2) == {...}`).
+    #[pyo3(signature = (order=None))]
+    fn degree(&self, py: Python<'_>, order: Option<usize>) -> PyResult<Py<PyDict>> {
+        let d = PyDict::new(py);
+        for nid in self.inner.node_ids() {
+            let deg = self.inner.node_degree(&nid, order).unwrap_or(0);
+            if let Some(obj) = self.node_ids.get_obj(py, &nid) {
+                d.set_item(obj, deg)?;
+            }
+        }
+        Ok(d.unbind())
     }
 
     /// `H.nodes` — the full `NodeView` proxy (Task 5; replaces the Task 4 plain-list stub).

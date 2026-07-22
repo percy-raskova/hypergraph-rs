@@ -13,8 +13,8 @@ mod hypergraph;
 mod linalg; // Task 8
 mod pyid;
 mod simplicial; // Task 7
+mod stats; // Task 11
 mod views; // Task 5
-           // mod stats;        // Task 11
            // mod convert; mod readwrite; mod utils; mod dynamics; mod communities; // Task 12
            // mod layout;       // Task 13
 
@@ -28,5 +28,6 @@ fn _hypergraph_rs_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     linalg::register(m)?;
     algorithms::register(m)?;
     generators::register(m)?;
+    stats::register(m)?;
     Ok(())
 }

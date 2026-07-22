@@ -6,13 +6,9 @@
 //! parent `PyHypergraph` under the GIL per call (`#[pyclass]` cannot hold a Rust borrow, so views
 //! hold a `Py<PyHypergraph>` back-reference — standard PyO3 pattern).
 //!
-//! DEVIATION (documented, not a plan violation): the plan's Step 1 snippet forward-references
-//! `crate::stats::PyNodeStat` ("Task 11 owns PyNodeStat") — that module does not exist yet (Task 11
-//! is a later task). `.degree`/`.size`/`.order` getters here return small local stand-in stat
-//! proxies (`PyNodeDegreeStat`/`PyEdgeSizeStat`/`PyEdgeOrderStat`) that support exactly the
-//! `.asdict()`/`.aslist()` surface `test_views_smoke.py` and `tests/stats/test_nodestats.py`
-//! exercise. Task 11 replaces these with the general multi-stat `Stat` proxy (same pattern Task 4's
-//! `nodes`/`edges` stub getters were replaced by this task).
+//! `.degree`/`.size`/`.order` getters delegate to `crate::stats::PyNodeStat`/`PyEdgeStat` (Task 11's
+//! general multi-stat `Stat` proxy — same pattern Task 4's `nodes`/`edges` stub getters were
+//! replaced by this task).
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -118,14 +114,11 @@ impl PyNodeView {
     }
 
     #[getter]
-    fn degree(&self, py: Python<'_>) -> PyNodeDegreeStat {
+    fn degree(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
         let hg = self.hg.borrow(py);
         let ids = self.effective_ids(&hg);
         drop(hg);
-        PyNodeDegreeStat {
-            hg: self.hg.clone_ref(py),
-            ids,
-        }
+        crate::stats::PyNodeStat::degree(py, self.hg.clone_ref(py), ids)
     }
 
     /// Sub-view of degree-0 nodes. XGI parity: `H.nodes.isolates()`.
@@ -261,25 +254,19 @@ impl PyEdgeView {
     }
 
     #[getter]
-    fn size(&self, py: Python<'_>) -> PyEdgeSizeStat {
+    fn size(&self, py: Python<'_>) -> crate::stats::PyEdgeStat {
         let hg = self.hg.borrow(py);
         let ids = self.effective_ids(&hg);
         drop(hg);
-        PyEdgeSizeStat {
-            hg: self.hg.clone_ref(py),
-            ids,
-        }
+        crate::stats::PyEdgeStat::size(py, self.hg.clone_ref(py), ids)
     }
 
     #[getter]
-    fn order(&self, py: Python<'_>) -> PyEdgeOrderStat {
+    fn order(&self, py: Python<'_>) -> crate::stats::PyEdgeStat {
         let hg = self.hg.borrow(py);
         let ids = self.effective_ids(&hg);
         drop(hg);
-        PyEdgeOrderStat {
-            hg: self.hg.clone_ref(py),
-            ids,
-        }
+        crate::stats::PyEdgeStat::order(py, self.hg.clone_ref(py), ids)
     }
 
     /// Sub-view of size-1 edges. XGI parity: `H.edges.singletons()`.
@@ -341,114 +328,8 @@ impl PyEdgeView {
     }
 }
 
-// ---------------------------------------------------------------------------------------------
-// Minimal stand-in Stat proxies (Task 5 stopgap — Task 11 owns the general `Stat` proxy).
-// ---------------------------------------------------------------------------------------------
-
-#[pyclass(name = "NodeStat", module = "hypergraph_rs")]
-pub struct PyNodeDegreeStat {
-    hg: Py<PyHypergraph>,
-    ids: Vec<String>,
-}
-
-#[pymethods]
-impl PyNodeDegreeStat {
-    fn asdict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
-        let hg = self.hg.borrow(py);
-        let d = PyDict::new(py);
-        for id in &self.ids {
-            let deg = hg.inner.memberships(id).map(|m| m.len()).unwrap_or(0);
-            if let Some(obj) = hg.node_ids.get_obj(py, id) {
-                d.set_item(obj, deg)?;
-            }
-        }
-        Ok(d.unbind())
-    }
-
-    fn aslist(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
-        let hg = self.hg.borrow(py);
-        let list = PyList::empty(py);
-        for id in &self.ids {
-            list.append(hg.inner.memberships(id).map(|m| m.len()).unwrap_or(0))?;
-        }
-        Ok(list.unbind())
-    }
-}
-
-#[pyclass(name = "EdgeSizeStat", module = "hypergraph_rs")]
-pub struct PyEdgeSizeStat {
-    hg: Py<PyHypergraph>,
-    ids: Vec<String>,
-}
-
-#[pymethods]
-impl PyEdgeSizeStat {
-    fn asdict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
-        let hg = self.hg.borrow(py);
-        let d = PyDict::new(py);
-        for id in &self.ids {
-            let size = hg.inner.members(id).map(|m| m.len()).unwrap_or(0);
-            if let Some(obj) = hg.edge_ids.get_obj(py, id) {
-                d.set_item(obj, size)?;
-            }
-        }
-        Ok(d.unbind())
-    }
-
-    fn aslist(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
-        let hg = self.hg.borrow(py);
-        let list = PyList::empty(py);
-        for id in &self.ids {
-            list.append(hg.inner.members(id).map(|m| m.len()).unwrap_or(0))?;
-        }
-        Ok(list.unbind())
-    }
-}
-
-#[pyclass(name = "EdgeOrderStat", module = "hypergraph_rs")]
-pub struct PyEdgeOrderStat {
-    hg: Py<PyHypergraph>,
-    ids: Vec<String>,
-}
-
-#[pymethods]
-impl PyEdgeOrderStat {
-    fn asdict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
-        let hg = self.hg.borrow(py);
-        let d = PyDict::new(py);
-        for id in &self.ids {
-            let order = hg
-                .inner
-                .members(id)
-                .map(|m| m.len().saturating_sub(1))
-                .unwrap_or(0);
-            if let Some(obj) = hg.edge_ids.get_obj(py, id) {
-                d.set_item(obj, order)?;
-            }
-        }
-        Ok(d.unbind())
-    }
-
-    fn aslist(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
-        let hg = self.hg.borrow(py);
-        let list = PyList::empty(py);
-        for id in &self.ids {
-            list.append(
-                hg.inner
-                    .members(id)
-                    .map(|m| m.len().saturating_sub(1))
-                    .unwrap_or(0),
-            )?;
-        }
-        Ok(list.unbind())
-    }
-}
-
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyNodeView>()?;
     m.add_class::<PyEdgeView>()?;
-    m.add_class::<PyNodeDegreeStat>()?;
-    m.add_class::<PyEdgeSizeStat>()?;
-    m.add_class::<PyEdgeOrderStat>()?;
     Ok(())
 }
