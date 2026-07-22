@@ -1,6 +1,30 @@
+use hypergraph_rs::stats::diedgestats::{di_edge_size, di_head_size, di_tail_size};
+use hypergraph_rs::stats::dinodestats::{di_in_degree, di_out_degree};
 use hypergraph_rs::stats::edgestats::{edge_attrs, edge_order, edge_size};
 use hypergraph_rs::stats::nodestats::{node_attrs, node_degree};
+use hypergraph_rs::DiHypergraph;
 use hypergraph_rs::Hypergraph;
+
+fn di_fixture() -> DiHypergraph {
+    // XGI: DiHypergraph([[{1,2},{5,6}], [{4},{1,3}]])
+    // edge 0: tail {1,2} head {5,6}; edge 1: tail {4} head {1,3}
+    let mut d = DiHypergraph::new();
+    d.add_edge(
+        vec!["1".into(), "2".into()],
+        vec!["5".into(), "6".into()],
+        Some("0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    d.add_edge(
+        vec!["4".into()],
+        vec!["1".into(), "3".into()],
+        Some("1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    d
+}
 
 fn triangle_plus() -> Hypergraph {
     // XGI docstring fixture: [[1,2,3],[2,3,4,5],[3,4,5]]
@@ -123,4 +147,37 @@ fn test_edge_attrs_single_with_missing() {
     let colors = edge_attrs(&h, Some("color"));
     assert_eq!(colors.get("one").unwrap(), &serde_json::json!("red"));
     assert_eq!(colors.get("two").unwrap(), &serde_json::Value::Null);
+}
+
+#[test]
+fn test_di_edge_sizes() {
+    let d = di_fixture();
+    // union sizes: edge 0 = {1,2,5,6} = 4; edge 1 = {4,1,3} = 3
+    let sz = di_edge_size(&d);
+    assert_eq!(*sz.get("0").unwrap(), 4);
+    assert_eq!(*sz.get("1").unwrap(), 3);
+    let hs = di_head_size(&d);
+    assert_eq!(*hs.get("0").unwrap(), 2); // head {5,6}
+    let ts = di_tail_size(&d);
+    assert_eq!(*ts.get("1").unwrap(), 1); // tail {4}
+}
+
+#[test]
+fn test_di_node_in_out_degree() {
+    let d = di_fixture();
+    // XGI convention: in_degree counts HEAD-membership (receiver), out_degree
+    // counts TAIL-membership (sender).
+    // node 1: tail of edge 0 (a sender), head of edge 1 (a receiver)
+    //   -> in_degree(head-membership)=1, out_degree(tail-membership)=1
+    let ind = di_in_degree(&d);
+    let outd = di_out_degree(&d);
+    assert_eq!(*ind.get("1").unwrap(), 1);
+    assert_eq!(*outd.get("1").unwrap(), 1);
+    // node 4: ONLY in the tail of edge 1 (a sender, never a receiver) — this is
+    // the asymmetric case that distinguishes the two conventions.
+    assert_eq!(*ind.get("4").unwrap(), 0);
+    assert_eq!(*outd.get("4").unwrap(), 1);
+    // node 6: ONLY in the head of edge 0 (a receiver, never a sender).
+    assert_eq!(*ind.get("6").unwrap(), 1);
+    assert_eq!(*outd.get("6").unwrap(), 0);
 }

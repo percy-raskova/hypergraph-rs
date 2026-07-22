@@ -9,6 +9,8 @@ pub mod dinodestats;
 pub mod edgestats;
 pub mod nodestats;
 
+pub use diedgestats::{di_edge_order, di_edge_size, di_head_size, di_tail_size};
+pub use dinodestats::{di_degree, di_in_degree, di_out_degree};
 pub use edgestats::{edge_attrs, edge_order, edge_size};
 pub use nodestats::{node_attrs, node_degree, node_degree_weighted};
 
