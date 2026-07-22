@@ -247,6 +247,29 @@ impl PyHypergraph {
 }
 
 impl PyHypergraph {
+    /// Build a `PyHypergraph` from a core graph whose String node/edge keys are
+    /// decimal integers (as produced by the `generators` — Task 10) — registers them
+    /// as Python `int`s (XGI generator ids are ints), preserving insertion order.
+    pub fn from_core_with_int_ids(
+        py: Python<'_>,
+        core: CoreHg<Value, Value, Value>,
+    ) -> PyResult<Self> {
+        let mut node_ids = PyIdMap::new();
+        for nid in core.node_ids() {
+            node_ids.intern(&int_or_str_pyobj(py, &nid)?)?;
+        }
+        let mut edge_ids = PyIdMap::new();
+        for eid in core.edge_ids() {
+            edge_ids.intern(&int_or_str_pyobj(py, &eid)?)?;
+        }
+        Ok(Self {
+            inner: core,
+            node_ids,
+            edge_ids,
+            net_attr: serde_json::Map::new(),
+        })
+    }
+
     fn ingest(&mut self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
         if let Ok(list) = data.cast::<PyList>() {
             for edge in list.iter() {
@@ -335,7 +358,7 @@ impl PyHypergraph {
 
 /// Auto-assigned core ids are numeric strings ("0", "1", …) — register them as Python `int`
 /// (XGI auto-ids are ints), falling back to `str` for the (unreachable in practice) non-numeric case.
-fn int_or_str_pyobj<'py>(py: Python<'py>, core_id: &str) -> PyResult<Bound<'py, PyAny>> {
+pub(crate) fn int_or_str_pyobj<'py>(py: Python<'py>, core_id: &str) -> PyResult<Bound<'py, PyAny>> {
     if let Ok(n) = core_id.parse::<i64>() {
         return Ok(n.into_pyobject(py)?.into_any());
     }

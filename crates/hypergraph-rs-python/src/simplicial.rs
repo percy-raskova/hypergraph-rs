@@ -156,6 +156,28 @@ impl PySimplicialComplex {
 }
 
 impl PySimplicialComplex {
+    /// Build a `PySimplicialComplex` from a core complex whose String node/edge keys are
+    /// decimal integers (as produced by `random_simplicial_complex` — Task 10) — registers
+    /// them as Python `int`s, preserving insertion order.
+    pub fn from_core_with_int_ids(
+        py: Python<'_>,
+        core: CoreSC<Value, Value, Value>,
+    ) -> PyResult<Self> {
+        let mut node_ids = PyIdMap::new();
+        for nid in core.node_ids() {
+            node_ids.intern(&int_or_str_pyobj(py, &nid)?)?;
+        }
+        let mut edge_ids = PyIdMap::new();
+        for eid in core.edge_ids() {
+            edge_ids.intern(&int_or_str_pyobj(py, &eid)?)?;
+        }
+        Ok(Self {
+            inner: core,
+            node_ids,
+            edge_ids,
+        })
+    }
+
     fn add_simplex_impl(
         &mut self,
         py: Python<'_>,
