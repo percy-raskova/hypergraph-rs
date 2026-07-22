@@ -107,3 +107,41 @@ fn test_get_network_type() {
     let h: Hypergraph = Hypergraph::new();
     assert_eq!(get_network_type(&h), "hypergraph");
 }
+
+use hypergraph_rs::utils::convert_labels_to_integers;
+
+#[test]
+fn test_convert_labels_basic() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["x".into(), "y".into()], Some("first".into()), serde_json::Value::Null)
+        .unwrap();
+    h.add_edge(vec!["y".into(), "z".into()], Some("second".into()), serde_json::Value::Null)
+        .unwrap();
+    let relabeled = convert_labels_to_integers(&h, "label");
+    // Nodes x,y,z -> "0","1","2" ; edges first,second -> "0","1"
+    assert_eq!(relabeled.node_ids(), vec!["0", "1", "2"]);
+    assert_eq!(relabeled.edge_ids(), vec!["0", "1"]);
+    assert_eq!(relabeled.num_nodes(), 3);
+    assert_eq!(relabeled.num_edges(), 2);
+}
+
+#[test]
+fn test_convert_labels_stores_old_label() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["x".into(), "y".into()], Some("first".into()), serde_json::Value::Null)
+        .unwrap();
+    let relabeled = convert_labels_to_integers(&h, "label");
+    assert_eq!(relabeled.node_attrs("0").unwrap()["label"], "x");
+    assert_eq!(relabeled.edge_attrs("0").unwrap()["label"], "first");
+}
+
+#[test]
+fn test_convert_labels_preserves_members_as_sets() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["x".into(), "y".into(), "z".into()], Some("e".into()), serde_json::Value::Null)
+        .unwrap();
+    let relabeled = convert_labels_to_integers(&h, "label");
+    let mut members = relabeled.members("0").unwrap();
+    members.sort();
+    assert_eq!(members, vec!["0".to_string(), "1".to_string(), "2".to_string()]);
+}

@@ -5,6 +5,7 @@
 
 use crate::Hypergraph;
 use indexmap::IndexMap;
+use serde_json::{json, Value};
 use thiserror::Error;
 
 /// Errors raised by utility functions.
@@ -148,4 +149,61 @@ pub fn subfaces(edges: &[Vec<String>], order: Option<i64>) -> Result<Vec<Vec<Str
 /// `type(H).__name__.lower()` for `Hypergraph`).
 pub fn get_network_type(_h: &Hypergraph) -> String {
     "hypergraph".to_string()
+}
+
+/// Relabel node and edge ids to sequential integer strings, stashing the old ids.
+///
+/// XGI parity: `xgi.convert_labels_to_integers` (`utils/utilities.py:377-452`). Nodes and
+/// edges are mapped to `"0".."n-1"` / `"0".."m-1"` in insertion order; the old id is
+/// written to `label_attribute` on each. Graph-level attrs are carried over. Returns a
+/// new `Hypergraph` (we rebuild rather than clear-in-place; see the Phase-6 plan header).
+pub fn convert_labels_to_integers(h: &Hypergraph, label_attribute: &str) -> Hypergraph {
+    let node_index: IndexMap<String, usize> = h
+        .node_ids()
+        .into_iter()
+        .enumerate()
+        .map(|(i, id)| (id, i))
+        .collect();
+    let edge_index: IndexMap<String, usize> = h
+        .edge_ids()
+        .into_iter()
+        .enumerate()
+        .map(|(i, id)| (id, i))
+        .collect();
+
+    let mut out = Hypergraph::new();
+
+    // Carry over graph-level attributes.
+    for (k, v) in h.graph_attrs() {
+        out.set_graph_attr(k, v.clone());
+    }
+
+    // Nodes: new integer id + old id under label_attribute.
+    for (old_id, &i) in &node_index {
+        let mut obj = h
+            .node_attrs(old_id)
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+        obj.insert(label_attribute.to_string(), json!(old_id));
+        out.add_node(&i.to_string(), Value::Object(obj));
+    }
+
+    // Edges: remap members, new integer id + old id under label_attribute.
+    for (old_edge, &j) in &edge_index {
+        let members: Vec<String> = h
+            .members(old_edge)
+            .unwrap_or_default()
+            .iter()
+            .map(|m| node_index[m].to_string())
+            .collect();
+        let mut obj = h
+            .edge_attrs(old_edge)
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+        obj.insert(label_attribute.to_string(), json!(old_edge));
+        out.add_edge(members, Some(j.to_string()), Value::Object(obj))
+            .expect("relabeled edge has non-empty members and a fresh unique id");
+    }
+
+    out
 }
