@@ -9,8 +9,8 @@ mod dihypergraph; // Task 6
 mod errors;
 mod hypergraph;
 mod pyid;
+mod simplicial; // Task 7
 mod views; // Task 5
-// mod simplicial;   // Task 7
 // mod linalg;       // Task 8
 // mod algorithms;   // Task 9
 // mod generators;   // Task 10
@@ -24,5 +24,6 @@ fn _hypergraph_rs_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     hypergraph::register(m)?;
     views::register(m)?;
     dihypergraph::register(m)?;
+    simplicial::register(m)?;
     Ok(())
 }
