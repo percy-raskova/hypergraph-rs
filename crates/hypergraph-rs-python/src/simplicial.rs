@@ -860,7 +860,7 @@ impl PySCEdgeView {
             }
             None => {
                 let is_dict = match dtype {
-                    Some(d) => d.is(&py.get_type::<PyDict>()),
+                    Some(d) => d.is(py.get_type::<PyDict>()),
                     None => false,
                 };
                 if is_dict {

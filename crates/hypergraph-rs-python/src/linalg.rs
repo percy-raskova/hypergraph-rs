@@ -136,6 +136,9 @@ fn dense_to_scipy_csr<'py>(
 
 /// Apply an XGI `weight(node, edge, H)` callable to every nonzero entry of `m`, in CSR row-major
 /// order, returning the substituted data vector (same length/order as `m.data()`).
+// 8 arguments mirror a fixed FFI data flow (sparse matrix + id maps + Python callables); grouping
+// them into a struct would not reduce coupling for this private helper.
+#[allow(clippy::too_many_arguments)]
 fn weighted_incidence_data(
     py: Python<'_>,
     m: &sprs::CsMat<f64>,
@@ -154,8 +157,7 @@ fn weighted_incidence_data(
         let node_obj = node_map
             .get_obj(py, &rows[r])
             .expect("row id present in node map");
-        for pos in indptr[r]..indptr[r + 1] {
-            let c = indices[pos];
+        for &c in &indices[indptr[r]..indptr[r + 1]] {
             let edge_obj = edge_map
                 .get_obj(py, &cols[c])
                 .expect("col id present in edge map");

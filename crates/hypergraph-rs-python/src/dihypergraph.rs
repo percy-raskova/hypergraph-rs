@@ -1328,6 +1328,9 @@ impl PyDiNodeView {
     }
 
     #[pyo3(signature = (view, bunch=None))]
+    // XGI API-surface constraint: `from_view` is a deliberate port of XGI's Python-facing
+    // classmethod name (views.py:512-545); renaming would break conformance.
+    #[allow(clippy::wrong_self_convention)]
     fn from_view(
         &self,
         py: Python<'_>,
@@ -1596,9 +1599,9 @@ impl PyDiEdgeView {
         match dtype {
             None => Ok(false),
             Some(d) => {
-                if d.is(&py.get_type::<PyDict>()) {
+                if d.is(py.get_type::<PyDict>()) {
                     Ok(true)
-                } else if d.is(&py.get_type::<PyList>()) {
+                } else if d.is(py.get_type::<PyList>()) {
                     Ok(false)
                 } else {
                     Err(xgi_error(format!("Unrecognized dtype {}", d.repr()?)))
@@ -1689,6 +1692,9 @@ impl PyDiEdgeView {
     }
 
     #[pyo3(signature = (view, bunch=None))]
+    // XGI API-surface constraint: `from_view` is a deliberate port of XGI's Python-facing
+    // classmethod name (views.py:512-545); renaming would break conformance.
+    #[allow(clippy::wrong_self_convention)]
     fn from_view(
         &self,
         py: Python<'_>,

@@ -189,6 +189,9 @@ impl PyNodeView {
     /// (`H.edges.from_view(H.edges, bunch=[...])`, matching the oracle test's call shape) even
     /// though XGI declares it a `@classmethod`; `self` is unused.
     #[pyo3(signature = (view, bunch=None))]
+    // XGI API-surface constraint: `from_view` is a deliberate port of XGI's Python-facing
+    // classmethod name (views.py:512-545); renaming would break conformance.
+    #[allow(clippy::wrong_self_convention)]
     fn from_view(
         &self,
         py: Python<'_>,
@@ -660,9 +663,9 @@ impl PyEdgeView {
         match dtype {
             None => Ok(false),
             Some(d) => {
-                if d.is(&py.get_type::<PyDict>()) {
+                if d.is(py.get_type::<PyDict>()) {
                     Ok(true)
-                } else if d.is(&py.get_type::<PyList>()) {
+                } else if d.is(py.get_type::<PyList>()) {
                     Ok(false)
                 } else {
                     Err(crate::errors::xgi_error(format!(
@@ -758,6 +761,9 @@ impl PyEdgeView {
     }
 
     #[pyo3(signature = (view, bunch=None))]
+    // XGI API-surface constraint: `from_view` is a deliberate port of XGI's Python-facing
+    // classmethod name (views.py:512-545); renaming would break conformance.
+    #[allow(clippy::wrong_self_convention)]
     fn from_view(
         &self,
         py: Python<'_>,
