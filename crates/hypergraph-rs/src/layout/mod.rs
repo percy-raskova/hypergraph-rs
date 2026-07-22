@@ -13,6 +13,7 @@ pub mod place;
 
 pub use hull::convex_hull;
 pub use place::bipartite_layout;
+pub use place::radial_layout;
 
 /// The default deterministic seed used when a strategy provides no explicit
 /// seed (or `seed = None`). XGI's `seed=None` is non-deterministic (numpy global

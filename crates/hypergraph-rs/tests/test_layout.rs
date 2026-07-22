@@ -202,3 +202,53 @@ fn test_bipartite_empty_hypergraph() {
     assert!(r.edge_geometries.is_empty());
     assert_eq!(r.bounding_box, (0.0, 0.0, 0.0, 0.0));
 }
+
+use hypergraph_rs::layout::radial_layout;
+
+#[test]
+fn test_radial_positions_every_node() {
+    let h = sample_h();
+    let r = radial_layout(&h, 3);
+    assert_eq!(r.node_positions.len(), h.num_nodes());
+    assert_eq!(r.edge_geometries.len(), h.num_edges());
+}
+
+#[test]
+fn test_radial_emits_arc_geometry() {
+    let h = sample_h();
+    let r = radial_layout(&h, 3);
+    for (_, g) in &r.edge_geometries {
+        assert!(matches!(g, HyperedgeGeometry::Arc { .. }));
+    }
+}
+
+#[test]
+fn test_radial_deterministic() {
+    let h = sample_h();
+    assert_eq!(radial_layout(&h, 3), radial_layout(&h, 3));
+}
+
+#[test]
+fn test_radial_zero_rings_does_not_panic() {
+    let h = sample_h();
+    // rings is clamped to at least 1 internally.
+    let r = radial_layout(&h, 0);
+    assert_eq!(r.node_positions.len(), h.num_nodes());
+}
+
+#[test]
+fn test_radial_positions_within_unit_disk() {
+    let h = sample_h();
+    let r = radial_layout(&h, 3);
+    for (_, (x, y)) in &r.node_positions {
+        assert!((x * x + y * y).sqrt() <= 1.0 + 1e-9);
+    }
+}
+
+#[test]
+fn test_radial_empty_hypergraph() {
+    let h: Hypergraph = Hypergraph::new();
+    let r = radial_layout(&h, 3);
+    assert!(r.node_positions.is_empty());
+    assert_eq!(r.bounding_box, (0.0, 0.0, 0.0, 0.0));
+}
