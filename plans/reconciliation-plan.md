@@ -25,6 +25,8 @@
 - "D15" is a lineage src module-docstring label (simplicialcomplex.rs:14), absent from the D-register — no register authority.
 - Harness resolves fixture via env!("CARGO_MANIFEST_DIR")+"/conformance/xgi_ground_truth.json"; Cargo auto-discovers tests/conformance/main.rs as target conformance. .venv/bin/python has xgi 0.10.2 (oracle live).
 
+**Owner rulings folded in (2026-07-22):** execute all tasks; D5 upgraded for DiHypergraph (insertion order — new Task 2, 13 tasks total); D16/Di-bulk deferred to Phase 7; fixture drift policy = oracle overwrites. Adjudicator defaults accepted for D14 serde spelling (keep DiRole) and NodeError narrowing (keep EdgeNotFound).
+
 ## 2. Rulings ledger
 
 | ID | Ruling | Rationale | Evidence |
@@ -34,7 +36,7 @@
 | D2 (msg/type) | adopt-lineage-core | Distinct per-branch messages XGI raises are runtime content; adopt MembershipError{EdgeNotFound,NodeNotFound,NotAMember} (H+Di). Channel stays Phase-7. | register D2; CORE DIFF |
 | D2 (bulk) | adopt-lineage-core | remove_edges_from stop-on-first (partial effects) and remove_nodes_from continue-per-item are XGI state differences (main over-applies). Return Vec<Result>; fix 3 callers. | register D2; hypergraph.rs:514-522,1010-1014; globalviews.rs:53 |
 | D3, D4 | keep-main (conformant) | bump iff parse::<u64> already byte-identical. | CORE DIFF |
-| D5 | keep-main; defer strict-order tests | XGI hash-unordered; register pins only sorted/multiset, which main satisfies. Lineage exact-insertion tests pin a stronger-than-XGI guarantee main's Di (alphabetical) lacks. | register D5; TEST MAP |
+| D5 | OWNER OVERRIDE 2026-07-22: upgrade Di to insertion order (new Task 2); undirected H already insertion-ordered | XGI hash-unordered; register pins only sorted/multiset, which main satisfies. Lineage exact-insertion tests pin a stronger-than-XGI guarantee main's Di (alphabetical) lacks. | register D5; TEST MAP |
 | D6 | adopt-lineage-core | Binding merges then calls core; replace composes, main's drop discards merged dict. H+Di add_node. | register D6 |
 | D7 | keep-main (binding-owned) | Core already stringly-typed; shape-detection Phase-7. | register D7 |
 | D8 | keep-main (nicety) | XGI returns None; Ok(id) is extra info, not required. Keep Result<()>/SimplexError; adapt D8 tests to assert state. | register D8 |
@@ -57,65 +59,71 @@
 - Impl: none. Gate: mise run rust:check.
 - Commit: `test(conformance): graft non-conflicting lineage unit-test hardening (D3/D4/D7/D11/D17)`
 
-### Task 2 — D1: empty edges/simplices become first-class
+### Task 2 — D5 owner upgrade: DiHypergraph queries become insertion-ordered (owner ruling 2026-07-22)
+- Red: add tests pinning insertion order for Di dimembers()/tail()/head()/members()/memberships(): members() = tail-then-head first-seen order; memberships() = first-seen edge order; dimembers preserves membership-add order. Port the lineage's strict-insertion Di tests (git show conformance-lineage:crates/hypergraph-rs/tests/core/test_dihypergraph.rs) where they pin this. NOTE: petgraph's edges_directed iterates its adjacency list in REVERSE insertion order — verify empirically and correct (collect+reverse or restructure), using the lineage dihypergraph.rs implementation as reference.
+- Impl: replace the BTreeSet-based members()/memberships() with dedup-preserving insertion-order construction; ensure dimembers/tail/head are insertion-ordered.
+- Gate: mise run rust:check.
+- Commit: `feat(core)!: DiHypergraph queries return insertion-ordered vecs (D5 owner upgrade)`
+
+### Task 3 — D1: empty edges/simplices become first-class
 - Red: flip test_add_edge_empty_members_returns_error→_creates_edge (Ok, num_edges()==1, id "0", num_nodes()==0); Di both_empty→allowed; SC empty_simplex_is_created (2nd add no-op).
 - Impl: delete empty-guards in H/Di add_edge and SC add_simplex short-circuit (:191-193); remove EdgeError::EmptyMembers + imports/matches; keep TooFewEdges.
 - Gate: mise run rust:check.
 - Commit: `feat(core)!: create empty edges/simplices to match XGI runtime (D1); drop EdgeError::EmptyMembers`
 
-### Task 3 — D1 ripple: subhypergraph retention, Laplacian guard, order-stats
+### Task 4 — D1 ripple: subhypergraph retention, Laplacian guard, order-stats
 - Red: (a) subhypergraph retains a selected empty edge (currently dropped by globalviews.rs:53); (b) normalized Laplacian on a size-0 edge yields no Inf/NaN; (c) assert order-stat treatment of size-0 edges in properties.rs.
 - Impl: drop empty exclusion from subhypergraph; add edge-axis zero guard in laplacian.rs; make order-stat decision explicit (recommend excluding size-0 from order counts — see open Q).
 - Gate: mise run rust:check.
 - Commit: `fix(core): propagate D1 empty-edge semantics into subhypergraph, laplacian, order-stats`
 
-### Task 4 — D9: undirected remove_node gains remove_empty
+### Task 5 — D9: undirected remove_node gains remove_empty
 - Red: port test_remove_node_weak_remove_empty_false_keeps_emptied_edge + _strong_ignores_remove_empty_false; update 2-arg call sites.
 - Impl: remove_node(node_id, strong, remove_empty) -> Result<(),NodeError> (mirror Di); internal remove_nodes_from passes remove_empty=true.
 - Gate: mise run rust:check.
 - Commit: `feat(core)!: undirected remove_node gains remove_empty three-mode semantics (D9)`
 
-### Task 5 — D2: MembershipError family for remove_node_from_edge
+### Task 6 — D2: MembershipError family for remove_node_from_edge
 - Red: port test_remove_node_from_edge_missing_edge/node/not_a_member pinning variants + exact Display strings (H+Di).
 - Impl: add MembershipError (error.rs); H/Di remove_node_from_edge → Result<(),MembershipError>, keep role: DiRole; export from lib.rs.
 - Gate: mise run rust:check.
 - Commit: `feat(core)!: MembershipError family for remove_node_from_edge, XGI-exact messages (D2)`
 
-### Task 6 — D2: bulk-removal Vec<Result> + continuation policies
+### Task 7 — D2: bulk-removal Vec<Result> + continuation policies
 - Red: port test_remove_nodes_from_missing_per_item_err_continues + test_remove_edges_from_missing_stops_after_first_err.
 - Impl: remove_nodes_from(ids,strong,remove_empty)->Vec<Result<(),NodeError>> (continue); remove_edges_from(ids)->Vec<Result<(),EdgeError>> (stop-on-first). Fix callers :1010/:1014, globalviews.rs:53 (let _ =; ids from existing → policy never triggers, verify).
 - Gate: mise run rust:check.
 - Commit: `feat(core)!: bulk remove ops return per-item Results with XGI continuation semantics (D2)`
 
-### Task 7 — D6: add_node replaces attrs on existing id
+### Task 8 — D6: add_node replaces attrs on existing id
 - Red: port test_add_node_existing_replaces_attrs (exact JSON, H+Di).
 - Impl: on existing id replace stored attrs (still return false); doc note binding merges first.
 - Gate: mise run rust:check.
 - Commit: `feat(core): add_node replaces attrs on existing id to compose with binding merge (D6)`
 
-### Task 8 — D13 copy-carries-frozen + D12 uniform freeze-guard audit
+### Task 9 — D13 copy-carries-frozen + D12 uniform freeze-guard audit
 - Red: port test_copy_of_frozen_is_frozen (H+Di); Di freeze-guard tests for add_node_to_edge/remove_node_from_edge.
 - Impl: copy() carries frozen:self.frozen (:400,dihypergraph.rs:509); add missing Di assert_not_frozen guards.
 - Gate: mise run rust:check.
 - Commit: `feat(core): copy carries frozen flag (D13) + uniform freeze-guard coverage (D12)`
 
-### Task 9 — Graft conformance harness dir + adapt undirected vectors; flip D10
+### Task 10 — Graft conformance harness dir + adapt undirected vectors; flip D10
 - Graft: copy conformance/generate_fixtures.py + xgi_ground_truth.json to crates/hypergraph-rs/conformance/, and tests/conformance/main.rs to crates/hypergraph-rs/tests/conformance/ (auto-discovered; fixture path correct). Preserve // D<N>: comments.
 - Adapt (cited): flip D10 — rename to conform_d10_clear_preserves_uid_counter, final assert "0"→"1" (ruling D10). Verify undirected vectors (D1/D3/D4/D5-sorted/D6/D9/D11/D12/D13/D17) pass.
 - Gate: mise run rust:check (conformance target green).
 - Commit: `test(conformance): graft XGI replay harness; flip D10 to XGI-conformant`
 
-### Task 10 — Adapt harness Di + SC vectors to main's API surface
+### Task 11 — Adapt harness Di + SC vectors to main's API surface
 - Adapt (cited): Di vectors → DiRole::Tail/Head (D14), two-arg add_edge (Di shape), .unwrap() on Result add_node_to_edge (D8), MembershipError (Task 5). SC D8 vectors → assert state not returned id, keep SimplexError (D8/D15). Skip/comment Di clear_edges (D16) + Di bulk vectors with // keep-main ruling notes.
 - Impl: test edits only. Gate: mise run rust:check (full suite green).
 - Commit: `test(conformance): adapt Di/SC vectors to main's DiRole/SimplexError surface (D8/D14/D15/D16)`
 
-### Task 11 — Wire rust:fixtures into .mise.toml
+### Task 12 — Wire rust:fixtures into .mise.toml
 - Impl: add [tasks."rust:fixtures"] run = ".venv/bin/python crates/hypergraph-rs/conformance/generate_fixtures.py" (read-only .venv oracle, xgi 0.10.2 verified; NEVER babylon's venv; NOT added to rust:check — committed JSON is the contract). Update the "deliberately ABSENT" comment.
-- Gate: mise run rust:fixtures yields byte-identical JSON (git clean); then mise run rust:check.
+- Gate: run mise run rust:fixtures. Owner ruling 2026-07-22: the live oracle is authoritative — if the regenerated JSON differs from the committed fixture, the regeneration OVERWRITES it and the diff ships in this task's commit for review; then mise run rust:check must be green against the regenerated JSON.
 - Commit: `build(mise): wire rust:fixtures generator (read-only .venv XGI oracle)`
 
-### Task 12 — Final full-workspace gate + close-out
+### Task 13 — Final full-workspace gate + close-out
 - Verify: mise run rust:check green; conformance target in the run; tree clean; HEAD advanced; Phase 3/4 test files still pass untouched.
 - Impl: update plans/EXECUTION-STATE.md — reconciliation DONE, rulings ledger location, Phase-7 Task 0 subsumed by D1, Phase 4 resumes at task 6.
 - Gate: mise run rust:check.

@@ -9,8 +9,9 @@ export const meta = {
 }
 
 // Paths updated 2026-07-22 after the repo moved out of babylon's tree.
+// XGI reference = this repo's own oracle venv (babylon's venv import is broken).
 const REPO = '/home/user/projects/game/hypergraph-rs'
-const XGI = '/home/user/projects/game/babylon/.venv/lib/python3.13/site-packages/xgi'
+const XGI = '/home/user/projects/game/hypergraph-rs/.venv/lib/python3.13/site-packages/xgi'
 const cfg = typeof args === 'string' ? JSON.parse(args) : args
 if (!cfg || !Number.isInteger(cfg.tasks) || cfg.tasks < 1 || !cfg.plan || !cfg.phase) {
   throw new Error('executor needs args {phase, plan, tasks>=1}; got: ' + JSON.stringify(args).slice(0, 200))
@@ -91,7 +92,7 @@ Return via StructuredOutput. Your final text IS the data.`, { label: 'p' + cfg.p
 phase('Review')
 const review = await agent(`Adversarial review of Phase ${cfg.phase} of the hypergraph-rs port, just executed as ${cfg.tasks} TDD commits in ${REPO} (standalone git repo, branch main).
 
-Ground truth: the phase plan ${cfg.plan} (including its deviations block), the design spec at /home/user/projects/game/babylon/.claude/worktrees/docs-hypergraph-rs-design/docs/superpowers/specs/2026-07-18-hypergraph-rs-design.md, and the REAL XGI 0.10.2 source at ${XGI} for every ported behavior (docstrings lie — read code).
+Ground truth: the phase plan ${cfg.plan} (including its deviations block), the design spec at /home/user/projects/game/babylon/docs/superpowers/specs/2026-07-18-hypergraph-rs-design.md, and the REAL XGI 0.10.2 source at ${XGI} for every ported behavior (docstrings lie — read code).
 
 Do all of the following, one cargo command at a time:
 1. Read every NEW/CHANGED Rust source + test file this phase added (git log/diff since the phase started tells you which; read them line by line).
