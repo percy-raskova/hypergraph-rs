@@ -15,6 +15,16 @@ pub mod linalg;
 pub mod readwrite;
 #[cfg(feature = "stats")]
 pub mod stats;
+pub mod utils;
+
+#[cfg(feature = "convert")]
+pub mod convert;
+
+#[cfg(feature = "dynamics")]
+pub mod dynamics;
+
+#[cfg(feature = "communities")]
+pub mod communities;
 
 pub use core::dihypergraph::DiHypergraph;
 pub use core::error::{EdgeError, MembershipError, NodeError, SimplexError, SwapError};
