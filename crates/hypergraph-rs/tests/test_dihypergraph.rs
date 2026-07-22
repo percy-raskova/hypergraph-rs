@@ -358,6 +358,43 @@ fn test_dihypergraph_freeze() {
 }
 
 #[test]
+fn test_dihypergraph_copy_of_frozen_is_frozen() {
+    // D13: the frozen flag carries into copy() (XGI's swizzled copy does not).
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_node("a", v());
+    dh.freeze();
+    let cp = dh.copy();
+    assert!(cp.is_frozen());
+}
+
+#[test]
+fn test_dihypergraph_freeze_guards_add_node_to_edge() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v())
+        .unwrap();
+    dh.freeze();
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mut dh = dh;
+        dh.add_node_to_edge("e0", "9", DiRole::Head).unwrap();
+    }));
+    assert!(r.is_err());
+}
+
+#[test]
+fn test_dihypergraph_freeze_guards_remove_node_from_edge() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v())
+        .unwrap();
+    dh.freeze();
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mut dh = dh;
+        dh.remove_node_from_edge("e0", "1", DiRole::Tail, true)
+            .unwrap();
+    }));
+    assert!(r.is_err());
+}
+
+#[test]
 fn test_dihypergraph_eq_and_debug() {
     let mut a: DiHypergraph = DiHypergraph::new();
     a.add_edge(vec!["1".into()], vec!["2".into()], Some("e0".into()), v())

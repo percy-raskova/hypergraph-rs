@@ -595,6 +595,19 @@ fn test_copy_of_empty() {
 }
 
 #[test]
+fn test_copy_of_frozen_is_frozen() {
+    // Divergence D13: XGI's copy() of a frozen network is NOT frozen
+    // (freeze is per-instance method-swizzling; the fresh instance never
+    // gets the patch). The Rust core's frozen flag is data — copy()
+    // carries it.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", serde_json::Value::Null);
+    h.freeze();
+    let cp = h.copy();
+    assert!(cp.is_frozen());
+}
+
+#[test]
 fn test_add_nodes_from_bulk() {
     let mut h: Hypergraph = Hypergraph::new();
     h.add_nodes_from(vec![

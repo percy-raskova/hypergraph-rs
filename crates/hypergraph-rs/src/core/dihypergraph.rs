@@ -530,7 +530,11 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         self.graph_attrs.clear();
     }
 
-    /// An independent deep copy. XGI parity: `DH.copy()` (always unfrozen).
+    /// An independent deep copy. XGI parity: `DH.copy()`.
+    /// D13: the copy carries `frozen`, unlike XGI's `copy()` — XGI's
+    /// freeze is per-instance method-swizzling that a fresh instance
+    /// never inherits, but the core's `frozen` is data, so the safety
+    /// property must propagate.
     pub fn copy(&self) -> Self
     where
         N: Clone,
@@ -543,7 +547,7 @@ impl<N, E, M> DiHypergraph<N, E, M> {
             hyperedge_ids: self.hyperedge_ids.clone(),
             edge_uid_counter: self.edge_uid_counter,
             graph_attrs: self.graph_attrs.clone(),
-            frozen: false,
+            frozen: self.frozen,
         }
     }
 
