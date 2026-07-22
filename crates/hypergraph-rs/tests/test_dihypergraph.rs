@@ -235,6 +235,55 @@ fn test_dihypergraph_remove_node_from_edge() {
         .is_err());
 }
 
+// D2: MembershipError family for Di remove_node_from_edge (Task 6).
+#[test]
+fn test_dihypergraph_remove_node_from_edge_missing_edge_returns_membership_error() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    let err = dh
+        .remove_node_from_edge("e1", "a", DiRole::Tail, true)
+        .unwrap_err();
+    assert_eq!(
+        err,
+        hypergraph_rs::MembershipError::EdgeNotFound {
+            edge_id: "e1".to_string()
+        }
+    );
+}
+
+#[test]
+fn test_dihypergraph_remove_node_from_edge_missing_node_returns_membership_error() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["a".into()], vec![], Some("e1".into()), v())
+        .unwrap();
+    let err = dh
+        .remove_node_from_edge("e1", "ghost", DiRole::Tail, true)
+        .unwrap_err();
+    assert_eq!(
+        err,
+        hypergraph_rs::MembershipError::NodeNotFound {
+            node_id: "ghost".to_string()
+        }
+    );
+}
+
+#[test]
+fn test_dihypergraph_remove_node_from_edge_node_not_a_member_returns_membership_error() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(vec!["a".into()], vec![], Some("e1".into()), v())
+        .unwrap();
+    dh.add_node("b", v());
+    let err = dh
+        .remove_node_from_edge("e1", "b", DiRole::Tail, true)
+        .unwrap_err();
+    assert_eq!(
+        err,
+        hypergraph_rs::MembershipError::NotAMember {
+            node_id: "b".to_string(),
+            edge_id: "e1".to_string()
+        }
+    );
+}
+
 #[test]
 fn test_dihypergraph_node_stats() {
     let mut dh: DiHypergraph = DiHypergraph::new();

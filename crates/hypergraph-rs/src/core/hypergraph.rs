@@ -9,7 +9,7 @@ use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use rustworkx_core::petgraph::visit::NodeIndexable;
 use serde_json::Value;
 
-use super::error::{EdgeError, NodeError, SwapError};
+use super::error::{EdgeError, MembershipError, NodeError, SwapError};
 use super::kinds::{MembershipEdge, NodeKind};
 
 /// A hypergraph, represented as a bipartite graph.
@@ -478,27 +478,40 @@ impl<N, E, M> Hypergraph<N, E, M> {
     }
 
     /// Remove a node from an existing edge.
+    ///
     /// XGI parity: `H.remove_node_from_edge(edge, node, remove_empty=True)`.
+    /// XGI raises `XGIError` for a missing edge, a missing node, or a node
+    /// that exists but is not a member of the named edge — the core returns
+    /// the matching [`MembershipError`] variant so callers discriminate
+    /// without string-matching; the PyO3 binding translates `Err` -> raise,
+    /// reproducing XGI's exact per-branch messages (D2 error channel).
     pub fn remove_node_from_edge(
         &mut self,
         edge_id: &str,
         node_id: &str,
         remove_empty: bool,
-    ) -> Result<(), NodeError> {
+    ) -> Result<(), MembershipError> {
         self.assert_not_frozen();
-        let he_idx = *self.hyperedge_ids.get(edge_id).ok_or(NodeError::NotFound {
-            node_id: edge_id.to_string(),
-        })?;
-        let agent_idx = *self.agent_ids.get(node_id).ok_or(NodeError::NotFound {
-            node_id: node_id.to_string(),
-        })?;
+        let he_idx = *self
+            .hyperedge_ids
+            .get(edge_id)
+            .ok_or(MembershipError::EdgeNotFound {
+                edge_id: edge_id.to_string(),
+            })?;
+        let agent_idx = *self
+            .agent_ids
+            .get(node_id)
+            .ok_or(MembershipError::NodeNotFound {
+                node_id: node_id.to_string(),
+            })?;
 
         // Check if the node is actually in the edge
         let edge_to_he = self.inner.find_edge(agent_idx, he_idx);
         let edge_from_he = self.inner.find_edge(he_idx, agent_idx);
         if edge_to_he.is_none() {
-            return Err(NodeError::NotFound {
-                node_id: format!("node {} not in edge {}", node_id, edge_id),
+            return Err(MembershipError::NotAMember {
+                node_id: node_id.to_string(),
+                edge_id: edge_id.to_string(),
             });
         }
 

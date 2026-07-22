@@ -805,6 +805,62 @@ fn test_remove_node_from_edge_node_not_in_edge_returns_error() {
     assert!(result.is_err());
 }
 
+// D2: MembershipError family for remove_node_from_edge (Task 6).
+use hypergraph_rs::MembershipError;
+
+#[test]
+fn test_remove_node_from_edge_missing_edge_returns_membership_error() {
+    let mut h: Hypergraph = Hypergraph::new();
+    let err = h.remove_node_from_edge("e1", "a", true).unwrap_err();
+    assert_eq!(
+        err,
+        MembershipError::EdgeNotFound {
+            edge_id: "e1".to_string()
+        }
+    );
+    assert_eq!(format!("{err}"), "edge e1 does not exist");
+}
+
+#[test]
+fn test_remove_node_from_edge_missing_node_returns_membership_error() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["a".to_string()],
+        Some("e1".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    let err = h.remove_node_from_edge("e1", "ghost", true).unwrap_err();
+    assert_eq!(
+        err,
+        MembershipError::NodeNotFound {
+            node_id: "ghost".to_string()
+        }
+    );
+    assert_eq!(format!("{err}"), "node ghost does not exist");
+}
+
+#[test]
+fn test_remove_node_from_edge_node_not_a_member_returns_membership_error() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["a".to_string()],
+        Some("e1".to_string()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_node("b", serde_json::Value::Null);
+    let err = h.remove_node_from_edge("e1", "b", true).unwrap_err();
+    assert_eq!(
+        err,
+        MembershipError::NotAMember {
+            node_id: "b".to_string(),
+            edge_id: "e1".to_string()
+        }
+    );
+    assert_eq!(format!("{err}"), "node b is not a member of edge e1");
+}
+
 #[test]
 fn test_set_node_attributes_from_pairs() {
     let mut h: Hypergraph = Hypergraph::new();

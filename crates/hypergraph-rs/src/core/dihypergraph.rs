@@ -12,7 +12,7 @@ use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use rustworkx_core::petgraph::visit::EdgeRef;
 use rustworkx_core::petgraph::Direction;
 
-use super::error::{EdgeError, NodeError};
+use super::error::{EdgeError, MembershipError, NodeError};
 use super::kinds::{DiMembershipEdge, DiRole, NodeKind};
 
 /// Deduplicate a Vec of ids, preserving first-seen order.
@@ -395,24 +395,32 @@ impl<N, E, M> DiHypergraph<N, E, M> {
     /// Remove a node from an edge's given role. Errors if the edge/node is
     /// missing or the node is not in that role-set; drops the edge if empty and
     /// `remove_empty`. XGI parity: `DH.remove_node_from_edge(edge, node,
-    /// direction, remove_empty)` (dihypergraph.py:891-943).
+    /// direction, remove_empty)` (dihypergraph.py:891-943). XGI raises
+    /// `XGIError` for a missing edge, a missing node, or a node not a
+    /// member in that direction — the core returns the matching
+    /// [`MembershipError`] variant and the PyO3 binding translates
+    /// `Err` -> raise, reproducing XGI's exact per-direction messages
+    /// (D2 error channel).
     pub fn remove_node_from_edge(
         &mut self,
         edge_id: &str,
         node_id: &str,
         role: DiRole,
         remove_empty: bool,
-    ) -> Result<(), NodeError> {
+    ) -> Result<(), MembershipError> {
         self.assert_not_frozen();
         let he = *self
             .hyperedge_ids
             .get(edge_id)
-            .ok_or(NodeError::EdgeNotFound {
+            .ok_or(MembershipError::EdgeNotFound {
                 edge_id: edge_id.to_string(),
             })?;
-        let a = *self.agent_ids.get(node_id).ok_or(NodeError::NotFound {
-            node_id: node_id.to_string(),
-        })?;
+        let a = *self
+            .agent_ids
+            .get(node_id)
+            .ok_or(MembershipError::NodeNotFound {
+                node_id: node_id.to_string(),
+            })?;
         let target = self
             .inner
             .edges_directed(he, Direction::Incoming)
@@ -423,8 +431,9 @@ impl<N, E, M> DiHypergraph<N, E, M> {
                 self.inner.remove_edge(e);
             }
             None => {
-                return Err(NodeError::NotFound {
-                    node_id: format!("node {node_id} not in {role:?} of edge {edge_id}"),
+                return Err(MembershipError::NotAMember {
+                    node_id: node_id.to_string(),
+                    edge_id: edge_id.to_string(),
                 });
             }
         }
