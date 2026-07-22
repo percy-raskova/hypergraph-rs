@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 mod errors;
 mod hypergraph;
 mod pyid;
-// mod views;        // Task 5
+mod views; // Task 5
 // mod dihypergraph; // Task 6
 // mod simplicial;   // Task 7
 // mod linalg;       // Task 8
@@ -22,5 +22,6 @@ mod pyid;
 fn _hypergraph_rs_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     errors::register(m)?;
     hypergraph::register(m)?;
+    views::register(m)?;
     Ok(())
 }

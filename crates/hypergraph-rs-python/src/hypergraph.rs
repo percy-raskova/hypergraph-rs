@@ -233,30 +233,16 @@ impl PyHypergraph {
         Ok(self.inner.memberships(&core).map(|m| m.len()).unwrap_or(0))
     }
 
-    /// `H.nodes` — Task 4 stub: a plain list of the original Python ids in insertion order.
-    /// Task 5 replaces this with the full `NodeView` proxy.
+    /// `H.nodes` — the full `NodeView` proxy (Task 5; replaces the Task 4 plain-list stub).
     #[getter]
-    fn nodes(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
-        let list = PyList::empty(py);
-        for id in self.inner.node_ids() {
-            if let Some(obj) = self.node_ids.get_obj(py, &id) {
-                list.append(obj)?;
-            }
-        }
-        Ok(list.unbind())
+    fn nodes(slf: Py<Self>) -> crate::views::PyNodeView {
+        crate::views::PyNodeView { hg: slf, ids: None }
     }
 
-    /// `H.edges` — Task 4 stub: a plain list of the original Python ids in insertion order.
-    /// Task 5 replaces this with the full `EdgeView` proxy.
+    /// `H.edges` — the full `EdgeView` proxy (Task 5; replaces the Task 4 plain-list stub).
     #[getter]
-    fn edges(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
-        let list = PyList::empty(py);
-        for id in self.inner.edge_ids() {
-            if let Some(obj) = self.edge_ids.get_obj(py, &id) {
-                list.append(obj)?;
-            }
-        }
-        Ok(list.unbind())
+    fn edges(slf: Py<Self>) -> crate::views::PyEdgeView {
+        crate::views::PyEdgeView { hg: slf, ids: None }
     }
 }
 
