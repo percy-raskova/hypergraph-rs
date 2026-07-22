@@ -8,10 +8,11 @@
 # ancestry; a nix-provided cargo of the same version satisfies the pin
 # without rustup). MSRV floor 1.85 lives in Cargo.toml rust-version.
 #
-# NOTE rust:fixtures is deliberately ABSENT on main: the XGI conformance
-# harness (conformance/generate_fixtures.py + tests replay) lives on the
-# `conformance-lineage` branch and returns with the reconciliation task —
-# see plans/EXECUTION-STATE.md "Lineage reconciliation".
+# NOTE rust:fixtures regenerates crates/hypergraph-rs/conformance/xgi_ground_truth.json
+# from the live XGI 0.10.2 oracle in .venv (read-only reference install — NEVER
+# babylon's venv). It is deliberately NOT part of rust:check: the committed JSON
+# is the contract tests/conformance/main.rs replays against, and regeneration is
+# a manual, reviewed act, not a CI-gated one.
 
 [tasks."rust:check"]
 description = "Rust full gate: format:check + lint (clippy -D warnings) + test + doc — CI parity. Sequential run-block, NOT parallel depends: one cargo target dir has one file lock, so parallel legs only contend (machine-safety: heavy builds single-flight)"
@@ -42,6 +43,10 @@ run = "cargo test --workspace --locked"
 [tasks."rust:doc"]
 description = "Build Rust API docs (no deps), rustdoc warnings denied"
 run = "RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --locked"
+
+[tasks."rust:fixtures"]
+description = "Regenerate the XGI conformance fixture from the live XGI 0.10.2 oracle (.venv, read-only reference install). NOT part of rust:check — the committed JSON is the contract."
+run = ".venv/bin/python crates/hypergraph-rs/conformance/generate_fixtures.py"
 
 [tasks."rust:msrv"]
 description = "MSRV floor check against the rust-version declared in Cargo.toml (currently 1.85)"
