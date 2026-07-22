@@ -200,6 +200,33 @@ impl<N, E, M> Hypergraph<N, E, M> {
         Ok(edge_id)
     }
 
+    /// Add a hyperedge with NO members (an empty edge). Returns the assigned edge id.
+    ///
+    /// XGI 0.10.2 permits empty edges (`H.add_edge([])`); the strict core `add_edge` rejects them
+    /// with `EdgeError::EmptyMembers` by design. This additive method is the sanctioned
+    /// binding-support hook (Phase 7 OQ-1) — it duplicates only `add_edge`'s id-assignment/counter
+    /// policy, adds a lone `Hyperedge` node with no membership edges, and returns the id (so callers
+    /// need no separate auto-id peek).
+    pub fn add_empty_edge(&mut self, idx: Option<String>, attrs: E) -> String {
+        self.assert_not_frozen();
+        let edge_id = match &idx {
+            Some(id) => id.clone(),
+            None => self.edge_uid_counter.to_string(),
+        };
+        if let Some(id) = &idx {
+            if let Ok(n) = id.parse::<u64>() {
+                if n >= self.edge_uid_counter {
+                    self.edge_uid_counter = n + 1;
+                }
+            }
+        } else {
+            self.edge_uid_counter += 1;
+        }
+        let he_idx = self.inner.add_node(NodeKind::Hyperedge(attrs));
+        self.hyperedge_ids.insert(edge_id.clone(), he_idx);
+        edge_id
+    }
+
     /// Check if a hyperedge exists.
     /// XGI parity: `id in H.edges`.
     pub fn has_edge(&self, edge_id: &str) -> bool {

@@ -5,6 +5,27 @@ fn v() -> serde_json::Value {
 }
 
 #[test]
+fn add_empty_edge_creates_memberless_hyperedge_and_returns_id() {
+    use hypergraph_rs::Hypergraph;
+    use serde_json::Value;
+    let mut h: Hypergraph<Value, Value, Value> = Hypergraph::new();
+    // Auto-id path: returns the assigned id ("0"), edge exists, has zero members.
+    let id = h.add_empty_edge(None, Value::Null);
+    assert_eq!(id, "0");
+    assert!(h.has_edge(&id));
+    assert_eq!(h.num_edges(), 1);
+    assert_eq!(h.num_nodes(), 0); // no members => no agent nodes
+    assert_eq!(h.members(&id).map(|m| m.len()), Some(0));
+    // Explicit-id path: returned id echoes the request; counter still advances past numeric ids.
+    let id2 = h.add_empty_edge(Some("e7".to_string()), Value::Null);
+    assert_eq!(id2, "e7");
+    assert!(h.has_edge("e7"));
+    // Auto-id after an explicit non-numeric id continues the uid counter (parity with add_edge).
+    let id3 = h.add_empty_edge(None, Value::Null);
+    assert_eq!(id3, "1");
+}
+
+#[test]
 fn test_remove_edges_from_bulk() {
     let mut h: Hypergraph = Hypergraph::new();
     h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), v())
