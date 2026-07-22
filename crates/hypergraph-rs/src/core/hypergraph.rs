@@ -196,12 +196,17 @@ impl<N, E, M> Hypergraph<N, E, M> {
         self.hyperedge_ids.contains_key(edge_id)
     }
 
-    /// Get the edge IDs of which a node is a member.
+    /// Get the edge IDs of which a node is a member, in insertion (membership-add)
+    /// order. petgraph's `neighbors` walks a node's adjacency list in REVERSE
+    /// insertion order, so we collect + reverse before mapping back to ids
+    /// (same correction as DiHypergraph's D5 owner upgrade).
     /// XGI parity: `H.nodes.memberships(n)`.
     pub fn memberships(&self, node_id: &str) -> Option<Vec<String>> {
         let agent_idx = *self.agent_ids.get(node_id)?;
+        let mut neighbor_idxs: Vec<_> = self.inner.neighbors(agent_idx).collect();
+        neighbor_idxs.reverse();
         let mut result: Vec<String> = Vec::new();
-        for neighbor_idx in self.inner.neighbors(agent_idx) {
+        for neighbor_idx in neighbor_idxs {
             if let Some(NodeKind::Hyperedge(_)) = self.inner.node_weight(neighbor_idx) {
                 for (eid, &idx) in &self.hyperedge_ids {
                     if idx == neighbor_idx {
@@ -214,12 +219,15 @@ impl<N, E, M> Hypergraph<N, E, M> {
         Some(result)
     }
 
-    /// Get the node IDs that are members of an edge.
+    /// Get the node IDs that are members of an edge, in insertion order (see
+    /// [`Self::memberships`] for the reverse-adjacency correction).
     /// XGI parity: `H.edges.members(e)`.
     pub fn members(&self, edge_id: &str) -> Option<Vec<String>> {
         let he_idx = *self.hyperedge_ids.get(edge_id)?;
+        let mut neighbor_idxs: Vec<_> = self.inner.neighbors(he_idx).collect();
+        neighbor_idxs.reverse();
         let mut result: Vec<String> = Vec::new();
-        for neighbor_idx in self.inner.neighbors(he_idx) {
+        for neighbor_idx in neighbor_idxs {
             if let Some(NodeKind::Agent(_)) = self.inner.node_weight(neighbor_idx) {
                 for (nid, &idx) in &self.agent_ids {
                     if idx == neighbor_idx {
@@ -244,9 +252,17 @@ impl<N, E, M> Hypergraph<N, E, M> {
         self.hyperedge_ids.keys().cloned().collect()
     }
 
-    /// Remove a node from the hypergraph.
+    /// Remove a node from the hypergraph. Weak removal (`strong=false`)
+    /// detaches the node from its edges and, when `remove_empty` is true,
+    /// drops edges that become empty as a result; strong removal drops all
+    /// containing edges regardless of `remove_empty` (D9).
     /// XGI parity: `H.remove_node(n, strong=False, remove_empty=True)`.
-    pub fn remove_node(&mut self, node_id: &str, strong: bool) -> Result<(), NodeError> {
+    pub fn remove_node(
+        &mut self,
+        node_id: &str,
+        strong: bool,
+        remove_empty: bool,
+    ) -> Result<(), NodeError> {
         self.assert_not_frozen();
         let agent_idx = *self.agent_ids.get(node_id).ok_or(NodeError::NotFound {
             node_id: node_id.to_string(),
@@ -269,13 +285,15 @@ impl<N, E, M> Hypergraph<N, E, M> {
                 if let Some(e) = self.inner.find_edge(he_idx, agent_idx) {
                     self.inner.remove_edge(e);
                 }
-                let has_members = self
-                    .inner
-                    .neighbors(he_idx)
-                    .any(|n| matches!(self.inner.node_weight(n), Some(NodeKind::Agent(_))));
-                if !has_members {
-                    self.inner.remove_node(he_idx);
-                    self.hyperedge_ids.shift_remove(eid);
+                if remove_empty {
+                    let has_members = self
+                        .inner
+                        .neighbors(he_idx)
+                        .any(|n| matches!(self.inner.node_weight(n), Some(NodeKind::Agent(_))));
+                    if !has_members {
+                        self.inner.remove_node(he_idx);
+                        self.hyperedge_ids.shift_remove(eid);
+                    }
                 }
             }
         }
@@ -518,7 +536,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
     /// XGI parity: `H.remove_nodes_from(nodes)`.
     pub fn remove_nodes_from(&mut self, node_ids: &[String]) {
         for nid in node_ids {
-            let _ = self.remove_node(nid, false);
+            let _ = self.remove_node(nid, false, true);
         }
     }
 
