@@ -136,6 +136,20 @@ and pinned as-is). Workspace: 353 tests green, full `mise run rust:check` clean.
 owner's ruling on `plans/PROPOSAL-raster-replan.md` (TUI/raster re-scope of Phases
 5/8/9/10, incl. the Phase R cell rasterizer + Lawverian 3D instruments).
 
+## 2026-07-22 UPDATE 4 — Phase 6 DONE, review APPROVE
+
+Phase 6 (17 tasks, run `wf_b9542453-5b5`) completed 0370e1d..e3632da; Opus review verdict
+**approve** — first clean phase review of the program. Workspace: 406 tests green, full
+gate clean. Review's two doc findings fixed in the plan's deviations block same day; one
+advisory PARKED (add to end-of-program ceremony list): `simulate_kuramoto` panics (index
+OOB) on caller-supplied omega/theta shorter than n — XGI also rejects (numpy shape error),
+parity preserved; optionally add a typed LengthMismatch error or document the precondition.
+
+**Program position:** Phases 0-4 + 6 done; reconciliation done. Remaining: Phase 5 (HELD on
+raster-proposal ruling), Phase 7 (needs Phase 5 for its layout/render bindings), 8/9/10
+(shape depends on same ruling). The critical path now blocks on the owner's
+PROPOSAL-raster-replan.md decision.
+
 **Phase 4 resumes at task 6** (tasks 1-5 were already committed pre-reconciliation and are
 untouched by any reconciliation task; the reconciliation work landed entirely in `crates/`
 core, `tests/conformance/`, and `.mise.toml`, not in `phase-4-generators-stats-readwrite.md`'s

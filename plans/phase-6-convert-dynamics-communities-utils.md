@@ -119,7 +119,13 @@ where noted; determinism improvements are permanent.
   - `subfaces` with `order == Some(0)` and empty `edges`: XGI's `if order and order >
     max_order` (`utilities.py:353`) is falsy for `order == 0` and skips the guard,
     so an empty `edges` list crashes in `max([])`. Our `subfaces` computes
-    `max_order = -1` for empty input and returns `Ok(vec![])` instead.
+    `max_order = -1` for empty input and returns
+    `Err(OrderTooLarge { order: 0, max_order: -1 })` — a typed error where XGI
+    crashes. (Corrected 2026-07-22 per the Phase 6 review: the original text here
+    claimed `Ok(vec![])`, which the code never did.)
+  - `subfaces` with `order <= Some(-2)`: XGI leaves `faces_to_add` unbound
+    (UnboundLocalError); ours treats it as "no faces" and returns `Ok(vec![])`
+    (declared 2026-07-22 per the Phase 6 review — was implemented but undeclared).
   - `from_bipartite_edgelist` on an empty edge list: XGI indexes `edges[0]`
     (`bipartite_edges.py:28`) unconditionally and raises `IndexError`. Ours returns an
     empty hypergraph.
