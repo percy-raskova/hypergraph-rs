@@ -1,12 +1,10 @@
-# Deferred symbols (78/164 not built by any phase)
+# Deferred symbols (71/164 not built by any phase)
 
 - `adjacency_tensor` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `barycenter_kamada_kawai_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `barycenter_spring_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `binomial_sequence` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `bipartite_spring_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `boundary_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `circular_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `compute_simplicial_order_parameter` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `dcsbm_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `diedgestat_func` — no Phase 0-6 plan built it; calling raises NotImplementedError.
@@ -14,14 +12,11 @@
 - `dispatch_many_stats` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `dispatch_stat` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `download_xgi_data` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `draw` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `draw_bipartite` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `draw_directed_dyads` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `draw_hyperedge_labels` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `draw_hyperedges` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `draw_multilayer` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `draw_node_labels` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `draw_nodes` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `draw_simplices` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `draw_undirected_dyads` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `edge_positions_from_barycenters` — no Phase 0-6 plan built it; calling raises NotImplementedError.
@@ -50,11 +45,9 @@
 - `node_swap` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `nodestat_func` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `pairwise_incidence` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `pairwise_spring_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `pca_transform` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `random_flag_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `random_flag_complex_d2` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `random_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `read_hif_collection` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `request_json_from_url` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `request_json_from_url_cached` — no Phase 0-6 plan built it; calling raises NotImplementedError.
@@ -79,13 +72,15 @@
 - `write_hif_collection` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `z_eigenvector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 
-# Bound symbols (86/164)
+# Bound symbols (93/164)
 
 - `DiHypergraph`
 - `Hypergraph`
 - `SimplicialComplex`
 - `adjacency_matrix`
+- `bipartite_spring_layout`
 - `chung_lu_hypergraph`
+- `circular_layout`
 - `clique_eigenvector_centrality`
 - `clique_motif_matrix`
 - `clustering_coefficient`
@@ -100,6 +95,9 @@
 - `degree_histogram`
 - `degree_matrix`
 - `density`
+- `draw`
+- `draw_hyperedges`
+- `draw_nodes`
 - `dual_dict`
 - `dynamical_assortativity`
 - `edge_neighborhood`
@@ -131,10 +129,12 @@
 - `normalized_hypergraph_laplacian`
 - `num_edges_order`
 - `number_connected_components`
+- `pairwise_spring_layout`
 - `parse_bipartite_edgelist`
 - `parse_edgelist`
 - `powerset`
 - `random_hypergraph`
+- `random_layout`
 - `random_simplicial_complex`
 - `read_bipartite_edgelist`
 - `read_edgelist`

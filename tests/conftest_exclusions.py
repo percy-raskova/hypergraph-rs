@@ -251,4 +251,23 @@ TEST_EXCLUSIONS = {
          "exact numpy float-trajectory parity not achievable (§9.4); structural shape asserts kept."),
         ("test_simulate_simplicial_kuramoto", "deferred: simplicial Kuramoto (Phase 6)."),
     ],
+    "drawing/test_layout.py": [
+        ("test_random_layout",
+         "the random_layout seed-reproducibility assertions (the point of this test) pass; the "
+         "test then also calls xgi.random_flag_complex_d2 (deferred generator, §A ledger) to build "
+         "a SimplicialComplex fixture, which is unreachable — whole test excluded per protocol."),
+        ("test_pairwise_spring_layout_simplicial_complex",
+         "deferred: random_flag_complex_d2 (generators, §A ledger); the equivalent Hypergraph "
+         "coverage (test_pairwise_spring_layout_hypergraph) stays green."),
+        ("test_barycenter_spring_layout", "deferred: barycenter_spring_layout (drawing/layout, no Phase-5 analogue, Task 13 note)."),
+        ("test_weighted_barycenter_spring_layout", "deferred: weighted_barycenter_spring_layout (drawing/layout, no Phase-5 analogue, Task 13 note)."),
+        ("test_pca_transform", "deferred: pca_transform (drawing/layout, no Phase-5 analogue, Task 13 note)."),
+        ("test_circular_layout",
+         "circular_layout itself (center/radius kwargs, empty/single-node cases) is fixed and "
+         "green (verified directly); this test's final assertion calls "
+         "xgi.random_flag_complex_d2 (deferred generator, §A ledger), which is unreachable."),
+        ("test_spiral_layout", "deferred: spiral_layout (drawing/layout, no Phase-5 analogue, Task 13 note)."),
+        ("test_barycenter_kamada_kawai_layout", "deferred: barycenter_kamada_kawai_layout (drawing/layout, no Phase-5 analogue, Task 13 note)."),
+        ("test_edge_positions_from_barycenters", "deferred: edge_positions_from_barycenters (drawing/layout, no Phase-5 analogue, Task 13 note)."),
+    ],
 }
