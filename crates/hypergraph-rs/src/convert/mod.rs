@@ -7,6 +7,8 @@
 //! (see the Phase-6 plan open questions).
 
 use indexmap::IndexMap;
+use rustworkx_core::petgraph::stable_graph::StableDiGraph;
+use rustworkx_core::petgraph::visit::{EdgeRef, IntoEdgeReferences};
 use serde_json::Value;
 use thiserror::Error;
 
@@ -103,4 +105,71 @@ pub fn to_bipartite_edgelist(h: &Hypergraph) -> Vec<(String, String)> {
         }
     }
     out
+}
+
+/// A vertex of a bipartite representation: an id plus a layer marker.
+///
+/// `bipartite == 0` -> a hypergraph node; `bipartite == 1` -> a hyperedge. Mirrors XGI's
+/// `bipartite=0/1` NetworkX node attribute (`convert/bipartite_graph.py`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct BipartiteNode {
+    /// The original node or edge id.
+    pub id: String,
+    /// Layer marker: 0 = node, 1 = hyperedge.
+    pub bipartite: u8,
+}
+
+/// Build a bipartite petgraph graph: node-layer + edge-layer vertices, one arc per
+/// membership (node -> hyperedge).
+///
+/// XGI parity: `xgi.to_bipartite_graph` (`convert/bipartite_graph.py:110-185`). Vertices
+/// are added in node-insertion order first, then edge-insertion order.
+pub fn to_bipartite_graph(h: &Hypergraph) -> StableDiGraph<BipartiteNode, ()> {
+    let mut g: StableDiGraph<BipartiteNode, ()> = StableDiGraph::new();
+    let mut node_idx = IndexMap::new();
+    for n in h.node_ids() {
+        let idx = g.add_node(BipartiteNode { id: n.clone(), bipartite: 0 });
+        node_idx.insert(n, idx);
+    }
+    for e in h.edge_ids() {
+        let e_idx = g.add_node(BipartiteNode { id: e.clone(), bipartite: 1 });
+        for m in h.members(&e).unwrap_or_default() {
+            g.add_edge(node_idx[&m], e_idx, ());
+        }
+    }
+    g
+}
+
+/// Reconstruct a hypergraph from a bipartite petgraph graph.
+///
+/// XGI parity: `xgi.from_bipartite_graph` (`convert/bipartite_graph.py:9-97`). Validates
+/// that every arc joins a node-layer (0) and an edge-layer (1) vertex.
+pub fn from_bipartite_graph(
+    g: &StableDiGraph<BipartiteNode, ()>,
+) -> Result<Hypergraph, ConvertError> {
+    // Validate markers.
+    for w in g.node_weights() {
+        if w.bipartite > 1 {
+            return Err(ConvertError::InvalidMarker(w.id.clone()));
+        }
+    }
+    let mut h = Hypergraph::new();
+    // Add all node-layer vertices first (so isolated nodes survive).
+    for w in g.node_weights() {
+        if w.bipartite == 0 {
+            h.add_node(&w.id, Value::Null);
+        }
+    }
+    // Each arc: one endpoint node-layer, one edge-layer.
+    for edge in g.edge_references() {
+        let src = g.node_weight(edge.source()).expect("valid source");
+        let dst = g.node_weight(edge.target()).expect("valid target");
+        let (node, hyperedge) = match (src.bipartite, dst.bipartite) {
+            (0, 1) => (&src.id, &dst.id),
+            (1, 0) => (&dst.id, &src.id),
+            _ => return Err(ConvertError::NotBipartite),
+        };
+        let _ = h.add_node_to_edge(hyperedge, node);
+    }
+    Ok(h)
 }
