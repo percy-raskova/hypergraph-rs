@@ -4,12 +4,14 @@ use hypergraph_rs::convert::{
     from_bipartite_edgelist, from_hyperedge_dict, from_hyperedge_list, to_bipartite_edgelist,
     to_hyperedge_dict, to_hyperedge_list,
 };
-use hypergraph_rs::Hypergraph;
 use hypergraph_rs::convert::{from_bipartite_graph, to_bipartite_graph, BipartiteNode};
+use hypergraph_rs::Hypergraph;
 use rustworkx_core::petgraph::stable_graph::StableDiGraph;
 
 fn rows(r: &[&[&str]]) -> Vec<Vec<String>> {
-    r.iter().map(|e| e.iter().map(|s| s.to_string()).collect()).collect()
+    r.iter()
+        .map(|e| e.iter().map(|s| s.to_string()).collect())
+        .collect()
 }
 
 #[test]
@@ -23,7 +25,12 @@ fn test_from_hyperedge_list_auto_ids() {
 #[test]
 fn test_to_hyperedge_list() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let list = to_hyperedge_list(&h);
     assert_eq!(list.len(), 1);
     let mut m = list[0].clone();
@@ -46,8 +53,14 @@ fn test_from_hyperedge_dict_keeps_ids() {
 #[test]
 fn test_to_hyperedge_dict() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(vec!["c".into()], Some("e2".into()), serde_json::Value::Null)
+        .unwrap();
     let d = to_hyperedge_dict(&h);
     assert_eq!(d.keys().collect::<Vec<_>>(), vec!["e1", "e2"]);
     assert_eq!(d.get("e2").unwrap(), &vec!["c".to_string()]);
@@ -84,7 +97,12 @@ fn test_from_bipartite_edgelist() {
 #[test]
 fn test_to_bipartite_edgelist() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let el = to_bipartite_edgelist(&h);
     assert_eq!(el.len(), 2);
     assert!(el.contains(&("a".to_string(), "e1".to_string())));
@@ -94,8 +112,18 @@ fn test_to_bipartite_edgelist() {
 #[test]
 fn test_bipartite_edgelist_roundtrip() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".into(), "c".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let back = from_bipartite_edgelist(to_bipartite_edgelist(&h));
     assert_eq!(back.num_nodes(), 3);
     assert_eq!(back.num_edges(), 2);
@@ -104,7 +132,12 @@ fn test_bipartite_edgelist_roundtrip() {
 #[test]
 fn test_to_bipartite_graph_markers() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let g = to_bipartite_graph(&h);
     // 2 node-layer + 1 edge-layer = 3 vertices; each membership = 1 arc.
     assert_eq!(g.node_count(), 3);
@@ -117,8 +150,18 @@ fn test_to_bipartite_graph_markers() {
 #[test]
 fn test_from_bipartite_graph_reconstructs() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".into(), "c".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let g = to_bipartite_graph(&h);
     let back = from_bipartite_graph(&g).unwrap();
     assert_eq!(back.num_nodes(), 3);
@@ -131,7 +174,10 @@ fn test_from_bipartite_graph_reconstructs() {
 #[test]
 fn test_from_bipartite_graph_invalid_marker_errors() {
     let mut g: StableDiGraph<BipartiteNode, ()> = StableDiGraph::new();
-    g.add_node(BipartiteNode { id: "bad".into(), bipartite: 2 });
+    g.add_node(BipartiteNode {
+        id: "bad".into(),
+        bipartite: 2,
+    });
     assert!(from_bipartite_graph(&g).is_err());
 }
 
@@ -139,8 +185,14 @@ fn test_from_bipartite_graph_invalid_marker_errors() {
 fn test_from_bipartite_graph_non_bipartite_errors() {
     // Two node-layer vertices joined directly -> not bipartite.
     let mut g: StableDiGraph<BipartiteNode, ()> = StableDiGraph::new();
-    let a = g.add_node(BipartiteNode { id: "a".into(), bipartite: 0 });
-    let b = g.add_node(BipartiteNode { id: "b".into(), bipartite: 0 });
+    let a = g.add_node(BipartiteNode {
+        id: "a".into(),
+        bipartite: 0,
+    });
+    let b = g.add_node(BipartiteNode {
+        id: "b".into(),
+        bipartite: 0,
+    });
     g.add_edge(a, b, ());
     assert!(from_bipartite_graph(&g).is_err());
 }
@@ -150,7 +202,12 @@ use hypergraph_rs::convert::to_graph;
 #[test]
 fn test_to_graph_node_count() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let g = to_graph(&h);
     assert_eq!(g.node_count(), 3);
     // A triangle-hyperedge projects to a 3-clique: 3 undirected edges.
@@ -160,8 +217,18 @@ fn test_to_graph_node_count() {
 #[test]
 fn test_to_graph_disjoint_edges() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["c".into(), "d".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["c".into(), "d".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let g = to_graph(&h);
     assert_eq!(g.node_count(), 4);
     assert_eq!(g.edge_count(), 2);
@@ -172,7 +239,12 @@ use hypergraph_rs::convert::{from_hypergraph_dict, to_hypergraph_dict};
 #[test]
 fn test_to_hypergraph_dict_shape() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["b".into(), "a".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["b".into(), "a".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     h.set_graph_attr("name", serde_json::json!("demo"));
     let d = to_hypergraph_dict(&h);
     assert_eq!(d["type"], "hypergraph");
@@ -202,8 +274,18 @@ fn test_from_hypergraph_dict() {
 #[test]
 fn test_hypergraph_dict_roundtrip() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::json!({"w": 1})).unwrap();
-    h.add_edge(vec!["b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::json!({"w": 1}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["b".into(), "c".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let back = from_hypergraph_dict(&to_hypergraph_dict(&h)).unwrap();
     assert_eq!(back.num_nodes(), 3);
     assert_eq!(back.num_edges(), 2);
@@ -223,8 +305,18 @@ use hypergraph_rs::convert::cut_to_order;
 #[test]
 fn test_cut_to_order_removes_large_edges() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("small".into()), serde_json::Value::Null).unwrap(); // order 1
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("big".into()), serde_json::Value::Null).unwrap(); // order 2
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("small".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap(); // order 1
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("big".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap(); // order 2
     let cut = cut_to_order(&h, 1).unwrap();
     assert!(cut.has_edge("small"));
     assert!(!cut.has_edge("big"));
@@ -235,8 +327,18 @@ fn test_cut_to_order_removes_large_edges() {
 #[test]
 fn test_cut_to_order_keeps_all_when_order_is_max() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("e2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let cut = cut_to_order(&h, 2).unwrap();
     assert_eq!(cut.num_edges(), 2);
 }
@@ -244,6 +346,11 @@ fn test_cut_to_order_keeps_all_when_order_is_max() {
 #[test]
 fn test_cut_to_order_too_large_errors() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e1".into()), serde_json::Value::Null).unwrap(); // max order 1
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap(); // max order 1
     assert!(cut_to_order(&h, 3).is_err());
 }

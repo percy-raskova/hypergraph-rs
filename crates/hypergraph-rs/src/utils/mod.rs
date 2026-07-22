@@ -122,7 +122,10 @@ pub fn subfaces(edges: &[Vec<String>], order: Option<i64>) -> Result<Vec<Vec<Str
     let max_order: i64 = edges.iter().map(|e| e.len() as i64 - 1).max().unwrap_or(-1);
     if let Some(o) = order {
         if o > max_order {
-            return Err(UtilError::OrderTooLarge { order: o, max_order });
+            return Err(UtilError::OrderTooLarge {
+                order: o,
+                max_order,
+            });
         }
     }
     let mut faces: Vec<Vec<String>> = Vec::new();

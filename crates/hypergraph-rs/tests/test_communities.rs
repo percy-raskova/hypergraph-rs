@@ -6,8 +6,18 @@ use ndarray::Array2;
 
 fn two_triangles() -> Hypergraph {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("t1".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["d".into(), "e".into(), "f".into()], Some("t2".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("t1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["d".into(), "e".into(), "f".into()],
+        Some("t2".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     h
 }
 
@@ -26,7 +36,12 @@ fn test_laplacian_diagonal_is_identity_minus_selfterm() {
     // For a single simplex-triangle, each node has degree 1; the diagonal of L is
     // 1 - (1/edge_size) = 1 - 1/3 = 2/3.
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("t".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("t".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let (l, _) = normalized_laplacian(&h).unwrap();
     for i in 0..3 {
         assert!((l[[i, i]] - (2.0 / 3.0)).abs() < 1e-12);
@@ -36,7 +51,12 @@ fn test_laplacian_diagonal_is_identity_minus_selfterm() {
 #[test]
 fn test_laplacian_isolated_node_errors() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     h.add_node("lonely", serde_json::Value::Null); // degree 0
     assert!(normalized_laplacian(&h).is_err());
 }
@@ -134,7 +154,12 @@ fn test_spectral_two_triangles_separated() {
 #[test]
 fn test_spectral_too_many_clusters_errors() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("e".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("e".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     assert!(spectral_clustering(&h, 5, 100, Some(1)).is_err());
 }
 

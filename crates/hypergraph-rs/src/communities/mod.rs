@@ -8,7 +8,7 @@
 //! are structural, and results are deterministic under a fixed `seed`.
 
 use indexmap::IndexMap;
-use ndarray::{Array2, Array1};
+use ndarray::{Array1, Array2};
 use rand::RngExt;
 use rand_core::SeedableRng;
 use rand_pcg::Pcg64Mcg;
@@ -32,9 +32,7 @@ pub enum SpectralError {
 /// XGI parity: `normalized_hypergraph_laplacian` (`linalg/laplacian_matrix.py:187-254`),
 /// unweighted. `L = I − Dv^{-1/2} H De^{-1} Hᵀ Dv^{-1/2}`, with `Dv` = node degrees,
 /// `De` = edge sizes. Errors on any isolated node.
-pub fn normalized_laplacian(
-    h: &Hypergraph,
-) -> Result<(Array2<f64>, Vec<String>), SpectralError> {
+pub fn normalized_laplacian(h: &Hypergraph) -> Result<(Array2<f64>, Vec<String>), SpectralError> {
     let node_ids = h.node_ids();
     let edge_ids = h.edge_ids();
     let n = node_ids.len();
@@ -286,6 +284,9 @@ pub fn kmeans(x: &Array2<f64>, k: usize, max_iter: usize, seed: Option<u64>) -> 
     for _ in 0..max_iter {
         // Assignment step.
         let mut new_labels = vec![0usize; n];
+        // `i` indexes `new_labels` only, but also drives `sq_dist(x, i, ...)` below;
+        // the index form is clearer than an enumerate-based rewrite here.
+        #[allow(clippy::needless_range_loop)]
         for i in 0..n {
             let mut best = 0usize;
             let mut best_d = f64::INFINITY;
@@ -311,6 +312,10 @@ pub fn kmeans(x: &Array2<f64>, k: usize, max_iter: usize, seed: Option<u64>) -> 
         }
         for c in 0..k {
             if counts[c] > 0 {
+                // `d` indexes `next[c]` only here, but mirrors the paired
+                // accumulation loop above that indexes both `x` and `next`; the
+                // index form is clearer than an iterator adapter in context.
+                #[allow(clippy::needless_range_loop)]
                 for d in 0..dim {
                     next[c][d] /= counts[c] as f64;
                 }

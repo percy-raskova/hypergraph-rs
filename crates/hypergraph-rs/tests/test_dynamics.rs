@@ -34,8 +34,18 @@ use hypergraph_rs::Hypergraph;
 
 fn two_edge_hg() -> Hypergraph {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["a".into(), "b".into()], Some("link".into()), serde_json::Value::Null).unwrap();
-    h.add_edge(vec!["a".into(), "b".into(), "c".into()], Some("tri".into()), serde_json::Value::Null).unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into()],
+        Some("link".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("tri".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     h
 }
 
@@ -58,7 +68,14 @@ fn test_simulate_uniform_phase_stays_uniform() {
 fn test_simulate_shape() {
     let h = two_edge_hg();
     let (theta_time, times) = simulate_kuramoto(
-        &h, 2.0, 3.0, Some(vec![0.1, 0.2, 0.3]), Some(vec![0.0, 1.0, 2.0]), 7, 0.002, None,
+        &h,
+        2.0,
+        3.0,
+        Some(vec![0.1, 0.2, 0.3]),
+        Some(vec![0.0, 1.0, 2.0]),
+        7,
+        0.002,
+        None,
     );
     assert_eq!(theta_time.len(), 7);
     assert!(theta_time.iter().all(|r| r.len() == 3));

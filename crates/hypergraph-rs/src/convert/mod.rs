@@ -131,11 +131,17 @@ pub fn to_bipartite_graph(h: &Hypergraph) -> StableDiGraph<BipartiteNode, ()> {
     let mut g: StableDiGraph<BipartiteNode, ()> = StableDiGraph::new();
     let mut node_idx = IndexMap::new();
     for n in h.node_ids() {
-        let idx = g.add_node(BipartiteNode { id: n.clone(), bipartite: 0 });
+        let idx = g.add_node(BipartiteNode {
+            id: n.clone(),
+            bipartite: 0,
+        });
         node_idx.insert(n, idx);
     }
     for e in h.edge_ids() {
-        let e_idx = g.add_node(BipartiteNode { id: e.clone(), bipartite: 1 });
+        let e_idx = g.add_node(BipartiteNode {
+            id: e.clone(),
+            bipartite: 1,
+        });
         for m in h.members(&e).unwrap_or_default() {
             g.add_edge(node_idx[&m], e_idx, ());
         }
@@ -231,7 +237,10 @@ fn attrs_as_object(v: Option<&Value>) -> Value {
 pub fn to_hypergraph_dict(h: &Hypergraph) -> Value {
     let mut root = Map::new();
     root.insert("type".into(), Value::String("hypergraph".into()));
-    root.insert("hypergraph-data".into(), Value::Object(h.graph_attrs().clone()));
+    root.insert(
+        "hypergraph-data".into(),
+        Value::Object(h.graph_attrs().clone()),
+    );
 
     let mut node_data = Map::new();
     for n in h.node_ids() {

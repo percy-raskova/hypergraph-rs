@@ -15,7 +15,10 @@ fn test_dual_dict_reverses() {
     let d = edge_dict(&[("0", &["1", "2", "3"]), ("1", &["0", "2"])]);
     let dual = dual_dict(&d);
     assert_eq!(dual.get("1").unwrap(), &vec!["0".to_string()]);
-    assert_eq!(dual.get("2").unwrap(), &vec!["0".to_string(), "1".to_string()]);
+    assert_eq!(
+        dual.get("2").unwrap(),
+        &vec!["0".to_string(), "1".to_string()]
+    );
     assert_eq!(dual.get("3").unwrap(), &vec!["0".to_string()]);
     assert_eq!(dual.get("0").unwrap(), &vec!["1".to_string()]);
     // First-seen node order: 1, 2, 3, 0
@@ -36,7 +39,10 @@ fn test_powerset_default_len14() {
     let ps = powerset(&items, false, true, false, None);
     assert_eq!(ps.len(), 14);
     assert_eq!(ps[0], vec!["1".to_string()]);
-    assert_eq!(ps.last().unwrap(), &vec!["2".to_string(), "3".to_string(), "4".to_string()]);
+    assert_eq!(
+        ps.last().unwrap(),
+        &vec!["2".to_string(), "3".to_string(), "4".to_string()]
+    );
 }
 
 #[test]
@@ -113,10 +119,18 @@ use hypergraph_rs::utils::convert_labels_to_integers;
 #[test]
 fn test_convert_labels_basic() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["x".into(), "y".into()], Some("first".into()), serde_json::Value::Null)
-        .unwrap();
-    h.add_edge(vec!["y".into(), "z".into()], Some("second".into()), serde_json::Value::Null)
-        .unwrap();
+    h.add_edge(
+        vec!["x".into(), "y".into()],
+        Some("first".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["y".into(), "z".into()],
+        Some("second".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let relabeled = convert_labels_to_integers(&h, "label");
     // Nodes x,y,z -> "0","1","2" ; edges first,second -> "0","1"
     assert_eq!(relabeled.node_ids(), vec!["0", "1", "2"]);
@@ -128,8 +142,12 @@ fn test_convert_labels_basic() {
 #[test]
 fn test_convert_labels_stores_old_label() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["x".into(), "y".into()], Some("first".into()), serde_json::Value::Null)
-        .unwrap();
+    h.add_edge(
+        vec!["x".into(), "y".into()],
+        Some("first".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let relabeled = convert_labels_to_integers(&h, "label");
     assert_eq!(relabeled.node_attrs("0").unwrap()["label"], "x");
     assert_eq!(relabeled.edge_attrs("0").unwrap()["label"], "first");
@@ -138,10 +156,17 @@ fn test_convert_labels_stores_old_label() {
 #[test]
 fn test_convert_labels_preserves_members_as_sets() {
     let mut h: Hypergraph = Hypergraph::new();
-    h.add_edge(vec!["x".into(), "y".into(), "z".into()], Some("e".into()), serde_json::Value::Null)
-        .unwrap();
+    h.add_edge(
+        vec!["x".into(), "y".into(), "z".into()],
+        Some("e".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
     let relabeled = convert_labels_to_integers(&h, "label");
     let mut members = relabeled.members("0").unwrap();
     members.sort();
-    assert_eq!(members, vec!["0".to_string(), "1".to_string(), "2".to_string()]);
+    assert_eq!(
+        members,
+        vec!["0".to_string(), "1".to_string(), "2".to_string()]
+    );
 }

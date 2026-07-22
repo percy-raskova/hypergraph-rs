@@ -124,6 +124,10 @@ pub fn simulate_kuramoto(
     let mut theta_time: Vec<Vec<f64>> = vec![vec![0.0; n]; timesteps];
     let times: Vec<f64> = (0..timesteps).map(|t| t as f64 * dt).collect();
 
+    // `t` indexes `theta_time` only, but the loop body below also needs the plain
+    // integer count (dt-scaled elsewhere); the index form reads clearer than an
+    // iterator adapter here.
+    #[allow(clippy::needless_range_loop)]
     for t in 0..timesteps {
         theta_time[t] = theta.clone();
 
