@@ -47,6 +47,53 @@ fn test_to_hypergraph_dict_schema() {
 }
 
 #[test]
+fn test_to_hypergraph_dict_has_no_default_name_when_unset() {
+    // FINDING 4(a) investigated against the oracle (`write_json` on a fresh
+    // `xgi.Hypergraph()` with no `name` set): XGI's 0.10.2 `to_hypergraph_dict`
+    // does NOT inject a default `"name": ""` — `hypergraph-data` is `{}`.
+    // The `to_hypergraph_dict` docstring comment ("name always gets written")
+    // is stale relative to the actual `xgi/convert/hypergraph_dict.py` code
+    // (verified empirically: `H._net_attr` starts as `{}` and is only
+    // `.update()`-d, never seeded with "name"). No fix applied for (a).
+    let h: Hypergraph = Hypergraph::new();
+    let d = to_hypergraph_dict(&h);
+    assert_eq!(d["hypergraph-data"], serde_json::json!({}));
+}
+
+#[test]
+fn test_to_hypergraph_dict_sorts_all_numeric_members_numerically() {
+    // FINDING 4(b) oracle: `xgi.Hypergraph` with string node ids "10","2","1"
+    // sorts native-type: since XGI's own membership objects are whatever type
+    // was inserted, an all-numeric-string edge sorts as XGI would for int ids
+    // (numeric), not "10" < "2" lexicographically.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["10".into(), "2".into(), "1".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    let d = to_hypergraph_dict(&h);
+    assert_eq!(d["edge-dict"]["e0"], serde_json::json!(["1", "2", "10"]));
+}
+
+#[test]
+fn test_to_hypergraph_dict_sorts_mixed_members_lexicographically() {
+    // FINDING 4(b) oracle: mixed numeric/non-numeric ids ("10","a","2") sort
+    // lexicographically in XGI (native Python `sorted()` on strings), giving
+    // ["10", "2", "a"] — NOT numeric-first.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["10".into(), "a".into(), "2".into()],
+        Some("e0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    let d = to_hypergraph_dict(&h);
+    assert_eq!(d["edge-dict"]["e0"], serde_json::json!(["10", "2", "a"]));
+}
+
+#[test]
 fn test_json_round_trip_preserves_structure() {
     let h = sample();
     let d = to_hypergraph_dict(&h);
@@ -282,6 +329,13 @@ fn test_bigg_forward_reaction() {
     // A is reactant (tail), B is product (head)
     assert_eq!(dh.tail("r1").unwrap(), vec!["A".to_string()]);
     assert_eq!(dh.head("r1").unwrap(), vec!["B".to_string()]);
+    // FINDING 3: XGI's `_bigg_to_dihypergraph` sets each reaction edge's
+    // `name` attr from `r["name"]` (`DH.add_edge(..., idx=r["id"], name=r["name"])`,
+    // bigg_data.py:129). We must carry that through, not `Value::Null`.
+    assert_eq!(
+        dh.edge_attrs("r1").unwrap()["name"],
+        serde_json::json!("reaction one")
+    );
 }
 
 #[test]
@@ -299,4 +353,14 @@ fn test_bigg_reversible_reaction_emits_two_edges() {
     assert_eq!(dh.num_edges(), 2);
     assert!(dh.has_edge("r1"));
     assert!(dh.has_edge("r1_reverse"));
+    // FINDING 3: both the forward and `_reverse` edge share `r["name"]`
+    // (bigg_data.py:156-160 passes the same `name=r["name"]` to both add_edge calls).
+    assert_eq!(
+        dh.edge_attrs("r1").unwrap()["name"],
+        serde_json::json!("rev")
+    );
+    assert_eq!(
+        dh.edge_attrs("r1_reverse").unwrap()["name"],
+        serde_json::json!("rev")
+    );
 }

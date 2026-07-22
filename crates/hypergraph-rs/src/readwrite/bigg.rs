@@ -56,6 +56,11 @@ pub fn bigg_dict_to_dihypergraph(
         let rid = r.get("id").and_then(|v| v.as_str()).unwrap_or("");
         let l = r.get("lower_bound").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let u = r.get("upper_bound").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        // XGI: `DH.add_edge(..., idx=r["id"], name=r["name"])` — every reaction
+        // edge (forward/reverse/reversible, incl. the `_reverse` twin) carries
+        // this same `name` attr (bigg_data.py:129,142,156,159).
+        let edge_attrs =
+            serde_json::json!({ "name": r.get("name").cloned().unwrap_or(Value::Null) });
         let coeffs = match r.get("metabolites").and_then(|v| v.as_object()) {
             Some(o) => o,
             None => continue,
@@ -84,7 +89,12 @@ pub fn bigg_dict_to_dihypergraph(
         if l >= 0.0 && u > 0.0 {
             let (reactants, products) = split(true);
             if !(reactants.is_empty() && products.is_empty()) {
-                let _ = dh.add_edge(reactants, products, Some(rid.to_string()), Value::Null);
+                let _ = dh.add_edge(
+                    reactants,
+                    products,
+                    Some(rid.to_string()),
+                    edge_attrs.clone(),
+                );
             }
         }
         // reverse: l<0 && u<=0  (positive coeff -> reactant)
@@ -104,7 +114,12 @@ pub fn bigg_dict_to_dihypergraph(
                 (products, reactants)
             };
             if !(reactants.is_empty() && products.is_empty()) {
-                let _ = dh.add_edge(reactants, products, Some(rid.to_string()), Value::Null);
+                let _ = dh.add_edge(
+                    reactants,
+                    products,
+                    Some(rid.to_string()),
+                    edge_attrs.clone(),
+                );
             }
         }
         // reversible: l<0 && u>0 -> forward + <id>_reverse
@@ -129,13 +144,13 @@ pub fn bigg_dict_to_dihypergraph(
                     reactants.clone(),
                     products.clone(),
                     Some(rid.to_string()),
-                    Value::Null,
+                    edge_attrs.clone(),
                 );
                 let _ = dh.add_edge(
                     products,
                     reactants,
                     Some(format!("{rid}_reverse")),
-                    Value::Null,
+                    edge_attrs.clone(),
                 );
             }
         }

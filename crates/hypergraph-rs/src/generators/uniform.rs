@@ -58,27 +58,36 @@ pub fn uniform_erdos_renyi_hypergraph(
     }
 
     let mut rng = seeded_rng(seed);
-    let max_index: u64 = if multiedges {
-        (n as u64).pow(m as u32).saturating_sub(1)
+    // FINDING 1: when m (the edge/tuple size) exceeds n, the combination count
+    // is 0 and there is no valid index at all — XGI's
+    // `comb(n, m, exact=True) - 1` is -1 (a signed bigint) so its
+    // `while index <= max_index` loop never runs. Skip the whole sampling loop
+    // in that case instead of computing a saturated (wrong) max_index of 0,
+    // which would otherwise let `index_to_edge_comb`/`index_to_edge_prod` run
+    // once on an out-of-range index and overflow `comb`'s accumulator.
+    let count: u64 = if multiedges {
+        (n as u64).pow(m as u32)
     } else {
-        comb(n as u64, m as u64).saturating_sub(1)
+        comb(n as u64, m as u64)
     };
-
-    let mut index = geometric(q, &mut rng) - 1;
-    // Bounded: index strictly increases by >= 1 each step, capped by max_index.
-    while index <= max_index {
-        let tuple = if multiedges {
-            index_to_edge_prod(index, n as u64, m as u64)
-        } else {
-            index_to_edge_comb(index, n as u64, m as u64)
-        };
-        // dedup to a set; keep only if still size m (discard self-loop artifacts)
-        let set: HashSet<usize> = tuple.iter().copied().collect();
-        if set.len() == m {
-            let members: Vec<String> = tuple.iter().map(|i| i.to_string()).collect();
-            let _ = h.add_edge(members, None, Value::Null);
+    if count > 0 {
+        let max_index = count - 1;
+        let mut index = geometric(q, &mut rng) - 1;
+        // Bounded: index strictly increases by >= 1 each step, capped by max_index.
+        while index <= max_index {
+            let tuple = if multiedges {
+                index_to_edge_prod(index, n as u64, m as u64)
+            } else {
+                index_to_edge_comb(index, n as u64, m as u64)
+            };
+            // dedup to a set; keep only if still size m (discard self-loop artifacts)
+            let set: HashSet<usize> = tuple.iter().copied().collect();
+            if set.len() == m {
+                let members: Vec<String> = tuple.iter().map(|i| i.to_string()).collect();
+                let _ = h.add_edge(members, None, Value::Null);
+            }
+            index += geometric(q, &mut rng);
         }
-        index += geometric(q, &mut rng);
     }
     Ok(h)
 }

@@ -87,6 +87,15 @@ pub fn complete_hypergraph(
         edges.extend(combinations(n, order + 1));
     } else if let Some(max_order) = max_order {
         let start = if include_singletons { 1 } else { 2 };
+        // FINDING 5 (deliberate deviation, documentation only): XGI asserts
+        // `end >= start` here (xgi/generators/classic.py:264, `end = max_order
+        // + 1`), so `complete_hypergraph(n, None, Some(0), include_singletons=False)`
+        // raises `AssertionError` (start=2, end=1; verified against the
+        // oracle: `complete_hypergraph(4, max_order=0)` raises). Rust's
+        // `start..=(max_order + 1)` with `start > max_order + 1` is simply an
+        // empty range (no panic), so we return an empty hypergraph instead of
+        // erroring — a deliberate improvement (no assertion-based control
+        // flow), not a bug-for-bug port.
         // Bounded: sizes start..=max_order+1.
         for r in start..=(max_order + 1) {
             edges.extend(combinations(n, r));

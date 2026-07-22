@@ -75,17 +75,34 @@ pub fn geometric(p: f64, rng: &mut Pcg64Mcg) -> u64 {
 /// Exact binomial coefficient `C(n, k)` (0 if `k > n`). Multiplicative form,
 /// integer-exact because the running product of `k` consecutive integers is
 /// divisible by `k!` at each step.
+///
+/// FINDING 2: the running product `acc * (n - i)` (computed BEFORE dividing by
+/// `(i + 1)`) can exceed `u64::MAX` even when the final `C(n, k)` itself fits
+/// in a `u64` (e.g. `comb(100, 16)` — see `test_comb_large_but_legal_does_not_panic_and_matches_oracle`).
+/// We accumulate in `u128` (headroom for any `n, k` we realistically see —
+/// XGI itself uses `scipy.special.comb(..., exact=True)`, i.e. Python
+/// bigints) and only narrow to `u64` once, at the end. If even the `u128`
+/// product overflows (astronomically large `n`/`k`) or the final value
+/// exceeds `u64::MAX`, we saturate to `u64::MAX` rather than panic/wrap: at
+/// that magnitude the geometric-skip callers (`fast_random_hypergraph`,
+/// `uniform_erdos_renyi_hypergraph`) would never exhaustively enumerate the
+/// combination space anyway, so a saturated `max_index` is a documented,
+/// harmless approximation, not a correctness hazard.
 pub fn comb(n: u64, k: u64) -> u64 {
     if k > n {
         return 0;
     }
     let k = k.min(n - k);
-    let mut acc: u64 = 1;
+    let mut acc: u128 = 1;
     // Bounded loop: exactly k iterations.
     for i in 0..k {
-        acc = acc * (n - i) / (i + 1);
+        let numerator = match acc.checked_mul((n - i) as u128) {
+            Some(v) => v,
+            None => return u64::MAX,
+        };
+        acc = numerator / ((i + 1) as u128);
     }
-    acc
+    acc.min(u64::MAX as u128) as u64
 }
 
 /// Map a linear index to the `m`-combination of `0..n` at that index (sorted,

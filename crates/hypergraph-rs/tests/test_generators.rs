@@ -71,6 +71,30 @@ fn test_comb_values() {
 }
 
 #[test]
+fn test_comb_100_15_matches_oracle() {
+    // FINDING 2 oracle: python -c "from math import comb; print(comb(100,15))"
+    assert_eq!(comb(100, 15), 253_338_471_349_988_640);
+}
+
+#[test]
+fn test_comb_large_but_legal_does_not_panic_and_matches_oracle() {
+    // FINDING 2: comb(100, 16) and comb(100, 17) both FIT in u64 (oracle
+    // values below), but the old u64-accumulator multiplicative form
+    // (`acc * (n - i)` before dividing by `(i + 1)`) overflows u64 mid-loop
+    // even though the final result fits. Oracle: `python -c "from math import
+    // comb; print(comb(100,16)); print(comb(100,17))"`.
+    assert_eq!(comb(100, 16), 1_345_860_629_046_814_650);
+    assert_eq!(comb(100, 17), 6_650_134_872_937_201_800);
+}
+
+#[test]
+fn test_comb_beyond_u64_saturates_without_panicking() {
+    // comb(100, 18) == 30_664_510_802_988_208_300 (oracle), which exceeds
+    // u64::MAX (18_446_744_073_709_551_615). Must saturate, not panic/wrap.
+    assert_eq!(comb(100, 18), u64::MAX);
+}
+
+#[test]
 fn test_index_to_edge_comb_is_bijective_and_sorted() {
     // For n=4, m=3 there are comb(4,3)=4 combinations, indices 0..4.
     let all: Vec<Vec<usize>> = (0..4).map(|i| index_to_edge_comb(i, 4, 3)).collect();
@@ -270,6 +294,19 @@ fn test_fast_random_edge_orders_match_requested() {
 }
 
 #[test]
+fn test_fast_random_hypergraph_order_exceeding_n_yields_no_edges_of_that_order() {
+    // n=3, order=[10] -> requested edge size is 11 > n=3, so comb(3, 11) == 0.
+    // XGI's max_index is comb(n, d+1, exact=True) - 1 == -1, so the geometric-skip
+    // loop (index starts at >= 0) never runs: zero edges of that order, no panic.
+    // FINDING 1: previously `comb(n, d+1).saturating_sub(1)` produced max_index=0
+    // instead of -1, driving `index_to_edge_comb` past `n` and overflowing `comb`'s
+    // u64 accumulator.
+    let h = fast_random_hypergraph(3, &[0.9], Some(&[10]), Some(1)).unwrap();
+    assert_eq!(h.num_nodes(), 3);
+    assert_eq!(h.num_edges(), 0);
+}
+
+#[test]
 fn test_random_hypergraph_node_count_and_determinism() {
     let a = random_hypergraph(15, &[0.3, 0.05], None, Some(7)).unwrap();
     let b = random_hypergraph(15, &[0.3, 0.05], None, Some(7)).unwrap();
@@ -351,6 +388,15 @@ fn test_uniform_er_is_deterministic() {
 #[test]
 fn test_uniform_er_rejects_bad_probability() {
     assert!(uniform_erdos_renyi_hypergraph(10, 2, 2.0, PType::Prob, false, Some(1)).is_err());
+}
+
+#[test]
+fn test_uniform_er_edge_size_exceeding_n_yields_no_edges() {
+    // n=3, m=5 (edge size) > n=3, so comb(3, 5) == 0. Same FINDING 1 class as
+    // fast_random_hypergraph: must not panic, must yield zero edges.
+    let h = uniform_erdos_renyi_hypergraph(3, 5, 0.9, PType::Prob, false, Some(1)).unwrap();
+    assert_eq!(h.num_nodes(), 3);
+    assert_eq!(h.num_edges(), 0);
 }
 
 #[test]

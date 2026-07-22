@@ -77,15 +77,26 @@ pub fn fast_random_hypergraph(
                 let _ = h.add_edge(members, None, Value::Null);
             }
         } else if p > 0.0 {
-            let max_index = comb(n as u64, (d + 1) as u64).saturating_sub(1);
-            // -1 for zero-indexing (geometric >= 1 here)
-            let mut index = geometric(p, &mut rng) - 1;
-            // Bounded: index strictly increases by >= 1 each step, capped by max_index.
-            while index <= max_index {
-                let combo = index_to_edge_comb(index, n as u64, (d + 1) as u64);
-                let members: Vec<String> = combo.iter().map(|i| i.to_string()).collect();
-                let _ = h.add_edge(members, None, Value::Null);
-                index += geometric(p, &mut rng);
+            let count = comb(n as u64, (d + 1) as u64);
+            // FINDING 1: when the requested edge size (d+1) exceeds n, comb == 0
+            // and there is no valid combination index at all — XGI's
+            // `comb(n, d+1, exact=True) - 1` is -1 (a signed bigint) so its
+            // `while index <= max_index` loop never runs. Our `max_index` is
+            // unsigned, so skip the order entirely instead of computing a
+            // saturated (wrong) max_index of 0, which would otherwise let
+            // `index_to_edge_comb` run once on an out-of-range index and drive
+            // `comb`'s accumulator into overflow (see rng.rs `comb`).
+            if count > 0 {
+                let max_index = count - 1;
+                // -1 for zero-indexing (geometric >= 1 here)
+                let mut index = geometric(p, &mut rng) - 1;
+                // Bounded: index strictly increases by >= 1 each step, capped by max_index.
+                while index <= max_index {
+                    let combo = index_to_edge_comb(index, n as u64, (d + 1) as u64);
+                    let members: Vec<String> = combo.iter().map(|i| i.to_string()).collect();
+                    let _ = h.add_edge(members, None, Value::Null);
+                    index += geometric(p, &mut rng);
+                }
             }
         }
     }

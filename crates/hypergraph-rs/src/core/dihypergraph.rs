@@ -135,6 +135,15 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         }
     }
 
+    /// Read a hyperedge's attributes. XGI parity: `DH.edges[e]`.
+    pub fn edge_attrs(&self, edge_id: &str) -> Option<&E> {
+        let idx = self.hyperedge_ids.get(edge_id)?;
+        match self.inner.node_weight(*idx)? {
+            NodeKind::Hyperedge(attrs) => Some(attrs),
+            _ => None,
+        }
+    }
+
     /// Add a directed hyperedge with the given tail (senders) and head
     /// (receivers). Auto-creates member nodes. XGI parity:
     /// `DH.add_edge((tail, head), idx=)` (dihypergraph.py:525-585).

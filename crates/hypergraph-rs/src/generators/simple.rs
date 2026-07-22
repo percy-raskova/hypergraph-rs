@@ -96,6 +96,15 @@ pub fn sunflower(l: usize, c: usize, m: usize) -> Result<Hypergraph, GeneratorEr
     let core: Vec<String> = (0..c).map(|i| i.to_string()).collect();
     let mut h = Hypergraph::new();
     let petal = m - c;
+    // FINDING 5 (deliberate deviation, documentation only): when m == c,
+    // `petal == 0`. XGI's `while start_label + (m - c) <= c + (m - c) * l`
+    // (xgi/generators/simple.py:114) becomes `while c <= c`, which is always
+    // true and `start_label` never advances — an unbounded loop by
+    // construction (read from source, not run — it would not terminate).
+    // Our `for p in 0..l` is bounded by construction (Power-of-10 rule 2)
+    // and instead terminates after exactly `l` petals, each identical to the
+    // `c`-node core (added as `l` distinct parallel edges via auto-id) — a
+    // deliberate improvement, not a bug-for-bug port.
     // Bounded: exactly l petals.
     for p in 0..l {
         let mut members = core.clone();

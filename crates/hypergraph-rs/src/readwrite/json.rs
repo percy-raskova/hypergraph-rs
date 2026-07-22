@@ -8,6 +8,24 @@ use serde_json::{json, Map, Value};
 use super::ReadWriteError;
 use crate::Hypergraph;
 
+/// Sort edge members the way XGI's `sorted(H.edges.members(idx))` sorts them:
+/// by the members' *native* Python type. Our node ids are always `String`
+/// (no int/str distinction survives at the Rust type level), so we
+/// approximate: if EVERY member parses as an integer, sort numerically
+/// (matching XGI's common case of integer node ids from generators);
+/// otherwise fall back to lexicographic (`str`) order, matching XGI's
+/// behavior for string node ids or mixed types (FINDING 4(b), verified
+/// against the oracle: `xgi.Hypergraph` with all-numeric-string ids sorts
+/// numerically; with a mixed numeric/non-numeric id it sorts lexicographically).
+fn sort_members_native_type(members: &mut [String]) {
+    let all_numeric = members.iter().all(|m| m.parse::<i64>().is_ok());
+    if all_numeric {
+        members.sort_by_key(|m| m.parse::<i64>().expect("checked by all_numeric"));
+    } else {
+        members.sort();
+    }
+}
+
 /// Serialize a hypergraph to the xgi-data dict schema. XGI `to_hypergraph_dict`.
 pub fn to_hypergraph_dict(h: &Hypergraph) -> Value {
     let mut node_data = Map::new();
@@ -25,7 +43,7 @@ pub fn to_hypergraph_dict(h: &Hypergraph) -> Value {
             h.edge_attrs(&eid).cloned().unwrap_or(Value::Null),
         );
         let mut members = h.members(&eid).unwrap_or_default();
-        members.sort();
+        sort_members_native_type(&mut members);
         edge_dict.insert(eid.clone(), json!(members));
     }
     // H.graph dict — copy the FULL graph-attr map (XGI:
