@@ -97,7 +97,9 @@ fn fruchterman_reingold(
         }
         // Apply displacement, capped by the cooling temperature.
         for i in 0..n {
-            let d = (disp[i].0 * disp[i].0 + disp[i].1 * disp[i].1).sqrt().max(0.01);
+            let d = (disp[i].0 * disp[i].0 + disp[i].1 * disp[i].1)
+                .sqrt()
+                .max(0.01);
             let capped = d.min(t);
             pos[i].0 += disp[i].0 / d * capped;
             pos[i].1 += disp[i].1 / d * capped;
@@ -199,7 +201,10 @@ pub fn hyperedge_aware_layout<N, E, M>(
                 members.iter().map(|m| pos_of(&node_positions, m)).collect();
             let hull = convex_hull(&member_pts);
             let padded = pad_hull(&hull, halo_padding);
-            (eid.clone(), HyperedgeGeometry::ConvexHull { points: padded })
+            (
+                eid.clone(),
+                HyperedgeGeometry::ConvexHull { points: padded },
+            )
         })
         .collect();
 

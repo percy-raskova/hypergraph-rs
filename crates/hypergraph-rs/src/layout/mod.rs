@@ -36,12 +36,18 @@ pub enum BipartiteAlign {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum LayoutStrategy {
     /// Fruchterman–Reingold force-directed layout on the 1-skeleton.
-    Spring { iterations: usize, seed: Option<u64> },
+    Spring {
+        iterations: usize,
+        seed: Option<u64>,
+    },
     /// Two-column/row bipartite placement of agents and hyperedge markers.
     Bipartite { align: BipartiteAlign },
     /// Spring positions for agents; each hyperedge is the padded convex hull of
     /// its members (a colored halo).
-    HyperedgeAware { iterations: usize, halo_padding: f64 },
+    HyperedgeAware {
+        iterations: usize,
+        halo_padding: f64,
+    },
     /// Agents on concentric rings by membership count; hyperedges as arcs.
     Radial { rings: usize },
 }
@@ -59,7 +65,11 @@ pub enum HyperedgeGeometry {
     /// Vertical stripe (bipartite layout).
     Stripe { x: f64, y_min: f64, y_max: f64 },
     /// Radial arc (radial layout).
-    Arc { center: (f64, f64), radius: f64, angle_range: (f64, f64) },
+    Arc {
+        center: (f64, f64),
+        radius: f64,
+        angle_range: (f64, f64),
+    },
 }
 
 /// The result of a layout computation: insertion-ordered node positions and
@@ -78,7 +88,12 @@ pub(crate) fn bounding_box_of(
     positions: &[(String, (f64, f64))],
     geometries: &[(String, HyperedgeGeometry)],
 ) -> (f64, f64, f64, f64) {
-    let mut bb = (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+    let mut bb = (
+        f64::INFINITY,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NEG_INFINITY,
+    );
     fn fold(bb: &mut (f64, f64, f64, f64), x: f64, y: f64) {
         if x < bb.0 {
             bb.0 = x;
@@ -99,7 +114,9 @@ pub(crate) fn bounding_box_of(
     for (_, g) in geometries {
         match g {
             HyperedgeGeometry::ConvexHull { points }
-            | HyperedgeGeometry::Spline { control_points: points } => {
+            | HyperedgeGeometry::Spline {
+                control_points: points,
+            } => {
                 for (x, y) in points {
                     fold(&mut bb, *x, *y);
                 }
@@ -127,9 +144,10 @@ pub fn compute_layout<N, E, M>(h: &Hypergraph<N, E, M>, strategy: LayoutStrategy
     match strategy {
         LayoutStrategy::Spring { iterations, seed } => spring::spring_layout(h, iterations, seed),
         LayoutStrategy::Bipartite { align } => place::bipartite_layout(h, align),
-        LayoutStrategy::HyperedgeAware { iterations, halo_padding } => {
-            spring::hyperedge_aware_layout(h, iterations, halo_padding)
-        }
+        LayoutStrategy::HyperedgeAware {
+            iterations,
+            halo_padding,
+        } => spring::hyperedge_aware_layout(h, iterations, halo_padding),
         LayoutStrategy::Radial { rings } => place::radial_layout(h, rings),
     }
 }

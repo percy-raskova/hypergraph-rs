@@ -92,7 +92,10 @@ impl<M> Hypergraph<serde_json::Value, serde_json::Value, M> {
             .node_positions
             .iter()
             .map(|(id, (x, y))| {
-                let attrs = self.node_attrs(id).cloned().unwrap_or(serde_json::Value::Null);
+                let attrs = self
+                    .node_attrs(id)
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null);
                 NodeGlyph {
                     id: id.clone(),
                     x: *x,
@@ -108,7 +111,10 @@ impl<M> Hypergraph<serde_json::Value, serde_json::Value, M> {
             .edge_geometries
             .iter()
             .map(|(eid, geom)| {
-                let attrs = self.edge_attrs(eid).cloned().unwrap_or(serde_json::Value::Null);
+                let attrs = self
+                    .edge_attrs(eid)
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null);
                 let member_ids = self.members(eid).unwrap_or_default();
                 HyperedgeGlyph {
                     id: eid.clone(),

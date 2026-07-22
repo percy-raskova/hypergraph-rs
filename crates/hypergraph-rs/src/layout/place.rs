@@ -66,7 +66,14 @@ pub fn bipartite_layout<N, E, M>(h: &Hypergraph<N, E, M>, align: BipartiteAlign)
                 }
                 (lo, hi)
             };
-            (eid.clone(), HyperedgeGeometry::Stripe { x: ex, y_min, y_max })
+            (
+                eid.clone(),
+                HyperedgeGeometry::Stripe {
+                    x: ex,
+                    y_min,
+                    y_max,
+                },
+            )
         })
         .collect();
 

@@ -4,16 +4,27 @@ use hypergraph_rs::layout::{
 
 #[test]
 fn test_layout_strategy_variants_construct() {
-    let _a = LayoutStrategy::Spring { iterations: 50, seed: Some(7) };
-    let _b = LayoutStrategy::Bipartite { align: BipartiteAlign::Vertical };
-    let _c = LayoutStrategy::HyperedgeAware { iterations: 100, halo_padding: 0.5 };
+    let _a = LayoutStrategy::Spring {
+        iterations: 50,
+        seed: Some(7),
+    };
+    let _b = LayoutStrategy::Bipartite {
+        align: BipartiteAlign::Vertical,
+    };
+    let _c = LayoutStrategy::HyperedgeAware {
+        iterations: 100,
+        halo_padding: 0.5,
+    };
     let _d = LayoutStrategy::Radial { rings: 3 };
     assert_eq!(DEFAULT_LAYOUT_SEED, 0);
 }
 
 #[test]
 fn test_layout_strategy_serde_round_trip() {
-    let s = LayoutStrategy::HyperedgeAware { iterations: 100, halo_padding: 0.25 };
+    let s = LayoutStrategy::HyperedgeAware {
+        iterations: 100,
+        halo_padding: 0.25,
+    };
     let json = serde_json::to_string(&s).unwrap();
     let back: LayoutStrategy = serde_json::from_str(&json).unwrap();
     assert_eq!(s, back);
@@ -22,10 +33,22 @@ fn test_layout_strategy_serde_round_trip() {
 #[test]
 fn test_hyperedge_geometry_variants_serde() {
     let variants = vec![
-        HyperedgeGeometry::ConvexHull { points: vec![(0.0, 0.0), (1.0, 1.0)] },
-        HyperedgeGeometry::Spline { control_points: vec![(0.0, 0.0)] },
-        HyperedgeGeometry::Stripe { x: 1.0, y_min: 0.0, y_max: 2.0 },
-        HyperedgeGeometry::Arc { center: (0.0, 0.0), radius: 1.0, angle_range: (0.0, 3.14) },
+        HyperedgeGeometry::ConvexHull {
+            points: vec![(0.0, 0.0), (1.0, 1.0)],
+        },
+        HyperedgeGeometry::Spline {
+            control_points: vec![(0.0, 0.0)],
+        },
+        HyperedgeGeometry::Stripe {
+            x: 1.0,
+            y_min: 0.0,
+            y_max: 2.0,
+        },
+        HyperedgeGeometry::Arc {
+            center: (0.0, 0.0),
+            radius: 1.0,
+            angle_range: (0.0, 3.14),
+        },
     ];
     for g in variants {
         let json = serde_json::to_string(&g).unwrap();
@@ -40,7 +63,11 @@ fn test_layout_result_serde_round_trip() {
         node_positions: vec![("a".to_string(), (0.1, 0.2))],
         edge_geometries: vec![(
             "e1".to_string(),
-            HyperedgeGeometry::Stripe { x: 1.0, y_min: 0.0, y_max: 1.0 },
+            HyperedgeGeometry::Stripe {
+                x: 1.0,
+                y_min: 0.0,
+                y_max: 1.0,
+            },
         )],
         bounding_box: (0.0, 0.0, 1.0, 1.0),
     };
@@ -65,7 +92,11 @@ fn test_scene_graph_serde_round_trip() {
         hyperedges: vec![HyperedgeGlyph {
             id: "e1".to_string(),
             member_ids: vec!["a".to_string()],
-            geometry: HyperedgeGeometry::Stripe { x: 1.0, y_min: 0.0, y_max: 1.0 },
+            geometry: HyperedgeGeometry::Stripe {
+                x: 1.0,
+                y_min: 0.0,
+                y_max: 1.0,
+            },
             attrs: serde_json::Value::Null,
             style: HyperedgeStyle::default(),
         }],
@@ -86,7 +117,11 @@ fn test_convex_hull_square_excludes_interior() {
     assert_eq!(hull.len(), 4);
     assert!(!hull.contains(&(0.5, 0.5)));
     for corner in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)] {
-        assert!(hull.contains(&corner), "hull must contain corner {:?}", corner);
+        assert!(
+            hull.contains(&corner),
+            "hull must contain corner {:?}",
+            corner
+        );
     }
 }
 
@@ -377,7 +412,10 @@ fn test_hyperedge_aware_hull_has_at_least_two_points_for_triangle_edge() {
     if let HyperedgeGeometry::ConvexHull { points } = geom {
         // >= 2, not == 3: FR-placed members could be (near-)collinear, which
         // collapses the hull to a 2-point segment. >= 2 is the safe bound.
-        assert!(points.len() >= 2, "a 3-member edge should yield at least a degenerate (segment) hull");
+        assert!(
+            points.len() >= 2,
+            "a 3-member edge should yield at least a degenerate (segment) hull"
+        );
     } else {
         panic!("expected ConvexHull geometry");
     }
@@ -388,21 +426,38 @@ use hypergraph_rs::layout::compute_layout;
 #[test]
 fn test_compute_layout_spring_arm() {
     let h = sample_h();
-    let r = compute_layout(&h, LayoutStrategy::Spring { iterations: 50, seed: Some(42) });
+    let r = compute_layout(
+        &h,
+        LayoutStrategy::Spring {
+            iterations: 50,
+            seed: Some(42),
+        },
+    );
     assert_eq!(r, spring_layout(&h, 50, Some(42)));
 }
 
 #[test]
 fn test_compute_layout_bipartite_arm() {
     let h = sample_h();
-    let r = compute_layout(&h, LayoutStrategy::Bipartite { align: BipartiteAlign::Vertical });
+    let r = compute_layout(
+        &h,
+        LayoutStrategy::Bipartite {
+            align: BipartiteAlign::Vertical,
+        },
+    );
     assert_eq!(r, bipartite_layout(&h, BipartiteAlign::Vertical));
 }
 
 #[test]
 fn test_compute_layout_hyperedge_aware_arm() {
     let h = sample_h();
-    let r = compute_layout(&h, LayoutStrategy::HyperedgeAware { iterations: 50, halo_padding: 0.05 });
+    let r = compute_layout(
+        &h,
+        LayoutStrategy::HyperedgeAware {
+            iterations: 50,
+            halo_padding: 0.05,
+        },
+    );
     assert_eq!(r, hyperedge_aware_layout(&h, 50, 0.05));
 }
 

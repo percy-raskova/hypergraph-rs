@@ -38,8 +38,7 @@ pub fn convex_hull(points: &[(f64, f64)]) -> Vec<(f64, f64)> {
     // Upper hull.
     let lower_len = hull.len() + 1;
     for &p in pts.iter().rev() {
-        while hull.len() >= lower_len
-            && cross(hull[hull.len() - 2], hull[hull.len() - 1], p) <= 0.0
+        while hull.len() >= lower_len && cross(hull[hull.len() - 2], hull[hull.len() - 1], p) <= 0.0
         {
             hull.pop();
         }
