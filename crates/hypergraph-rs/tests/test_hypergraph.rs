@@ -99,10 +99,15 @@ fn test_add_edge_deduplicates_members() {
 }
 
 #[test]
-fn test_add_edge_empty_members_returns_error() {
+fn test_add_edge_empty_members_creates_edge() {
+    // D1: XGI runtime CREATES empty edges (the docstring claim of an
+    // error is inaccurate — see the divergence register).
     let mut h: Hypergraph = Hypergraph::new();
-    let result = h.add_edge(vec![], Some("e1".to_string()), serde_json::Value::Null);
-    assert!(matches!(result, Err(EdgeError::EmptyMembers)));
+    let result = h.add_edge(vec![], None, serde_json::Value::Null);
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), "0");
+    assert_eq!(h.num_edges(), 1);
+    assert_eq!(h.num_nodes(), 0);
 }
 
 #[test]

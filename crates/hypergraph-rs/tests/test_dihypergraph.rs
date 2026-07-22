@@ -62,10 +62,14 @@ fn test_dihypergraph_add_edge_one_sided_allowed() {
 }
 
 #[test]
-fn test_dihypergraph_add_edge_both_empty_errors() {
+fn test_dihypergraph_add_edge_both_empty_allowed() {
+    // D1: XGI runtime CREATES an empty (tail, head) edge.
     let mut dh: DiHypergraph = DiHypergraph::new();
     let r = dh.add_edge(vec![], vec![], Some("e0".into()), v());
-    assert!(matches!(r, Err(EdgeError::EmptyMembers)));
+    assert!(r.is_ok());
+    assert_eq!(r.unwrap(), "e0");
+    assert_eq!(dh.num_edges(), 1);
+    assert_eq!(dh.num_nodes(), 0);
 }
 
 #[test]

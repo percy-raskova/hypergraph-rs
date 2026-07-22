@@ -188,9 +188,9 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         M: Default + Clone,
     {
         let set = as_sorted_set(&members);
-        if set.is_empty() {
-            return Ok(()); // cannot add empty simplices (XGI skips)
-        }
+        // D1: XGI's docstring claims empty simplices cannot be added; the
+        // runtime CREATES one. A repeat empty add is a no-op via the
+        // has_simplex check below (an empty set is a member of itself).
         if self.has_simplex(&set) {
             return Ok(());
         }

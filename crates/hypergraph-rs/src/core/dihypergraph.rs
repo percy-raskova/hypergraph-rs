@@ -113,9 +113,9 @@ impl<N, E, M> DiHypergraph<N, E, M> {
     /// (receivers). Auto-creates member nodes. XGI parity:
     /// `DH.add_edge((tail, head), idx=)` (dihypergraph.py:525-585).
     ///
-    /// Deviations: returns `Err(EdgeError::EmptyMembers)` only when BOTH tail
-    /// and head are empty (deviation #1); `Err(EdgeError::AlreadyExists)` on a
-    /// duplicate `idx` (deviation #2).
+    /// Deviations: `Err(EdgeError::AlreadyExists)` on a duplicate `idx`
+    /// (deviation #2). D1: an all-empty (tail, head) pair creates an empty
+    /// edge, matching the XGI runtime.
     pub fn add_edge(
         &mut self,
         tail: Vec<String>,
@@ -128,9 +128,6 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         M: Default + Clone,
     {
         self.assert_not_frozen();
-        if tail.is_empty() && head.is_empty() {
-            return Err(EdgeError::EmptyMembers);
-        }
 
         let edge_id = match &idx {
             Some(id) => {

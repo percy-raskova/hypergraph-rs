@@ -139,9 +139,6 @@ impl<N, E, M> Hypergraph<N, E, M> {
         M: Default + Clone,
     {
         self.assert_not_frozen();
-        if members.is_empty() {
-            return Err(EdgeError::EmptyMembers);
-        }
 
         let edge_id = match &idx {
             Some(id) => {

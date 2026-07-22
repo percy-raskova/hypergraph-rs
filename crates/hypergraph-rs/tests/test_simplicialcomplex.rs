@@ -38,6 +38,22 @@ fn test_add_simplex_duplicate_members_is_noop() {
 }
 
 #[test]
+fn test_add_simplex_empty_simplex_is_created() {
+    // D1: XGI's docstring claims empty simplices cannot be added, but the
+    // runtime CREATES one. A second empty add is a silent no-op (D8: main
+    // keeps Result<(), SimplexError> — assert state, not a returned id).
+    let mut s: SimplicialComplex = SimplicialComplex::new();
+    s.add_simplex(vec![], None, v()).unwrap();
+    assert_eq!(s.num_edges(), 1);
+    assert_eq!(s.num_nodes(), 0);
+    assert_eq!(s.edge_ids(), vec!["0"]);
+    assert!(s.members("0").unwrap().is_empty());
+    assert!(s.has_simplex(&[]));
+    s.add_simplex(vec![], None, v()).unwrap();
+    assert_eq!(s.num_edges(), 1);
+}
+
+#[test]
 fn test_add_simplex_shares_faces() {
     let mut s: SimplicialComplex = SimplicialComplex::new();
     s.add_simplex(vec!["1".into(), "2".into(), "3".into()], None, v())

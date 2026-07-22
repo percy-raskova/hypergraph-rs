@@ -23,9 +23,6 @@ pub enum EdgeError {
     /// The edge ID already exists (duplicate on add_edge).
     #[error("edge {edge_id} already exists")]
     AlreadyExists { edge_id: String },
-    /// The members collection was empty.
-    #[error("cannot add an empty edge")]
-    EmptyMembers,
     /// `random_edge_shuffle` needs at least two edges to swap between.
     #[error("random_edge_shuffle requires at least 2 edges")]
     TooFewEdges,
