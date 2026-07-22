@@ -76,3 +76,47 @@ fn test_scene_graph_serde_round_trip() {
     let back: SceneGraph = serde_json::from_str(&json).unwrap();
     assert_eq!(scene, back);
 }
+
+use hypergraph_rs::layout::convex_hull;
+
+#[test]
+fn test_convex_hull_square_excludes_interior() {
+    let pts = vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.5, 0.5)];
+    let hull = convex_hull(&pts);
+    assert_eq!(hull.len(), 4);
+    assert!(!hull.contains(&(0.5, 0.5)));
+    for corner in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)] {
+        assert!(hull.contains(&corner), "hull must contain corner {:?}", corner);
+    }
+}
+
+#[test]
+fn test_convex_hull_triangle() {
+    let pts = vec![(0.0, 0.0), (2.0, 0.0), (0.0, 2.0)];
+    let hull = convex_hull(&pts);
+    assert_eq!(hull.len(), 3);
+}
+
+#[test]
+fn test_convex_hull_two_points() {
+    let hull = convex_hull(&[(0.0, 0.0), (1.0, 1.0)]);
+    assert_eq!(hull.len(), 2);
+}
+
+#[test]
+fn test_convex_hull_single_point() {
+    let hull = convex_hull(&[(0.5, 0.5)]);
+    assert_eq!(hull, vec![(0.5, 0.5)]);
+}
+
+#[test]
+fn test_convex_hull_empty() {
+    let hull = convex_hull(&[]);
+    assert!(hull.is_empty());
+}
+
+#[test]
+fn test_convex_hull_deterministic() {
+    let pts = vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.3, 0.7)];
+    assert_eq!(convex_hull(&pts), convex_hull(&pts));
+}

@@ -8,6 +8,10 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod hull;
+
+pub use hull::convex_hull;
+
 /// The default deterministic seed used when a strategy provides no explicit
 /// seed (or `seed = None`). XGI's `seed=None` is non-deterministic (numpy global
 /// RNG); we substitute a fixed seed for Constitution III.7 determinism.
