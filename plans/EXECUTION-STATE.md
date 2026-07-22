@@ -45,6 +45,18 @@ Already grafted from the lineage (2026-07-22): `rust-toolchain.toml`
 (1.91.1 pin, MSRV floor 1.85 — `cargo test --workspace --locked` verified
 green on `main` under the pin).
 
+**Oracle relocation (2026-07-22 ~10:50am):** babylon's venv is now python3.12
+(uv-managed) and its `import xgi` is BROKEN — `xopen` resolves `backports.zstd`
+to a python3.13 nix-store path (cross-version contamination; babylon-side
+issue, not ours to fix). The XGI 0.10.2 oracle now lives in THIS repo's own
+venv: `.venv/` (python3.13, gitignored), created via
+`uv venv --python 3.13 .venv && uv pip install xgi==0.10.2` — the
+Phase 7-sanctioned subrepo venv, provisioned early for the fixtures
+generator. Any `rust:fixtures` wiring and oracle probes should use
+`.venv/bin/python`, NOT babylon's venv. Also fixed the same day: the stale
+`REPO`/`XGI` constants in `plans/phase-executor.workflow.js` (pointed at the
+pre-move babylon-tree path).
+
 **Packaging + task runner now exist (2026-07-22).** Root `pyproject.toml`
 (maturin backend; module `hypergraph_rs._hypergraph_rs_core`; pure-python
 shell at `python/hypergraph_rs/`; version single-sourced from the cargo

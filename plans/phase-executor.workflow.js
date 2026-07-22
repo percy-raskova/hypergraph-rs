@@ -8,7 +8,8 @@ export const meta = {
   ],
 }
 
-const REPO = '/home/user/projects/game/babylon/hypergraph-rs'
+// Paths updated 2026-07-22 after the repo moved out of babylon's tree.
+const REPO = '/home/user/projects/game/hypergraph-rs'
 const XGI = '/home/user/projects/game/babylon/.venv/lib/python3.13/site-packages/xgi'
 const cfg = typeof args === 'string' ? JSON.parse(args) : args
 if (!cfg || !Number.isInteger(cfg.tasks) || cfg.tasks < 1 || !cfg.plan || !cfg.phase) {
