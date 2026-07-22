@@ -5,6 +5,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::core::hypergraph::Hypergraph;
+use crate::layout::{compute_layout, LayoutStrategy};
+
 /// Re-export so `viz::HyperedgeGeometry` resolves (spec §5.3 places it here).
 pub use crate::layout::HyperedgeGeometry;
 
@@ -72,4 +75,54 @@ pub struct SceneGraph {
     pub hyperedges: Vec<HyperedgeGlyph>,
     pub bounding_box: (f64, f64, f64, f64),
     pub metadata: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Default rendered node radius (layout units).
+pub const DEFAULT_NODE_RADIUS: f64 = 0.02;
+
+impl<M> Hypergraph<serde_json::Value, serde_json::Value, M> {
+    /// Build a `SceneGraph` from a layout strategy (spec §5.3). Concrete impl:
+    /// clones `serde_json::Value` node/edge attrs into the glyphs.
+    pub fn render(&self, strategy: LayoutStrategy) -> SceneGraph {
+        let layout = compute_layout(self, strategy);
+
+        let nodes: Vec<NodeGlyph> = layout
+            .node_positions
+            .iter()
+            .map(|(id, (x, y))| {
+                let attrs = self.node_attrs(id).cloned().unwrap_or(serde_json::Value::Null);
+                NodeGlyph {
+                    id: id.clone(),
+                    x: *x,
+                    y: *y,
+                    radius: DEFAULT_NODE_RADIUS,
+                    attrs,
+                    style: NodeStyle::default(),
+                }
+            })
+            .collect();
+
+        let hyperedges: Vec<HyperedgeGlyph> = layout
+            .edge_geometries
+            .iter()
+            .map(|(eid, geom)| {
+                let attrs = self.edge_attrs(eid).cloned().unwrap_or(serde_json::Value::Null);
+                let member_ids = self.members(eid).unwrap_or_default();
+                HyperedgeGlyph {
+                    id: eid.clone(),
+                    member_ids,
+                    geometry: geom.clone(),
+                    attrs,
+                    style: HyperedgeStyle::default(),
+                }
+            })
+            .collect();
+
+        SceneGraph {
+            nodes,
+            hyperedges,
+            bounding_box: layout.bounding_box,
+            metadata: serde_json::Map::new(),
+        }
+    }
 }
