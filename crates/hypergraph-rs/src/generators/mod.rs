@@ -17,10 +17,9 @@ pub use classic::{
 };
 pub use lattice::ring_lattice;
 pub use simple::{star_clique, sunflower};
-// TASK 6: uncomment when random.rs lands
-// pub use random::{
-//     chung_lu_hypergraph, fast_random_hypergraph, random_hypergraph, watts_strogatz_hypergraph,
-// };
+pub use random::{fast_random_hypergraph, random_hypergraph};
+// TASK 7: uncomment when chung_lu_hypergraph / watts_strogatz_hypergraph land
+// pub use random::{chung_lu_hypergraph, watts_strogatz_hypergraph};
 // TASK 7: uncomment when uniform.rs lands
 // pub use uniform::{uniform_erdos_renyi_hypergraph, uniform_hypergraph_configuration_model};
 // TASK 8: uncomment when simplicial.rs lands

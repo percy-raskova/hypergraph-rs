@@ -231,3 +231,53 @@ fn test_sunflower_is_m_uniform() {
 fn test_sunflower_rejects_m_less_than_c() {
     assert!(sunflower(3, 5, 4).is_err());
 }
+
+use hypergraph_rs::generators::{fast_random_hypergraph, random_hypergraph};
+
+#[test]
+fn test_fast_random_hypergraph_node_count() {
+    let h = fast_random_hypergraph(50, &[0.1, 0.01], None, Some(1)).unwrap();
+    assert_eq!(h.num_nodes(), 50);
+}
+
+#[test]
+fn test_fast_random_hypergraph_is_deterministic() {
+    let a = fast_random_hypergraph(30, &[0.2, 0.05], None, Some(99)).unwrap();
+    let b = fast_random_hypergraph(30, &[0.2, 0.05], None, Some(99)).unwrap();
+    assert_eq!(a.num_edges(), b.num_edges());
+    assert_eq!(a.edge_ids().len(), b.edge_ids().len());
+    // exact structural equality (same seed -> same graph)
+    assert!(a == b);
+}
+
+#[test]
+fn test_fast_random_hypergraph_p_one_is_complete_at_order() {
+    // order=[1], ps=[1.0] -> every 2-subset of n nodes = comb(n,2)
+    let h = fast_random_hypergraph(5, &[1.0], Some(&[1]), Some(3)).unwrap();
+    assert_eq!(h.num_edges(), 10); // comb(5,2)
+    for e in h.edge_ids() {
+        assert_eq!(h.members(&e).unwrap().len(), 2);
+    }
+}
+
+#[test]
+fn test_fast_random_edge_orders_match_requested() {
+    // Only 3-node edges requested (order=[2]); every edge has 3 members.
+    let h = fast_random_hypergraph(20, &[0.5], Some(&[2]), Some(5)).unwrap();
+    for e in h.edge_ids() {
+        assert_eq!(h.members(&e).unwrap().len(), 3);
+    }
+}
+
+#[test]
+fn test_random_hypergraph_node_count_and_determinism() {
+    let a = random_hypergraph(15, &[0.3, 0.05], None, Some(7)).unwrap();
+    let b = random_hypergraph(15, &[0.3, 0.05], None, Some(7)).unwrap();
+    assert_eq!(a.num_nodes(), 15);
+    assert!(a == b);
+}
+
+#[test]
+fn test_random_hypergraph_rejects_bad_probability() {
+    assert!(random_hypergraph(10, &[1.5], Some(&[1]), Some(1)).is_err());
+}
