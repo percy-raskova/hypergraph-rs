@@ -1,6 +1,10 @@
 //! Ordering providers for babylon's topology render lane (design canon S9):
 //! surfaces consume orderings, never force layouts. `paoh_ordering` mirrors
-//! `src/babylon/projection/topology/paoh.py`; `levi_ego_tree` mirrors
+//! `src/babylon/projection/topology/paoh.py`'s SHAPE (nodes, sorted edges) —
+//! with one declared deviation: node order here is insertion order (III.7
+//! determinism via `node_ids()`), not paoh.py's lexicographic `sorted(set)`;
+//! callers wanting the lexicographic view sort the returned vec. Edge
+//! sort-by-attr-with-missing-last matches paoh.py exactly. `levi_ego_tree` mirrors
 //! `levi.py`, modeled on this crate's own bipartite (agent/hyperedge)
 //! representation. Both are re-expressions of existing structure — no new
 //! mathematics.

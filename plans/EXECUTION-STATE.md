@@ -150,6 +150,20 @@ raster-proposal ruling), Phase 7 (needs Phase 5 for its layout/render bindings),
 (shape depends on same ruling). The critical path now blocks on the owner's
 PROPOSAL-raster-replan.md decision.
 
+## 2026-07-22 UPDATE 5 — proposal APPROVED; Phase 5 DONE (+review fixes); Phase R mapped
+
+Owner rulings (2026-07-22 afternoon): PROPOSAL-raster-replan.md **APPROVED as proposed**
+(Phase 8 deferred, Phase 10 cancelled, Phase 9 promoted, Phase R after Phase 7; H3
+first-class snapping deferred to Phase R). Phase 5 executed with owner-amendment Task 12
+(ordering providers paoh_ordering + levi_ego_tree) — 12/12 tasks (3596eec..36532ac, run
+wf_51643f61-287); review fix-needed on one blocker (plan-supplied 3.14 literal vs
+clippy approx_constant) + paoh docstring accuracy — both fixed same day; 428 tests
+green, full gate clean. PARKED advisory (end-of-program ceremony): consider gating
+`rand` as optional to shrink the no-default-features footprint. `plans/PHASE-R-MAP.md`
+records the complete deck→Rust component map for Phase R (reference artifact deck v3,
+verification stages 0-3, four open owner decisions). Next: Phase 7 (skip Task 0 — D1
+subsumed it; executor runs Task 1 onward).
+
 **Phase 4 resumes at task 6** (tasks 1-5 were already committed pre-reconciliation and are
 untouched by any reconciliation task; the reconciliation work landed entirely in `crates/`
 core, `tests/conformance/`, and `.mise.toml`, not in `phase-4-generators-stats-readwrite.md`'s

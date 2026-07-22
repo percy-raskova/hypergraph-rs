@@ -47,7 +47,7 @@ fn test_hyperedge_geometry_variants_serde() {
         HyperedgeGeometry::Arc {
             center: (0.0, 0.0),
             radius: 1.0,
-            angle_range: (0.0, 3.14),
+            angle_range: (0.0, 3.0),
         },
     ];
     for g in variants {
