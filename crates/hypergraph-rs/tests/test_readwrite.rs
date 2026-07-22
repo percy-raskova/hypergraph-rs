@@ -214,3 +214,42 @@ fn test_write_read_hif_file() {
     assert_eq!(h2.num_edges(), 1);
     let _ = std::fs::remove_file(&path);
 }
+
+use hypergraph_rs::readwrite::bigg::bigg_dict_to_dihypergraph;
+
+#[test]
+fn test_bigg_forward_reaction() {
+    // minimal BIGG model dict: metabolites A,B; one forward reaction A -> B
+    let model = serde_json::json!({
+        "id": "toy",
+        "metabolites": [{"id": "A", "name": "alpha"}, {"id": "B", "name": "beta"}],
+        "reactions": [{
+            "id": "r1", "name": "reaction one",
+            "lower_bound": 0.0, "upper_bound": 1000.0,
+            "metabolites": {"A": -1.0, "B": 1.0}
+        }]
+    });
+    let dh = bigg_dict_to_dihypergraph(&model, None).unwrap();
+    assert_eq!(dh.num_nodes(), 2);
+    assert_eq!(dh.num_edges(), 1);
+    // A is reactant (tail), B is product (head)
+    assert_eq!(dh.tail("r1").unwrap(), vec!["A".to_string()]);
+    assert_eq!(dh.head("r1").unwrap(), vec!["B".to_string()]);
+}
+
+#[test]
+fn test_bigg_reversible_reaction_emits_two_edges() {
+    let model = serde_json::json!({
+        "id": "toy",
+        "metabolites": [{"id": "A", "name": "alpha"}, {"id": "B", "name": "beta"}],
+        "reactions": [{
+            "id": "r1", "name": "rev",
+            "lower_bound": -1000.0, "upper_bound": 1000.0,
+            "metabolites": {"A": -1.0, "B": 1.0}
+        }]
+    });
+    let dh = bigg_dict_to_dihypergraph(&model, None).unwrap();
+    assert_eq!(dh.num_edges(), 2);
+    assert!(dh.has_edge("r1"));
+    assert!(dh.has_edge("r1_reverse"));
+}

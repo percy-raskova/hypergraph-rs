@@ -116,6 +116,16 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         true
     }
 
+    /// Read a graph-level attribute. XGI parity: `DH["name"]`.
+    pub fn graph_attr(&self, key: &str) -> Option<&serde_json::Value> {
+        self.graph_attrs.get(key)
+    }
+
+    /// Set a graph-level attribute. XGI parity: `DH["name"] = value`.
+    pub fn set_graph_attr(&mut self, key: &str, value: serde_json::Value) {
+        self.graph_attrs.insert(key.to_string(), value);
+    }
+
     /// Read a node's attributes. XGI parity: `DH.nodes[n]`.
     pub fn node_attrs(&self, node_id: &str) -> Option<&N> {
         let idx = self.agent_ids.get(node_id)?;

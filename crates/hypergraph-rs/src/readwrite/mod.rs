@@ -28,3 +28,4 @@ pub use edgelist::{parse_edgelist, read_edgelist, write_edgelist};
 pub use bipartite::{parse_bipartite_edgelist, read_bipartite_edgelist, write_bipartite_edgelist};
 pub use incidence::{read_incidence_matrix, write_incidence_matrix};
 pub use hif::{from_hif_dict, read_hif, to_hif_dict, write_hif};
+pub use bigg::bigg_dict_to_dihypergraph;
