@@ -23,8 +23,7 @@ pub enum ReadWriteError {
     Format(String),
 }
 
-// TASK 13: uncomment when json.rs lands
-// pub use json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};
+pub use json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};
 // TASK 14: uncomment when edgelist.rs lands
 // pub use edgelist::{parse_edgelist, read_edgelist, write_edgelist};
 // TASK 15: uncomment when bipartite.rs lands

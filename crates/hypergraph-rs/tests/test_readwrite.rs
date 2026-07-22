@@ -1,0 +1,73 @@
+use hypergraph_rs::readwrite::json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};
+use hypergraph_rs::Hypergraph;
+
+fn sample() -> Hypergraph {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("e0".into()),
+        serde_json::json!({"weight": 2}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["2".into(), "3".into()],
+        Some("e1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.set_graph_attr("name", serde_json::json!("sample"));
+    h.set_graph_attr("note", serde_json::json!("second graph attr"));
+    h
+}
+
+#[test]
+fn test_to_hypergraph_dict_schema() {
+    let h = sample();
+    let d = to_hypergraph_dict(&h);
+    assert_eq!(d["type"], serde_json::json!("hypergraph"));
+    assert_eq!(d["hypergraph-data"]["name"], serde_json::json!("sample"));
+    // every graph attr is serialized, not just "name" (XGI updates the whole
+    // hypergraph-data dict from H._net_attr).
+    assert_eq!(
+        d["hypergraph-data"]["note"],
+        serde_json::json!("second graph attr")
+    );
+    assert!(d["node-data"].get("1").is_some());
+    assert!(d["edge-data"].get("e0").is_some());
+    // edge-dict members are sorted strings
+    assert_eq!(
+        d["edge-dict"]["e0"],
+        serde_json::json!(["1", "2", "3"])
+    );
+}
+
+#[test]
+fn test_json_round_trip_preserves_structure() {
+    let h = sample();
+    let d = to_hypergraph_dict(&h);
+    let h2 = from_hypergraph_dict(&d).unwrap();
+    assert_eq!(h2.num_nodes(), 3);
+    assert_eq!(h2.num_edges(), 2);
+    // members as sets
+    let mut m = h2.members("e0").unwrap();
+    m.sort();
+    assert_eq!(m, vec!["1".to_string(), "2".to_string(), "3".to_string()]);
+    assert_eq!(h2.edge_attrs("e0").unwrap()["weight"], 2);
+    assert_eq!(h2.graph_attr("name"), Some(&serde_json::json!("sample")));
+    assert_eq!(
+        h2.graph_attr("note"),
+        Some(&serde_json::json!("second graph attr"))
+    );
+}
+
+#[test]
+fn test_write_read_json_file_round_trip() {
+    let h = sample();
+    let dir = std::env::temp_dir();
+    let path = dir.join("hypergraph_rs_test_json.json");
+    write_json(&h, &path).unwrap();
+    let h2 = read_json(&path).unwrap();
+    assert_eq!(h2.num_nodes(), h.num_nodes());
+    assert_eq!(h2.num_edges(), h.num_edges());
+    let _ = std::fs::remove_file(&path);
+}
