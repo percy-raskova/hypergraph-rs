@@ -252,3 +252,72 @@ fn test_radial_empty_hypergraph() {
     assert!(r.node_positions.is_empty());
     assert_eq!(r.bounding_box, (0.0, 0.0, 0.0, 0.0));
 }
+
+use hypergraph_rs::layout::spring_layout;
+
+#[test]
+fn test_spring_positions_every_node() {
+    let h = sample_h();
+    let r = spring_layout(&h, 50, Some(42));
+    assert_eq!(r.node_positions.len(), h.num_nodes());
+    assert_eq!(r.edge_geometries.len(), h.num_edges());
+}
+
+#[test]
+fn test_spring_same_seed_is_bit_identical() {
+    let h = sample_h();
+    let a = spring_layout(&h, 50, Some(42));
+    let b = spring_layout(&h, 50, Some(42));
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_spring_different_seed_differs() {
+    let h = sample_h();
+    let a = spring_layout(&h, 50, Some(1));
+    let b = spring_layout(&h, 50, Some(2));
+    assert!(a.node_positions != b.node_positions);
+}
+
+#[test]
+fn test_spring_none_seed_is_deterministic() {
+    let h = sample_h();
+    // seed=None falls back to DEFAULT_LAYOUT_SEED — still deterministic.
+    let a = spring_layout(&h, 50, None);
+    let b = spring_layout(&h, 50, None);
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_spring_emits_spline_geometry() {
+    let h = sample_h();
+    let r = spring_layout(&h, 50, Some(42));
+    for (_, g) in &r.edge_geometries {
+        assert!(matches!(g, HyperedgeGeometry::Spline { .. }));
+    }
+}
+
+#[test]
+fn test_spring_positions_finite() {
+    let h = sample_h();
+    let r = spring_layout(&h, 50, Some(42));
+    for (_, (x, y)) in &r.node_positions {
+        assert!(x.is_finite() && y.is_finite());
+    }
+}
+
+#[test]
+fn test_spring_single_node() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("solo", serde_json::Value::Null);
+    let r = spring_layout(&h, 50, Some(42));
+    assert_eq!(r.node_positions.len(), 1);
+}
+
+#[test]
+fn test_spring_empty_hypergraph() {
+    let h: Hypergraph = Hypergraph::new();
+    let r = spring_layout(&h, 50, Some(42));
+    assert!(r.node_positions.is_empty());
+    assert_eq!(r.bounding_box, (0.0, 0.0, 0.0, 0.0));
+}
