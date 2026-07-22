@@ -1,33 +1,14 @@
-# Deferred symbols (164/164 not built by any phase)
+# Deferred symbols (78/164 not built by any phase)
 
-- `DiHypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `Hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `SimplicialComplex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `adjacency_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `adjacency_tensor` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `barycenter_kamada_kawai_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `barycenter_spring_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `binomial_sequence` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `bipartite_spring_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `boundary_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `chung_lu_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `circular_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `clique_eigenvector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `clique_motif_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `clustering_coefficient` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `complement` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `complete_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `compute_kuramoto_order_parameter` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `compute_simplicial_order_parameter` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `connected_components` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `convert_labels_to_integers` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `cut_to_order` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `dcsbm_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `degree_assortativity` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `degree_counts` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `degree_histogram` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `degree_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `density` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `diedgestat_func` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `dinodestat_func` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `dispatch_many_stats` — no Phase 0-6 plan built it; calling raises NotImplementedError.
@@ -43,127 +24,146 @@
 - `draw_nodes` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `draw_simplices` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `draw_undirected_dyads` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `dual_dict` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `dynamical_assortativity` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `edge_neighborhood` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `edge_positions_from_barycenters` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `edgestat_func` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `edit_simpliciality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `empirical_subsets_filter` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `empty_dihypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `empty_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `empty_simplicial_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `equal` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `face_edit_simpliciality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `fast_random_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `find_triangles` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `flag_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `flag_complex_d2` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `from_bipartite_edgelist` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `from_bipartite_graph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `from_bipartite_pandas_dataframe` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `from_hif_dict` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `from_hyperedge_dict` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `from_hyperedge_list` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `from_hypergraph_dict` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `from_incidence_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `from_max_simplices` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `from_simplex_dict` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `geometric` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `get_network_type` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `h_eigenvector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `hist` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `hodge_laplacian` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `incidence_density` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `incidence_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `intersection_profile` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `is_connected` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `is_possible_order` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `is_uniform` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `k_skeleton` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `katz_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `laplacian` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `largest_connected_component` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `largest_connected_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `line_vector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `load_bigg_data` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `load_xgi_data` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `local_clustering_coefficient` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `max_edge_order` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `mean_face_edit_distance` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `multiorder_laplacian` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `node_connected_component` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `node_edge_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `node_swap` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `nodestat_func` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `normalized_hypergraph_laplacian` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `num_edges_order` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `number_connected_components` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `pairwise_incidence` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `pairwise_spring_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `parse_bipartite_edgelist` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `parse_edgelist` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `pca_transform` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `powerset` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `random_flag_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `random_flag_complex_d2` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `random_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `random_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `random_simplicial_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `read_bipartite_edgelist` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `read_edgelist` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `read_hif` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `read_hif_collection` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `read_incidence_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `request_json_from_url` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `request_json_from_url_cached` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `ring_lattice` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `shortest_path_length` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `shuffle_hyperedges` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `simplicial_edit_distance` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `simplicial_fraction` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `simulate_kuramoto` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `simulate_simplicial_kuramoto` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `single_source_shortest_path_length` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `spectral_clustering` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `spiral_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `star_clique` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `subfaces` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `subhypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `sunflower` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `to_bipartite_edgelist` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `to_bipartite_graph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_bipartite_pandas_dataframe` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_dihypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_encapsulation_dag` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `to_graph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_hif_dict` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `to_hyperedge_dict` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `to_hyperedge_list` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `to_hypergraph_dict` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_incidence_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_line_graph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_simplicial_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `trivial_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `ttsv1` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `ttsv2` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `two_node_clustering_coefficient` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `uniform_HPPM` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `uniform_HSBM` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `uniform_erdos_renyi_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `uniform_h_eigenvector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `uniform_hypergraph_configuration_model` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `unique_edge_sizes` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `update_uid_counter` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `watts_strogatz_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `weighted_barycenter_spring_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `write_bipartite_edgelist` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `write_edgelist` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `write_hif` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `write_hif_collection` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `write_incidence_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `z_eigenvector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 
-# Bound symbols (0/164)
+# Bound symbols (86/164)
 
+- `DiHypergraph`
+- `Hypergraph`
+- `SimplicialComplex`
+- `adjacency_matrix`
+- `chung_lu_hypergraph`
+- `clique_eigenvector_centrality`
+- `clique_motif_matrix`
+- `clustering_coefficient`
+- `complement`
+- `complete_hypergraph`
+- `compute_kuramoto_order_parameter`
+- `connected_components`
+- `convert_labels_to_integers`
+- `cut_to_order`
+- `degree_assortativity`
+- `degree_counts`
+- `degree_histogram`
+- `degree_matrix`
+- `density`
+- `dual_dict`
+- `dynamical_assortativity`
+- `edge_neighborhood`
+- `edit_simpliciality`
+- `empty_hypergraph`
+- `equal`
+- `face_edit_simpliciality`
+- `fast_random_hypergraph`
+- `from_bipartite_edgelist`
+- `from_bipartite_graph`
+- `from_hyperedge_dict`
+- `from_hyperedge_list`
+- `from_hypergraph_dict`
+- `get_network_type`
+- `incidence_density`
+- `incidence_matrix`
+- `intersection_profile`
+- `is_connected`
+- `is_possible_order`
+- `is_uniform`
+- `katz_centrality`
+- `laplacian`
+- `largest_connected_component`
+- `local_clustering_coefficient`
+- `max_edge_order`
+- `mean_face_edit_distance`
+- `multiorder_laplacian`
+- `node_connected_component`
+- `normalized_hypergraph_laplacian`
+- `num_edges_order`
+- `number_connected_components`
+- `parse_bipartite_edgelist`
+- `parse_edgelist`
+- `powerset`
+- `random_hypergraph`
+- `random_simplicial_complex`
+- `read_bipartite_edgelist`
+- `read_edgelist`
+- `read_hif`
+- `read_incidence_matrix`
+- `ring_lattice`
+- `shortest_path_length`
+- `simplicial_edit_distance`
+- `simplicial_fraction`
+- `simulate_kuramoto`
+- `single_source_shortest_path_length`
+- `spectral_clustering`
+- `star_clique`
+- `subfaces`
+- `subhypergraph`
+- `sunflower`
+- `to_bipartite_edgelist`
+- `to_bipartite_graph`
+- `to_graph`
+- `to_hyperedge_dict`
+- `to_hyperedge_list`
+- `to_hypergraph_dict`
+- `trivial_hypergraph`
+- `two_node_clustering_coefficient`
+- `uniform_erdos_renyi_hypergraph`
+- `uniform_hypergraph_configuration_model`
+- `unique_edge_sizes`
+- `watts_strogatz_hypergraph`
+- `write_bipartite_edgelist`
+- `write_edgelist`
+- `write_hif`
+- `write_incidence_matrix`

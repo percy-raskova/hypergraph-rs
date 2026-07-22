@@ -4,5 +4,8 @@ xgi.readwrite.__all__ (verified) so they stay out of the 164-symbol total;
 they still need to resolve on import (Fact 2)."""
 from .._deferred import make_deferred
 
-read_json = make_deferred("read_json")
-write_json = make_deferred("write_json")
+try:
+    from .._hypergraph_rs_core import read_json, write_json  # noqa: F401
+except (ImportError, AttributeError):
+    read_json = make_deferred("read_json")  # until Task 12 binds it
+    write_json = make_deferred("write_json")
