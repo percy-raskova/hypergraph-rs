@@ -1,7 +1,8 @@
 #![cfg(feature = "communities")]
 
-use hypergraph_rs::communities::normalized_laplacian;
+use hypergraph_rs::communities::{kmeans, normalized_laplacian};
 use hypergraph_rs::Hypergraph;
+use ndarray::Array2;
 
 fn two_triangles() -> Hypergraph {
     let mut h: Hypergraph = Hypergraph::new();
@@ -75,5 +76,40 @@ fn test_eigen_deterministic_with_seed() {
     let (l, _) = normalized_laplacian(&h).unwrap();
     let a = smallest_k_eigenvectors(&l, 2, Some(7));
     let b = smallest_k_eigenvectors(&l, 2, Some(7));
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_kmeans_separates_two_clusters() {
+    // Two well-separated 1-D point clusters near 0 and near 10.
+    let mut x = Array2::<f64>::zeros((6, 1));
+    for (i, &v) in [0.0, 0.1, 0.2, 10.0, 10.1, 10.2].iter().enumerate() {
+        x[[i, 0]] = v;
+    }
+    let labels = kmeans(&x, 2, 100, Some(42));
+    assert_eq!(labels.len(), 6);
+    // The first three share a label, the last three share the other label.
+    assert_eq!(labels[0], labels[1]);
+    assert_eq!(labels[1], labels[2]);
+    assert_eq!(labels[3], labels[4]);
+    assert_eq!(labels[4], labels[5]);
+    assert_ne!(labels[0], labels[3]);
+}
+
+#[test]
+fn test_kmeans_k1_all_zero() {
+    let x = Array2::<f64>::zeros((4, 2));
+    let labels = kmeans(&x, 1, 100, Some(1));
+    assert_eq!(labels, vec![0, 0, 0, 0]);
+}
+
+#[test]
+fn test_kmeans_deterministic_with_seed() {
+    let mut x = Array2::<f64>::zeros((6, 1));
+    for (i, &v) in [0.0, 0.1, 0.2, 10.0, 10.1, 10.2].iter().enumerate() {
+        x[[i, 0]] = v;
+    }
+    let a = kmeans(&x, 2, 100, Some(5));
+    let b = kmeans(&x, 2, 100, Some(5));
     assert_eq!(a, b);
 }

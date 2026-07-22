@@ -224,3 +224,119 @@ fn align_sign(v: &mut Array1<f64>) {
         }
     }
 }
+
+/// Squared Euclidean distance between row `i` of `x` and a centroid vector.
+fn sq_dist(x: &Array2<f64>, i: usize, centroid: &[f64]) -> f64 {
+    let mut s = 0.0;
+    for d in 0..centroid.len() {
+        let diff = x[[i, d]] - centroid[d];
+        s += diff * diff;
+    }
+    s
+}
+
+/// Forgy-initialized k-means over the rows of `x`.
+///
+/// XGI parity: `_kmeans` (`communities/spectral.py:75-136`), with three deliberate
+/// deviations (see the Phase-6 plan header): correct per-dimension centroid mean,
+/// `k == 1 → 0`, and empty-cluster reseeding to the farthest point. Deterministic under
+/// `seed`. At most `max_iter` update rounds (bounded loop).
+///
+/// **Requires `k <= x.nrows()`.** `spectral_clustering` guards this at the call site
+/// (`SpectralError::TooManyClusters`); calling `kmeans` directly with `k` greater than the
+/// row count is a misuse this function does not itself validate (the Forgy-init fallback
+/// loop is bounded by row count and simply returns fewer than `k` distinct centroids).
+pub fn kmeans(x: &Array2<f64>, k: usize, max_iter: usize, seed: Option<u64>) -> Vec<usize> {
+    let n = x.nrows();
+    let dim = x.ncols();
+    if k <= 1 || n == 0 {
+        return vec![0; n];
+    }
+
+    let mut rng = Pcg64Mcg::seed_from_u64(seed.unwrap_or(0));
+
+    // Forgy init: pick k distinct rows as centroids.
+    let mut chosen: Vec<usize> = Vec::with_capacity(k);
+    let mut attempts = 0usize;
+    while chosen.len() < k && attempts < n * 100 {
+        let cand = rng.random_range(0..n);
+        if !chosen.contains(&cand) {
+            chosen.push(cand);
+        }
+        attempts += 1;
+    }
+    // Fallback: if distinct picks failed (degenerate), fill sequentially. Bounded by `n`
+    // (Power-of-10 rule 2): `kmeans` requires `k <= n`, so this loop provably terminates
+    // once `idx` reaches `n` — the `idx < n` guard is the static bound, not a safety net.
+    let mut idx = 0usize;
+    while chosen.len() < k && idx < n {
+        if !chosen.contains(&idx) {
+            chosen.push(idx);
+        }
+        idx += 1;
+    }
+    let mut centroids: Vec<Vec<f64>> = chosen
+        .iter()
+        .map(|&r| (0..dim).map(|d| x[[r, d]]).collect())
+        .collect();
+
+    let mut labels = vec![0usize; n];
+
+    for _ in 0..max_iter {
+        // Assignment step.
+        let mut new_labels = vec![0usize; n];
+        for i in 0..n {
+            let mut best = 0usize;
+            let mut best_d = f64::INFINITY;
+            for (c, centroid) in centroids.iter().enumerate() {
+                let d = sq_dist(x, i, centroid);
+                if d < best_d {
+                    best_d = d;
+                    best = c;
+                }
+            }
+            new_labels[i] = best;
+        }
+
+        // Update step: per-dimension mean; reseed empty clusters to the farthest point.
+        let mut next = vec![vec![0.0_f64; dim]; k];
+        let mut counts = vec![0usize; k];
+        for i in 0..n {
+            let c = new_labels[i];
+            counts[c] += 1;
+            for d in 0..dim {
+                next[c][d] += x[[i, d]];
+            }
+        }
+        for c in 0..k {
+            if counts[c] > 0 {
+                for d in 0..dim {
+                    next[c][d] /= counts[c] as f64;
+                }
+            } else {
+                // Reseed to the point farthest from its currently-assigned centroid.
+                let mut far_i = 0usize;
+                let mut far_d = -1.0;
+                for i in 0..n {
+                    let d = sq_dist(x, i, &centroids[new_labels[i]]);
+                    if d > far_d {
+                        far_d = d;
+                        far_i = i;
+                    }
+                }
+                for d in 0..dim {
+                    next[c][d] = x[[far_i, d]];
+                }
+            }
+        }
+        centroids = next;
+
+        let changed = new_labels != labels;
+        labels = new_labels;
+        if !changed {
+            break;
+        }
+    }
+
+    labels
+}
