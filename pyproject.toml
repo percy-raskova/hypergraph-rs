@@ -1,0 +1,34 @@
+# Python packaging for the PyO3 binding crate (crates/hypergraph-rs-python).
+# Build backend is maturin: building this project compiles the Rust cdylib
+# and ships it as hypergraph_rs._hypergraph_rs_core inside the pure-Python
+# package shell at python/hypergraph_rs/.
+#
+# Babylon consumes this as a uv PATH dependency (sibling checkout):
+#   [tool.uv.sources] hypergraph-rs = { path = "../hypergraph-rs" }
+# uv builds the wheel itself (needs cargo on PATH — the babylon flake
+# devshell and the mise toolchain both provide it).
+#
+# The binding surface is a STUB until Phase 7 (plans/phase-7-python-conformance.md);
+# importing hypergraph_rs today proves the FFI/link path, nothing more.
+# NO publishing of any kind — PyPI is an owner decision (plans/EXECUTION-STATE.md).
+
+[build-system]
+requires = ["maturin>=1.14,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "hypergraph-rs"
+description = "Rust port of XGI (higher-order networks) as a rustworkx-core plugin — PyO3 bindings"
+readme = "README.md"
+license = "BSD-3-Clause"
+authors = [{ name = "Babylon Project" }]
+requires-python = ">=3.12"
+# Version is single-sourced from the cargo workspace ([workspace.package]
+# version in Cargo.toml) via maturin's dynamic support.
+dynamic = ["version"]
+
+[tool.maturin]
+manifest-path = "crates/hypergraph-rs-python/Cargo.toml"
+module-name = "hypergraph_rs._hypergraph_rs_core"
+python-source = "python"
+strip = true

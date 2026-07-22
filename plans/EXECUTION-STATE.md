@@ -4,6 +4,86 @@
 This file is the single source of truth for resuming the program. Read it top to bottom before
 doing anything.
 
+## 2026-07-22 UPDATE — read this FIRST (supersedes stale facts below)
+
+**The repo moved.** This repo now lives at `/home/user/projects/game/hypergraph-rs`
+(sibling of the babylon checkout — moved OUT of babylon's tree per the owner's
+2026-07-22 instruction; babylon's `.gitignore` keeps `/hypergraph-rs/` as a guard
+against re-mounting). Any path below reading
+`/home/user/projects/game/babylon/hypergraph-rs` means THIS repo at its new home.
+
+**A second lineage exists — reconciliation is the next agent's first task.**
+Branch `conformance-lineage` (in this repo) is a snapshot of babylon's
+`feature/hypergraph-rs-phase-0-1` (45 commits, merged into babylon dev
+2026-07-22 — full history reachable there via merge commit 764c6229). It forked
+from the same Phase 0/1 root as `main` and carries what `main` lacks:
+
+- the executable XGI conformance harness (`crates/hypergraph-rs/conformance/
+  generate_fixtures.py` + `xgi_ground_truth.json` + `tests/conformance/main.rs`,
+  ~2900 lines of replay tests) with the **divergence register D1-D17** — pinned
+  against the XGI **runtime**, never docstrings;
+- reviewed Phase-2 error-hardening (MembershipError family, freeze guards D12,
+  D9 bulk-removal semantics, D10/D11 counter rules).
+
+`main` raced ahead in breadth (Phases 0-3 done + reviewed, Phase 4 paused at
+task 5/19) but did NOT absorb those corrections — e.g. `main` still rejects
+empty edges while the register's D1 pins XGI's actual create-empty-edge
+behavior (that is precisely Phase 7 Task 0 here). Reconciliation plan:
+
+1. Graft the conformance harness (fixtures generator + JSON + the Rust replay
+   tests) from `conformance-lineage` onto `main`; expect the replay tests to
+   NOT compile/pass initially — each failure is a real, documented divergence
+   between the lineages. Adjudicate each against the D1-D17 register (the
+   register wins unless a `main` review explicitly ruled otherwise).
+2. Fold register-mandated behavior into `main`'s core (D1 empty edges is the
+   known first case; sweep D2-D17 systematically).
+3. Wire `rust:fixtures` back into `.mise.toml` once the harness lands (task
+   text is preserved in babylon history; the generator runs XGI from babylon's
+   venv, read-only oracle use — sanctioned).
+4. Only then resume Phase 4 task 6 via the executor (below, unchanged).
+Already grafted from the lineage (2026-07-22): `rust-toolchain.toml`
+(1.91.1 pin, MSRV floor 1.85 — `cargo test --workspace --locked` verified
+green on `main` under the pin).
+
+**Packaging + task runner now exist (2026-07-22).** Root `pyproject.toml`
+(maturin backend; module `hypergraph_rs._hypergraph_rs_core`; pure-python
+shell at `python/hypergraph_rs/`; version single-sourced from the cargo
+workspace), `.mise.toml` (`rust:*` gate ported from babylon + `py:build`),
+`.github/workflows/ci.yml` (dormant until a remote exists — publishing stays
+an owner decision). **Babylon consumes this repo TODAY** as an opt-in uv
+dependency-group: in babylon, `uv sync --group hypergraph` builds the wheel
+and `import hypergraph_rs` works (verified end-to-end). Constraints that
+follow: (a) babylon's CI materializes a metadata stub for this package —
+if this pyproject ever gains **python dependencies** or moves
+requires-python, babylon's `.github/workflows/ci.yml` stub must mirror it
+or babylon's lock-check goes red (loudly, by design); (b) do not rename the
+distribution ("hypergraph-rs") or module without a paired babylon change.
+
+**Babylon as it actually exists on dev (2026-07-22) — the Phase 11 target:**
+- Python env is **uv-managed** (Poetry fully retired: hatchling backend,
+  `uv.lock`, `.python-version` pins 3.12). Never write `poetry ...` anywhere.
+- Its flake builds the player closure via uv2nix; this repo's group is
+  deliberately OUTSIDE that closure until Phase 7 + ADR083.
+- XGI call sites to swap at Phase 11 (`import xgi` → `import hypergraph_rs as
+  xgi`), exactly 7 files: `src/babylon/engine/graph_wrappers.py`,
+  `src/babylon/engine/systems/community.py`,
+  `src/babylon/domain/bifurcation/{analysis,axis,bridges,consciousness}.py`,
+  `src/babylon/engine/bifurcation_monitor.py`; then drop `xgi` from
+  `[project.dependencies]` and add an `import xgi` ban.
+- Minimal binding surface those sites need (Phase 7 priority order):
+  `Hypergraph()`, `add_node`, `add_edge(members, idx=..., **attrs)`, `.nodes`
+  (contains/iterate/`memberships()`), `.edges` (contains/iterate/`members()`/
+  `[id]` attrs), `num_edges`, and
+  `incidence_matrix(H, sparse=False, index=True) -> (ndarray, rowdict, coldict)`.
+- Acceptance for the swap: babylon `mise run qa:regression` byte-identical +
+  `nix build .#babylon` green (group still excluded from the closure).
+- The design spec + plans on the babylon side live at
+  `docs/superpowers/specs/2026-07-18-hypergraph-rs-design.md` (now carries the
+  D1-D17 register) and `docs/superpowers/plans/2026-07-18-hypergraph-rs-*.md`;
+  where babylon's "Phases 3-11" roadmap doc and this repo's `plans/` disagree,
+  **this repo's plans are canonical** (they are the corrected, preflight-
+  reviewed versions; the babylon roadmap predates the fork).
+
 ## Program goal
 
 Owner-set session goal: **"the rust port is completed and all phases are complete"** — execute

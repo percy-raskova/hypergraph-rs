@@ -1,2 +1,8 @@
 /target
 **/*.rs.bk
+
+# python packaging artifacts (maturin/uv consumers)
+/dist/
+__pycache__/
+*.egg-info/
+/.venv/

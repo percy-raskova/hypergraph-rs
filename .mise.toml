@@ -1,0 +1,58 @@
+# hypergraph-rs task runner — ported 2026-07-22 from babylon's rust:* namespace
+# when this repo moved out of the babylon tree (babylon commit 7ea1dcbb).
+# House rules unchanged (ai/tooling.yaml doctrine in babylon, rust section of
+# which now lives here): one invocation source of truth, CI runs what devs run,
+# loud failure, pinned everything.
+#
+# Toolchain: rust-toolchain.toml pins 1.91.1 (rustup selects it by cwd
+# ancestry; a nix-provided cargo of the same version satisfies the pin
+# without rustup). MSRV floor 1.85 lives in Cargo.toml rust-version.
+#
+# NOTE rust:fixtures is deliberately ABSENT on main: the XGI conformance
+# harness (conformance/generate_fixtures.py + tests replay) lives on the
+# `conformance-lineage` branch and returns with the reconciliation task —
+# see plans/EXECUTION-STATE.md "Lineage reconciliation".
+
+[tasks."rust:check"]
+description = "Rust full gate: format:check + lint (clippy -D warnings) + test + doc — CI parity. Sequential run-block, NOT parallel depends: one cargo target dir has one file lock, so parallel legs only contend (machine-safety: heavy builds single-flight)"
+run = """
+set -e
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --locked
+"""
+
+[tasks."rust:format"]
+description = "Rust format (rewrites; the CI-parity variant is rust:format:check)"
+run = "cargo fmt --all"
+
+[tasks."rust:format:check"]
+description = "Rust format check, no rewrites (CI parity)"
+run = "cargo fmt --all -- --check"
+
+[tasks."rust:lint"]
+description = "Clippy on the workspace, all targets, warnings denied"
+run = "cargo clippy --workspace --all-targets --locked -- -D warnings"
+
+[tasks."rust:test"]
+description = "Rust workspace tests (locked)"
+run = "cargo test --workspace --locked"
+
+[tasks."rust:doc"]
+description = "Build Rust API docs (no deps), rustdoc warnings denied"
+run = "RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --locked"
+
+[tasks."rust:msrv"]
+description = "MSRV floor check against the rust-version declared in Cargo.toml (currently 1.85)"
+run = """
+set -e
+MSRV=$(grep '^rust-version' Cargo.toml | cut -d'"' -f2)
+echo "MSRV floor: $MSRV"
+rustup toolchain install "$MSRV" --profile minimal
+cargo +"$MSRV" check --workspace --locked
+"""
+
+[tasks."py:build"]
+description = "Build the PyO3 wheel via maturin (crates/hypergraph-rs-python -> hypergraph_rs._hypergraph_rs_core). Consumers normally never run this: babylon's uv resolves the path dependency and builds the wheel itself"
+run = "uvx maturin build --manifest-path crates/hypergraph-rs-python/Cargo.toml"
