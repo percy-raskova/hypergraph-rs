@@ -196,6 +196,23 @@ fn test_dihypergraph_add_node_to_edge() {
 }
 
 #[test]
+fn test_dihypergraph_add_node_to_edge_numeric_id_bumps_counter() {
+    // D11-extension: XGI's DiHypergraph.add_node_to_edge does NOT bump
+    // the uid counter (probed: next auto id 0 after auto-creating edge
+    // 5); the Rust core bumps iff the id parses as u64 — the D3/D11 rule
+    // extended to DiHypergraph.
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_node_to_edge("5", "x", DiRole::Tail).unwrap();
+    let auto = dh.add_edge(vec!["y".into()], vec![], None, v()).unwrap();
+    assert_eq!(auto, "6");
+    // Non-numeric ids don't bump.
+    let mut dh2: DiHypergraph = DiHypergraph::new();
+    dh2.add_node_to_edge("e", "x", DiRole::Tail).unwrap();
+    let auto2 = dh2.add_edge(vec!["y".into()], vec![], None, v()).unwrap();
+    assert_eq!(auto2, "0");
+}
+
+#[test]
 fn test_dihypergraph_remove_node_from_edge() {
     let mut dh: DiHypergraph = DiHypergraph::new();
     dh.add_edge(

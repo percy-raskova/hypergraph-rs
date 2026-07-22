@@ -144,6 +144,53 @@ fn test_simplicialcomplex_copy_independent() {
 }
 
 #[test]
+fn test_uid_counter_rules_match_the_core() {
+    // Auto ids sequence; explicit numeric str idx bumps (D3 rule);
+    // non-numeric idx does not — faces consume the auto sequence.
+    let mut s: SimplicialComplex = SimplicialComplex::new();
+    s.add_simplex(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("10".into()),
+        v(),
+    )
+    .unwrap();
+    // "10" parses as u64 -> bump: faces take 11, 12, 13.
+    assert_eq!(s.edge_ids(), vec!["10", "11", "12", "13"]);
+
+    let mut s2: SimplicialComplex = SimplicialComplex::new();
+    s2.add_simplex(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("top".into()),
+        v(),
+    )
+    .unwrap();
+    // "top" does not parse -> no bump: faces take 0, 1, 2.
+    assert_eq!(s2.edge_ids(), vec!["top", "0", "1", "2"]);
+}
+
+#[test]
+fn test_falsy_idx_is_explicit_in_rust() {
+    // D17: XGI's add_simplex treats a FALSY idx (0, "") as auto; the
+    // core's Option<String> is exact — Some("0") is explicit.
+    let mut s: SimplicialComplex = SimplicialComplex::new();
+    s.add_simplex(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("5".into()),
+        v(),
+    )
+    .unwrap();
+    s.add_simplex(vec!["4".into(), "5".into()], Some("0".into()), v())
+        .unwrap();
+    assert!(
+        s.has_simplex(&["4".to_string(), "5".to_string()]),
+        "Some(\"0\") is an explicit id, not auto"
+    );
+    let mut members = s.members("0").unwrap();
+    members.sort();
+    assert_eq!(members, vec!["4", "5"]);
+}
+
+#[test]
 fn test_simplicialcomplex_freeze() {
     let mut s: SimplicialComplex = SimplicialComplex::new();
     s.add_simplex(vec!["1".into(), "2".into()], None, v())
