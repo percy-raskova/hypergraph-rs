@@ -1,6 +1,7 @@
 //! PyO3 binding for the core `Hypergraph`. Deviation shims (spec §3.1) live here.
 
 use hypergraph_rs::core::error::EdgeError;
+use hypergraph_rs::layout::{BipartiteAlign, LayoutStrategy};
 use hypergraph_rs::Hypergraph as CoreHg;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
@@ -248,6 +249,41 @@ impl PyHypergraph {
     #[getter]
     fn edges(slf: Py<Self>) -> crate::views::PyEdgeView {
         crate::views::PyEdgeView { hg: slf, ids: None }
+    }
+
+    /// `H.render(strategy)` — the matplotlib-free scene-graph (spec §5.3/§6.3, Task 13). `strategy`
+    /// is one of `"spring"`, `"bipartite"`, `"hyperedge_aware"` (default), `"radial"`; returns the
+    /// `SceneGraph` (`nodes`, `hyperedges`, `bounding_box`, `metadata`) as a JSON-shaped dict. Node
+    /// and hyperedge glyph `id`s stay core `String`s (opaque render coordinates), not translated back
+    /// through `PyIdMap` — the scene-graph is a rendering artifact, not an XGI-parity surface.
+    #[pyo3(signature = (strategy=None))]
+    fn render(&self, py: Python<'_>, strategy: Option<&str>) -> PyResult<Py<PyDict>> {
+        let strategy = parse_layout_strategy(strategy.unwrap_or("hyperedge_aware"))?;
+        let scene = self.inner.render(strategy);
+        let value = serde_json::to_value(&scene)
+            .map_err(|e| xgi_error(format!("scene-graph serialization failed: {e}")))?;
+        Ok(json_to_py(py, &value)?.cast_into::<PyDict>()?.unbind())
+    }
+}
+
+/// Parse `H.render(strategy=...)`'s strategy name into a `LayoutStrategy` (spec §5.2 defaults).
+fn parse_layout_strategy(name: &str) -> PyResult<LayoutStrategy> {
+    match name {
+        "spring" => Ok(LayoutStrategy::Spring {
+            iterations: 50,
+            seed: None,
+        }),
+        "bipartite" => Ok(LayoutStrategy::Bipartite {
+            align: BipartiteAlign::Vertical,
+        }),
+        "hyperedge_aware" => Ok(LayoutStrategy::HyperedgeAware {
+            iterations: 50,
+            halo_padding: 0.05,
+        }),
+        "radial" => Ok(LayoutStrategy::Radial { rings: 4 }),
+        other => Err(xgi_error(format!(
+            "unknown render strategy {other:?}; expected one of \"spring\", \"bipartite\", \"hyperedge_aware\", \"radial\""
+        ))),
     }
 }
 
