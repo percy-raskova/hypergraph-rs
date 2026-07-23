@@ -1,8 +1,9 @@
 #![cfg(feature = "cells3d")]
 
+use hypergraph_rs::raster::deck::psa;
 use hypergraph_rs::raster::ingest::{
-    ingest_edges, ingest_nodes, AttrContract, IngestError, TensionSource, ATTR_CONTRACT_VERSION,
-    DEFAULT_BLOC, DEFAULT_LANE, DEFAULT_MASS, DEFAULT_REPRESSION, K_WEALTH,
+    ingest_edges, ingest_nodes, to_world, AttrContract, IngestError, TensionSource,
+    ATTR_CONTRACT_VERSION, DEFAULT_BLOC, DEFAULT_LANE, DEFAULT_MASS, DEFAULT_REPRESSION, K_WEALTH,
 };
 use hypergraph_rs::Hypergraph;
 use serde_json::json;
@@ -374,4 +375,103 @@ fn test_industry_slice_order_follows_edge_ids_order() {
     // edge_ids() insertion order: in_z then in_a — NOT sorted by name.
     assert_eq!(out.industries[0].c, 1.0);
     assert_eq!(out.industries[1].c, 2.0);
+}
+
+// --- Task 4: to_world -----------------------------------------------------
+
+/// Two agents, two community edges, `with_periphery` controls whether one
+/// agent carries `bloc: 2`.
+fn graph_with_two_communities(with_periphery: bool) -> Hypergraph {
+    let mut h: Hypergraph = Hypergraph::new();
+    let b_bloc = if with_periphery { 2 } else { 0 };
+    h.add_node("a", json!({"wealth": 10.0, "subsistence": 5.0, "bloc": 0}));
+    h.add_node(
+        "b",
+        json!({"wealth": 8.0, "subsistence": 4.0, "bloc": b_bloc}),
+    );
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("com1".to_string()),
+        json!({"kind": "community", "name": "c1"}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("com2".to_string()),
+        json!({"kind": "community", "name": "c2"}),
+    )
+    .unwrap();
+    h
+}
+
+#[test]
+fn test_to_world_is_pure_and_deterministic() {
+    let h = graph_with_two_communities(true);
+    let c = AttrContract::default();
+    let (world1, report1) = to_world(&h, &c).unwrap();
+    let (world2, report2) = to_world(&h, &c).unwrap();
+    assert_eq!(world1, world2);
+    assert_eq!(report1, report2);
+}
+
+#[test]
+fn test_two_communities_without_periphery_bloc_errors_rather_than_emitting_nan() {
+    let h = graph_with_two_communities(false);
+    let c = AttrContract::default();
+    let err = to_world(&h, &c).unwrap_err();
+    assert_eq!(
+        err,
+        IngestError::NoPeripheryBloc {
+            communities: 2,
+            bloc: 2,
+        }
+    );
+
+    let h_ok = graph_with_two_communities(true);
+    let (world, _report) = to_world(&h_ok, &c).unwrap();
+    assert!(psa(&world).is_finite());
+}
+
+#[test]
+fn test_single_agent_graph_is_too_few_agents() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({"wealth": 10.0, "subsistence": 5.0}));
+    let c = AttrContract::default();
+    let err = to_world(&h, &c).unwrap_err();
+    assert_eq!(err, IngestError::TooFewAgents { found: 1 });
+}
+
+#[test]
+fn test_repression_defaults_to_one_and_zero_repression_is_rejected() {
+    let c = AttrContract::default();
+
+    let h = graph_with_two_communities(true);
+    let (world, report) = to_world(&h, &c).unwrap();
+    assert_eq!(world.repression, DEFAULT_REPRESSION);
+    assert!(report.repression_defaulted);
+
+    let mut h_bad = graph_with_two_communities(true);
+    h_bad.set_graph_attr(&c.repression, json!(0.0));
+    let err = to_world(&h_bad, &c).unwrap_err();
+    assert_eq!(
+        err,
+        IngestError::BadGraphAttr {
+            key: c.repression.clone(),
+            reason: "must be finite and > 0.0".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_report_records_contract_version_counts_and_id_map() {
+    let h = graph_with_two_communities(true);
+    let c = AttrContract::default();
+    let (world, report) = to_world(&h, &c).unwrap();
+    assert_eq!(report.contract_version, ATTR_CONTRACT_VERSION);
+    assert_eq!(report.agent_count, world.agents.len());
+    assert_eq!(report.agent_count, 2);
+    assert_eq!(report.community_count, 2);
+    assert_eq!(report.extraction_count, 0);
+    assert_eq!(report.industry_count, 0);
+    assert_eq!(report.node_ids, h.node_ids());
 }

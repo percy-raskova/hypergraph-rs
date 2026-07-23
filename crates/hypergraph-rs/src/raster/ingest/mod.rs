@@ -41,12 +41,15 @@
 //! instrument); real provenance lives on [`IngestReport`].
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::raster::deck::DeckWorld;
+use crate::Hypergraph;
 
 mod edges;
 mod nodes;
 
 pub use edges::{ingest_edges, IngestedEdges};
-#[allow(unused_imports)]
 pub(crate) use nodes::index_of;
 pub use nodes::ingest_nodes;
 
@@ -207,4 +210,123 @@ pub enum IngestError {
         "a world with {communities} communities computes psa over the periphery bloc ({bloc}), but no node carries it"
     )]
     NoPeripheryBloc { communities: usize, bloc: u8 },
+}
+
+/// Read the `repression` graph attr: absent ⇒ [`DEFAULT_REPRESSION`] (and
+/// `defaulted` is set); present ⇒ must be a finite `f64` (its `> 0.0`
+/// requirement is checked by the caller, since the message differs from a
+/// bad-shape message). Bad shape ⇒ [`IngestError::BadGraphAttr`].
+fn read_repression(
+    h: &Hypergraph<Value, Value, Value>,
+    key: &str,
+    defaulted: &mut bool,
+) -> Result<f64, IngestError> {
+    match h.graph_attr(key) {
+        None => {
+            *defaulted = true;
+            Ok(DEFAULT_REPRESSION)
+        }
+        Some(v) => v.as_f64().ok_or_else(|| IngestError::BadGraphAttr {
+            key: key.to_string(),
+            reason: "must be a finite number".to_string(),
+        }),
+    }
+}
+
+/// Read the `zoom` graph attr: absent ⇒ [`DEFAULT_ZOOM`]; present ⇒ must be
+/// a `u8`, else [`IngestError::BadGraphAttr`].
+fn read_zoom(h: &Hypergraph<Value, Value, Value>, key: &str) -> Result<u8, IngestError> {
+    match h.graph_attr(key) {
+        None => Ok(DEFAULT_ZOOM),
+        Some(v) => {
+            let n = v.as_u64().ok_or_else(|| IngestError::BadGraphAttr {
+                key: key.to_string(),
+                reason: "must be an unsigned integer".to_string(),
+            })?;
+            u8::try_from(n).map_err(|_| IngestError::BadGraphAttr {
+                key: key.to_string(),
+                reason: "must fit in a u8".to_string(),
+            })
+        }
+    }
+}
+
+/// Ingest a real `Hypergraph` into a `DeckWorld` the frozen render path
+/// (`instruments::build` → `rasterize` / `render_pixels`) can consume
+/// unchanged, per `c`'s attribute contract. Pure and deterministic: two
+/// calls on the same `(h, c)` produce equal outputs (Global Constraints —
+/// determinism).
+///
+/// Validates the three CRITICAL PRECONDITIONS (module doc, "Global
+/// Constraints" / plan's "CRITICAL PRECONDITION FINDING") before returning,
+/// as a straight-line sequence of explicit checks — no combined
+/// "invalid world" catch-all (Power-of-10 rule 4):
+///
+/// 1. `agents.len() >= 2`, else [`IngestError::TooFewAgents`] (the spectral
+///    embedding's `smallest_k_eigenvectors` requirement).
+/// 2. If `communities.len() >= 2` and no agent carries [`PERIPHERY_BLOC`],
+///    [`IngestError::NoPeripheryBloc`] — the `0.0/0.0` route in
+///    `periphery_mean_wealth` (`deck.rs:416-419`).
+/// 3. `repression` finite and `> 0.0`, else [`IngestError::BadGraphAttr`]
+///    (it divides in `psr`, `deck.rs:445`).
+pub fn to_world(
+    h: &Hypergraph<Value, Value, Value>,
+    c: &AttrContract,
+) -> Result<(DeckWorld, IngestReport), IngestError> {
+    let mut repression_defaulted = false;
+    let repression = read_repression(h, &c.repression, &mut repression_defaulted)?;
+    if !repression.is_finite() || repression <= 0.0 {
+        return Err(IngestError::BadGraphAttr {
+            key: c.repression.clone(),
+            reason: "must be finite and > 0.0".to_string(),
+        });
+    }
+    let zoom = read_zoom(h, &c.zoom)?;
+
+    let (agents, node_ids, h3_cells, bloc_defaulted, tension_source) =
+        ingest_nodes(h, c, repression)?;
+
+    if agents.len() < 2 {
+        return Err(IngestError::TooFewAgents {
+            found: agents.len(),
+        });
+    }
+
+    let index = index_of(&node_ids);
+    let edges = ingest_edges(h, c, &index)?;
+
+    if edges.communities.len() >= 2 && !agents.iter().any(|a| a.bloc == PERIPHERY_BLOC) {
+        return Err(IngestError::NoPeripheryBloc {
+            communities: edges.communities.len(),
+            bloc: PERIPHERY_BLOC,
+        });
+    }
+
+    let world = DeckWorld {
+        seed: 0,
+        agents,
+        communities: edges.communities,
+        extraction: edges.extraction,
+        industries: edges.industries,
+        repression,
+        tick: 0,
+        zoom,
+    };
+
+    let report = IngestReport {
+        contract_version: c.version,
+        agent_count: world.agents.len(),
+        community_count: world.communities.len(),
+        extraction_count: world.extraction.len(),
+        industry_count: world.industries.len(),
+        skipped_edges: edges.skipped,
+        bloc_defaulted,
+        lane_defaulted: edges.lane_defaulted,
+        repression_defaulted,
+        tension_source,
+        node_ids,
+        h3_cells,
+    };
+
+    Ok((world, report))
 }
