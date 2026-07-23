@@ -20,6 +20,8 @@ pub mod stats;
 pub mod utils;
 #[cfg(feature = "viz")]
 pub mod viz;
+#[cfg(feature = "raster")]
+pub mod raster;
 
 #[cfg(feature = "convert")]
 pub mod convert;
