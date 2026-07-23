@@ -213,7 +213,7 @@ task list).
 | 7 python conformance | phase-7-python-conformance.md | **DONE + review fixed** | tasks 1–19 (`cd4668f`..`50b7377`); Opus fix-needed on 11 clippy lints → fixed `cecf8fa`; 470 Rust tests, conformance 311 pass/83 skip/0 fail vs xgi 0.10.2; owner-reverified all gates. Run `wf_30795e12-aa1` |
 | 8 wasm | phase-8-wasm.md | **DEFERRED indefinitely** (raster re-plan; consumer superseded) | GitHub #289 |
 | 9 cli | phase-9-cli.md | not started — **promoted**, render formats re-scoped json/svg/cells/ordering | 11 tasks; GitHub #280 |
-| R rasterizer | phase-R-rasterizer.md | **PLANNED (`2e79fbe`) — awaiting owner greenlight + D-R3** | 14 TDD tasks, scout→design→critique→revise workflow (wf_8d0ad90d-d5f); 10 critique findings all applied; foundation PHASE-R-MAP.md; GitHub #279 |
+| R rasterizer | phase-R-rasterizer.md | **EXECUTING (`20f256c`) — owner greenlit; D-R3=include PNG** | 15 TDD tasks (Task 14=PNG plate, Task 15=gate); run `wf_dea1d555-5b5` via `plans/phase-R-executor.workflow.js` (deck-grounded, NOT XGI); planned via scout→design→critique→revise (10 findings applied); GitHub #279 |
 | 10 react package | phase-10-react-package.md | **CANCELLED** (wire contract salvaged into Phase R schemas) | — |
 
 All Phase 2–10 plans in `plans/` are the **corrected** versions (preflight-reviewed, defects
