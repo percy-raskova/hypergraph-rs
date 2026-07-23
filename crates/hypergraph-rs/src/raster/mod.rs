@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::viz::NodeStyle;
 
+pub mod camera;
 pub mod fmt;
+
+pub use camera::{depth_sort, face_is_clipped, project, strut_is_clipped, Camera, Projected};
 
 /// A truecolor RGB triple. No alpha — the glyph floor composes fg/bg
 /// unconditionally (Task 4 fills the quantization/heat-ramp logic).
