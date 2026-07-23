@@ -16,6 +16,8 @@ pub mod deck;
 pub mod fmt;
 mod grid;
 #[cfg(feature = "cells3d")]
+pub mod h3;
+#[cfg(feature = "cells3d")]
 pub mod instruments;
 
 pub use camera::{depth_sort, face_is_clipped, project, strut_is_clipped, Camera, Projected};

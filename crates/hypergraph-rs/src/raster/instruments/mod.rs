@@ -4,6 +4,7 @@
 //! lane gate — 3D spatial embeddings are library/CLI capability only).
 
 pub mod cylinder;
+pub mod sankey;
 pub mod terrain;
 
 use crate::raster::deck::DeckWorld;
@@ -48,6 +49,13 @@ pub fn build(inst: Instrument, world: &DeckWorld, opts: &InstrumentOpts) -> Scen
     match inst {
         Instrument::Cylinder => cylinder::build_cylinder(world, opts),
         Instrument::Terrain => terrain::build_terrain(world, opts),
-        Instrument::Sankey => unimplemented!("Instrument::Sankey lands in Task 9"),
+        Instrument::Sankey => {
+            let zoom = if world.zoom == 1 {
+                sankey::Zoom::Coarse
+            } else {
+                sankey::Zoom::Fine
+            };
+            sankey::build_sankey(&world.industries, zoom).scene
+        }
     }
 }

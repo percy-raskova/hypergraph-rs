@@ -164,3 +164,121 @@ fn test_terrain_deterministic() {
         build(Instrument::Terrain, &w, &InstrumentOpts::default())
     );
 }
+
+// ---------- Task 9: Instrument III — OCC hyper-Sankey over u64 H3 ----------
+
+use hypergraph_rs::raster::algebra::deck_industries;
+use hypergraph_rs::raster::instruments::sankey::{build_sankey, Zoom};
+
+#[test]
+fn test_occ_altitude_finance_is_highest() {
+    let scene = build_sankey(&deck_industries(), Zoom::Fine);
+    let finance = scene
+        .entities
+        .iter()
+        .find(|e| e.name == "finance")
+        .expect("finance industry present");
+    let carceral = scene
+        .entities
+        .iter()
+        .find(|e| e.name == "carceral labor")
+        .expect("carceral labor industry present");
+
+    // finance: c=60,v=5 => q=12 => occY clamps to +0.75 (top of the range).
+    let finance_y = hypergraph_rs::raster::instruments::sankey::occ_y(finance.c, finance.v);
+    assert!(
+        (finance_y - 0.75).abs() < 1e-9,
+        "finance occY={finance_y}, want 0.75"
+    );
+
+    // carceral labor: c=4,v=5 => q=0.8 => occY ≈ -0.7542.
+    let carceral_y = hypergraph_rs::raster::instruments::sankey::occ_y(carceral.c, carceral.v);
+    assert!(
+        (carceral_y - (-0.754_181_732)).abs() < 1e-6,
+        "carceral labor occY={carceral_y}, want ≈ -0.7542"
+    );
+
+    // finance sits strictly above every other entity's altitude.
+    for e in &scene.entities {
+        if e.name != "finance" {
+            let y = hypergraph_rs::raster::instruments::sankey::occ_y(e.c, e.v);
+            assert!(finance_y >= y, "finance ({finance_y}) not >= {}: {y}", e.name);
+        }
+    }
+}
+
+#[test]
+fn test_ribbon_flows_conserve_to_phi_unrendered() {
+    let scene = build_sankey(&deck_industries(), Zoom::Fine);
+
+    // Total flow across the FULL allocation (no 0.4 render threshold)
+    // equals Φ (Deviation 5).
+    let total: f64 = scene.ribbons.iter().map(|r| r.flow).sum();
+    assert!(
+        (total - scene.phi).abs() < 1e-9,
+        "total flow {total} != phi {}",
+        scene.phi
+    );
+
+    // Absorber-side conservation: every absorber's incoming flow sums back
+    // to exactly its own T (both directions of the bipartite allocation
+    // agree on the same Φ).
+    for j in scene.entities.iter().filter(|e| e.t > 0.0) {
+        let received: f64 = scene
+            .ribbons
+            .iter()
+            .filter(|r| r.absorber == j.name)
+            .map(|r| r.flow)
+            .sum();
+        assert!(
+            (received - j.t).abs() < 1e-9,
+            "{}: received {received} != T {}",
+            j.name,
+            j.t
+        );
+    }
+}
+
+#[test]
+fn test_net_t_zero_at_both_zooms() {
+    let fine = build_sankey(&deck_industries(), Zoom::Fine);
+    let coarse = build_sankey(&deck_industries(), Zoom::Coarse);
+    assert!(fine.net_t().abs() < 1e-9, "fine net_t={}", fine.net_t());
+    assert!(
+        coarse.net_t().abs() < 1e-9,
+        "coarse net_t={}",
+        coarse.net_t()
+    ); // partition-independent (Deviation 7)
+}
+
+#[test]
+fn test_r_invariant_under_aggregation() {
+    let fine = build_sankey(&deck_industries(), Zoom::Fine);
+    let coarse = build_sankey(&deck_industries(), Zoom::Coarse);
+    assert!(
+        (fine.r - coarse.r).abs() < 1e-12,
+        "fine.r={} coarse.r={}",
+        fine.r,
+        coarse.r
+    );
+}
+
+#[test]
+fn test_h3_parent_is_u64_bit_op_never_string() {
+    use h3o::Resolution;
+    use hypergraph_rs::raster::h3::{industry_cell, origin_cell};
+
+    let origin = origin_cell(Resolution::Eight);
+    let cell = industry_cell(origin, -6, 0).expect("fixture offset is pentagon-free");
+
+    // u64 round-trip — no String in the hot path.
+    let raw: u64 = cell.into();
+    assert_ne!(raw, 0);
+    let back = h3o::CellIndex::try_from(raw).expect("valid u64 round-trips to a CellIndex");
+    assert_eq!(back, cell);
+
+    // parent() is a bit-op that reduces resolution.
+    let parent = cell.parent(Resolution::Seven).expect("Seven <= Eight");
+    assert_eq!(parent.resolution(), Resolution::Seven);
+    assert_ne!(u64::from(parent), u64::from(cell));
+}
