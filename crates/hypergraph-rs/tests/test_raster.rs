@@ -436,3 +436,122 @@ fn test_cell_fg_bg_pick_deterministic_tiebreak() {
     assert_eq!(grid.cells[0].fg, a);
     assert_eq!(grid.cells[0].bg, b);
 }
+
+// ---------- Task 12: Stage 2 — CellGrid text golden frames ----------
+//
+// Matrix: 3 instruments x 2 cameras (front, 3/4) x 1 size (80x40) x
+// TrueColor glyph-floor text (`to_text()` is palette-independent — glyphs
+// only — so palette is asserted separately via a small `to_ansi()` golden).
+// `cells3d` is off by default, so every combo built from a `cells3d`-gated
+// instrument builder (`raster::deck`/`raster::instruments`) is wrapped in a
+// per-test `#[cfg(feature = "cells3d")]`; this file stays ungated at the
+// crate level so Tasks 1-4's camera/grid/color tests keep compiling and
+// running at default features (raster on, cells3d off).
+
+#[cfg(feature = "cells3d")]
+fn frame_front_camera() -> Camera {
+    Camera {
+        ry: 0.0,
+        rx: 0.0,
+        dist: 4.0,
+        fov: 70.0,
+    }
+}
+
+#[cfg(feature = "cells3d")]
+fn frame_three_quarter_camera() -> Camera {
+    Camera {
+        ry: 0.6,
+        rx: 0.3,
+        dist: 4.0,
+        fov: 70.0,
+    }
+}
+
+#[cfg(feature = "cells3d")]
+fn frame_scene(
+    inst: hypergraph_rs::raster::instruments::Instrument,
+) -> hypergraph_rs::raster::SceneGraph3D {
+    use hypergraph_rs::raster::deck::build_world;
+    use hypergraph_rs::raster::instruments::{build, InstrumentOpts};
+    let world = build_world(1917);
+    build(inst, &world, &InstrumentOpts::default())
+}
+
+#[cfg(feature = "cells3d")]
+#[test]
+fn test_frame_cylinder_front() {
+    use hypergraph_rs::raster::instruments::Instrument;
+    let scene = frame_scene(Instrument::Cylinder);
+    assert_eq!(
+        rasterize(&scene, &frame_front_camera(), 80, 40).to_text(),
+        include_str!("fixtures/frames/cylinder_front.txt")
+    );
+}
+
+#[cfg(feature = "cells3d")]
+#[test]
+fn test_frame_cylinder_three_quarter() {
+    use hypergraph_rs::raster::instruments::Instrument;
+    let scene = frame_scene(Instrument::Cylinder);
+    assert_eq!(
+        rasterize(&scene, &frame_three_quarter_camera(), 80, 40).to_text(),
+        include_str!("fixtures/frames/cylinder_3q.txt")
+    );
+}
+
+#[cfg(feature = "cells3d")]
+#[test]
+fn test_frame_terrain_front() {
+    use hypergraph_rs::raster::instruments::Instrument;
+    let scene = frame_scene(Instrument::Terrain);
+    assert_eq!(
+        rasterize(&scene, &frame_front_camera(), 80, 40).to_text(),
+        include_str!("fixtures/frames/terrain_front.txt")
+    );
+}
+
+#[cfg(feature = "cells3d")]
+#[test]
+fn test_frame_terrain_three_quarter() {
+    use hypergraph_rs::raster::instruments::Instrument;
+    let scene = frame_scene(Instrument::Terrain);
+    assert_eq!(
+        rasterize(&scene, &frame_three_quarter_camera(), 80, 40).to_text(),
+        include_str!("fixtures/frames/terrain_3q.txt")
+    );
+}
+
+#[cfg(feature = "cells3d")]
+#[test]
+fn test_frame_sankey_front() {
+    use hypergraph_rs::raster::instruments::Instrument;
+    let scene = frame_scene(Instrument::Sankey);
+    assert_eq!(
+        rasterize(&scene, &frame_front_camera(), 80, 40).to_text(),
+        include_str!("fixtures/frames/sankey_front.txt")
+    );
+}
+
+#[cfg(feature = "cells3d")]
+#[test]
+fn test_frame_sankey_three_quarter() {
+    use hypergraph_rs::raster::instruments::Instrument;
+    let scene = frame_scene(Instrument::Sankey);
+    assert_eq!(
+        rasterize(&scene, &frame_three_quarter_camera(), 80, 40).to_text(),
+        include_str!("fixtures/frames/sankey_3q.txt")
+    );
+}
+
+#[cfg(feature = "cells3d")]
+#[test]
+fn test_frame_cylinder_front_ansi_truecolor() {
+    use hypergraph_rs::raster::instruments::Instrument;
+    use hypergraph_rs::raster::Palette;
+    let scene = frame_scene(Instrument::Cylinder);
+    assert_eq!(
+        rasterize(&scene, &frame_front_camera(), 80, 40).to_ansi(Palette::TrueColor),
+        include_str!("fixtures/frames/cylinder_front.ansi.txt")
+    );
+}
