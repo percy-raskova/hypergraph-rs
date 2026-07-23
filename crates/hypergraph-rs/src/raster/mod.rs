@@ -17,6 +17,7 @@ pub mod fmt;
 mod grid;
 #[cfg(feature = "cells3d")]
 pub mod h3;
+pub mod ingest;
 #[cfg(feature = "cells3d")]
 pub mod instruments;
 #[cfg(feature = "raster-png")]

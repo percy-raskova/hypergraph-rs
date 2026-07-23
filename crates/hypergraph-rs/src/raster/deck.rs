@@ -72,10 +72,21 @@ pub struct Extraction {
     pub mass: f64,
 }
 
-/// The full seeded deck fixture (`topology-deck.html:151-179`'s `buildWorld`
-/// return value), bundling the 13-industry table alongside agents/
-/// communities/extraction so `do_tick` (Task 10) can mutate agents and
-/// industries together (Finding 1).
+/// The instrument input bundle — everything `instruments::build` reads to
+/// render a scene. `build_world(seed)` (below) is the **seeded deck
+/// fixture** producer (`topology-deck.html:151-179`'s `buildWorld` return
+/// value); `raster::ingest::to_world` (Phase I) is the **real-graph**
+/// producer for an arbitrary `Hypergraph`. Both paths converge on this one
+/// struct so the frozen render path (`instruments::build` → `rasterize` /
+/// `render_pixels`) never has to know which producer built its input —
+/// this is the adapter-into-struct design (`plans/phase-I-topology-ingest.md`
+/// CRITICAL DESIGN RULING), chosen over a `WorldSource` trait so the golden
+/// path is edited by neither producer, ever.
+///
+/// `seed`/`tick` are deck-fixture provenance: no instrument builder reads
+/// them (only `build_world`/`do_tick` do). `ingest::to_world` sets both to
+/// `0` as documented sentinels and reports its own real provenance on
+/// `IngestReport` instead of mutating this struct.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeckWorld {
     pub seed: u32,
