@@ -282,3 +282,35 @@ fn test_h3_parent_is_u64_bit_op_never_string() {
     assert_eq!(parent.resolution(), Resolution::Seven);
     assert_ne!(u64::from(parent), u64::from(cell));
 }
+
+// ---------- Task 11: Stage 1 — SceneGraph3D JSON golden fixtures ----------
+
+#[test]
+fn test_scene3d_golden_cylinder() {
+    let w = build_world(1917);
+    let s = build(Instrument::Cylinder, &w, &InstrumentOpts::default());
+    let json = serde_json::to_string_pretty(&s).unwrap();
+    assert_eq!(json, include_str!("fixtures/scene3d/cylinder.json"));
+}
+
+#[test]
+fn test_scene3d_golden_terrain() {
+    let w = build_world(1917);
+    let s = build(Instrument::Terrain, &w, &InstrumentOpts::default());
+    let json = serde_json::to_string_pretty(&s).unwrap();
+    assert_eq!(json, include_str!("fixtures/scene3d/terrain.json"));
+}
+
+#[test]
+fn test_scene3d_golden_sankey_fine() {
+    let s = build_sankey(&deck_industries(), Zoom::Fine).scene;
+    let json = serde_json::to_string_pretty(&s).unwrap();
+    assert_eq!(json, include_str!("fixtures/scene3d/sankey_fine.json"));
+}
+
+#[test]
+fn test_scene3d_golden_sankey_coarse() {
+    let s = build_sankey(&deck_industries(), Zoom::Coarse).scene;
+    let json = serde_json::to_string_pretty(&s).unwrap();
+    assert_eq!(json, include_str!("fixtures/scene3d/sankey_coarse.json"));
+}
