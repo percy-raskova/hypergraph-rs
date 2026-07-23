@@ -16,6 +16,8 @@ mod hypergraph;
 mod layout; // Task 13
 mod linalg; // Task 8
 mod pyid;
+#[cfg(feature = "cells3d")]
+mod raster; // Phase I Task 8
 mod readwrite; // Task 12
 mod simplicial; // Task 7
 mod stats; // Task 11
@@ -39,5 +41,7 @@ fn _hypergraph_rs_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dynamics::register(m)?;
     communities::register(m)?;
     layout::register(m)?;
+    #[cfg(feature = "cells3d")]
+    raster::register(m)?;
     Ok(())
 }

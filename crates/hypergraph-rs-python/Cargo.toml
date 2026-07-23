@@ -13,6 +13,11 @@ description = "PyO3 bindings for hypergraph-rs"
 name = "_hypergraph_rs_core"
 crate-type = ["cdylib"]
 
+[features]
+default = []
+cells3d = ["hypergraph-rs/cells3d"]
+raster-png = ["cells3d", "hypergraph-rs/raster-png"]
+
 [dependencies]
 # Turn on every built module (spec Sec10.1 `all` minus `network` — no network reads in the gate).
 hypergraph-rs = { path = "../hypergraph-rs", features = [
