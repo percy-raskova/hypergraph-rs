@@ -13,6 +13,8 @@ pub mod generators;
 #[cfg(feature = "layout")]
 pub mod layout;
 pub mod linalg;
+#[cfg(feature = "raster")]
+pub mod raster;
 #[cfg(feature = "readwrite")]
 pub mod readwrite;
 #[cfg(feature = "stats")]
@@ -20,8 +22,6 @@ pub mod stats;
 pub mod utils;
 #[cfg(feature = "viz")]
 pub mod viz;
-#[cfg(feature = "raster")]
-pub mod raster;
 
 #[cfg(feature = "convert")]
 pub mod convert;

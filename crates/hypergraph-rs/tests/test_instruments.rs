@@ -202,7 +202,11 @@ fn test_occ_altitude_finance_is_highest() {
     for e in &scene.entities {
         if e.name != "finance" {
             let y = hypergraph_rs::raster::instruments::sankey::occ_y(e.c, e.v);
-            assert!(finance_y >= y, "finance ({finance_y}) not >= {}: {y}", e.name);
+            assert!(
+                finance_y >= y,
+                "finance ({finance_y}) not >= {}: {y}",
+                e.name
+            );
         }
     }
 }
@@ -386,7 +390,10 @@ fn test_property_glyph_floor_parity_sankey_conservation() {
     use hypergraph_rs::raster::fmt::fmt6;
     let want_phi = format!("conservation.phi={}", fmt6(sankey.phi));
     let want_r = format!("conservation.r={}", fmt6(sankey.r));
-    assert!(labels.contains(&want_phi), "missing {want_phi} in {labels:?}");
+    assert!(
+        labels.contains(&want_phi),
+        "missing {want_phi} in {labels:?}"
+    );
     assert!(labels.contains(&want_r), "missing {want_r} in {labels:?}");
     assert!(text.contains(&want_phi), "banner text lost {want_phi}");
     assert!(text.contains(&want_r), "banner text lost {want_r}");
@@ -407,7 +414,10 @@ fn test_property_glyph_floor_parity_cylinder_org_degrees() {
         let name = c["name"].as_str().unwrap();
         let o = c["o"].as_f64().unwrap();
         let want = format!("communities[{i}].o={}", fmt6(o));
-        assert!(labels.contains(&want), "missing {want} in {labels:?} (community {name})");
+        assert!(
+            labels.contains(&want),
+            "missing {want} in {labels:?} (community {name})"
+        );
         assert!(text.contains(&want), "banner text lost {want}");
     }
 }
@@ -444,7 +454,10 @@ fn test_property_mutation_phi_rent_equality_is_not_structural() {
         .iter_mut()
         .find(|i| i.name == "finance")
         .expect("finance industry present");
-    assert_eq!(finance.lane, 3, "finance must be lane 2/3 for this mutation");
+    assert_eq!(
+        finance.lane, 3,
+        "finance must be lane 2/3 for this mutation"
+    );
     finance.e *= 50.0; // huge s = v*e -> strongly negative T -> finance becomes a donor
 
     let e = transform(&inds);

@@ -250,7 +250,10 @@ fn test_triangle_fill_top_left_rule_no_double_shade() {
         opacity: 1.0,
     });
     let grid = rasterize(&scene, &cam(), 1, 1);
-    assert_eq!(grid.cells[0].ch, '\u{28FF}', "expected full block, got glyph missing subcells along the shared diagonal");
+    assert_eq!(
+        grid.cells[0].ch, '\u{28FF}',
+        "expected full block, got glyph missing subcells along the shared diagonal"
+    );
 }
 
 #[test]
@@ -605,7 +608,10 @@ fn test_property_depth_sort_stability_under_shuffle() {
     });
     let first = frames.next().unwrap();
     for other in frames {
-        assert_eq!(first, other, "non-overlapping equal-depth shuffle changed the frame");
+        assert_eq!(
+            first, other,
+            "non-overlapping equal-depth shuffle changed the frame"
+        );
     }
 }
 

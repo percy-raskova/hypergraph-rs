@@ -34,7 +34,12 @@ const CLEAR: Rgb = Rgb(0, 0, 0);
 /// directly as `Rgb` per pixel (no braille composition — Tier-1 is raw
 /// pixels). Pure function of `(scene, cam, width_px, height_px)` —
 /// byte-exact golden-testable.
-pub fn render_pixels(scene: &SceneGraph3D, cam: &Camera, width_px: u32, height_px: u32) -> PixelBuffer {
+pub fn render_pixels(
+    scene: &SceneGraph3D,
+    cam: &Camera,
+    width_px: u32,
+    height_px: u32,
+) -> PixelBuffer {
     let mut faces: Vec<_> = scene
         .faces
         .iter()

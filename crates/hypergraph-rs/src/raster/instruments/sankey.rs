@@ -347,7 +347,10 @@ pub fn build_sankey(inds: &[Industry], zoom: Zoom) -> SankeyScene {
     // Ribbon Struts, rendered allocation only (Deviation 5). Bounded:
     // ribbons.len().
     for f in ribbons.iter().filter(|f| f.rendered) {
-        let a_entity = entities.iter().find(|e| e.name == f.donor).expect("donor entity exists");
+        let a_entity = entities
+            .iter()
+            .find(|e| e.name == f.donor)
+            .expect("donor entity exists");
         let b_entity = entities
             .iter()
             .find(|e| e.name == f.absorber)

@@ -29,7 +29,10 @@ fn test_render_pixels_dims_and_len() {
 #[test]
 fn test_render_pixels_is_pure_function_byte_exact() {
     let (s, c) = fixture();
-    assert_eq!(render_pixels(&s, &c, 128, 96), render_pixels(&s, &c, 128, 96));
+    assert_eq!(
+        render_pixels(&s, &c, 128, 96),
+        render_pixels(&s, &c, 128, 96)
+    );
 }
 
 #[test]
