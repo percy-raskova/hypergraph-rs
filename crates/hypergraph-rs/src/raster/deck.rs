@@ -184,6 +184,37 @@ pub fn build_world(seed: u32) -> DeckWorld {
     }
 }
 
+/// Port of `doTick()` (`topology-deck.html:243-252`, Task 10). Order
+/// verbatim (Finding 1): (1) wealth extraction over `world.extraction` —
+/// `take = mass·0.12`; each tail loses `take/|tails|` under a
+/// `Math.max(0.2, …)` floor; the head gains `take·0.8`; every bloc-1
+/// (core-labor) agent gains `take·0.2/9`; THEN (2) c-accumulation — each
+/// industry's `c ×= 1.035` if `lane>=2` else `×= 1.015` (`v,e` untouched).
+/// Does not itself call `transform` — callers compute readouts from the
+/// mutated `world.industries` afterward (the crate's `transform` is a pure
+/// fn with no `Industry`-side effects to "re-run", unlike the deck's
+/// closure-captured `W.industries`). Bounded:
+/// `world.extraction.len() * (max tails + agents.len()) + world.industries.len()`.
+pub fn do_tick(world: &mut DeckWorld) {
+    world.tick += 1;
+
+    for e in &world.extraction {
+        let take = e.mass * 0.12;
+        let per_tail = take / e.tails.len() as f64;
+        for &t in &e.tails {
+            world.agents[t].wealth = (world.agents[t].wealth - per_tail).max(0.2);
+        }
+        world.agents[e.head].wealth += take * 0.8;
+        for a in world.agents.iter_mut().filter(|a| a.bloc == 1) {
+            a.wealth += take * 0.2 / 9.0;
+        }
+    }
+
+    for ind in world.industries.iter_mut() {
+        ind.c *= if ind.lane >= 2 { 1.035 } else { 1.015 };
+    }
+}
+
 /// The shared `DeckWorld -> &Hypergraph` adapter (Finding 6): 28 agents
 /// become nodes keyed by their id, each community link becomes a 2-node
 /// edge. The single bridge from `DeckWorld` to the shipped `&Hypergraph`
@@ -305,4 +336,42 @@ pub fn global_pi0(w: &DeckWorld) -> usize {
         roots.insert(uf.find(a.id));
     }
     roots.len()
+}
+
+/// `sigmoid(x) = 1/(1+e^-x)` (`topology-deck.html:122`). Routes through
+/// `exp` — not byte-exact across libm implementations (Finding 3, user
+/// CLAUDE.md §4); callers golden-test it tolerance-bounded (`< 1e-12`).
+pub fn sigmoid(x: f64) -> f64 {
+    1.0 / (1.0 + (-x).exp())
+}
+
+/// Mean wealth of the bloc-2 (periphery) agents, in `agents` order
+/// (`topology-deck.html:439-440`'s `pw`). Pure arithmetic — byte-exact.
+pub fn periphery_mean_wealth(w: &DeckWorld) -> f64 {
+    let per: Vec<&Agent> = w.agents.iter().filter(|a| a.bloc == 2).collect();
+    per.iter().map(|a| a.wealth).sum::<f64>() / per.len() as f64
+}
+
+/// `psa = sigmoid(pw − per[0].subsistence)` (`topology-deck.html:443`) — the
+/// periphery's assimilation survival probability. Tolerance-bounded golden
+/// (routes through `sigmoid`'s `exp`, Finding 3), NOT byte-exact.
+pub fn psa(w: &DeckWorld) -> f64 {
+    let subsistence = w
+        .agents
+        .iter()
+        .find(|a| a.bloc == 2)
+        .map_or(3.0, |a| a.subsistence);
+    sigmoid(periphery_mean_wealth(w) - subsistence)
+}
+
+/// `psr = min(1, (org(cell α)+org(cell β))/2 / (repression/2.6·0.9))`
+/// (`topology-deck.html:444`) — the deck's *calibrated* rupture-survival
+/// form; diverges from the textbook `P(S|R)=Org/Repression` (see OPEN
+/// DECISION D-R7). Pure division — byte-exact. `communities[0]`/`[1]` are
+/// `cell α`/`cell β` by `build_world`'s push order.
+pub fn psr(w: &DeckWorld) -> f64 {
+    let org0 = org_degree(&w.communities[0]);
+    let org1 = org_degree(&w.communities[1]);
+    let mean_org = (org0 + org1) / 2.0;
+    (mean_org / (w.repression / 2.6 * 0.9)).min(1.0)
 }

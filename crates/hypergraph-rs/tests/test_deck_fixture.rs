@@ -1,7 +1,9 @@
 #![cfg(feature = "raster")]
 
 use hypergraph_rs::raster::algebra::{deck_industries, transform};
-use hypergraph_rs::raster::deck::{build_world, global_pi0, org_degree, Mulberry32};
+use hypergraph_rs::raster::deck::{
+    build_world, do_tick, global_pi0, org_degree, periphery_mean_wealth, psa, psr, Mulberry32,
+};
 
 #[test]
 fn test_raw_buildworld_r_before_any_tick() {
@@ -74,4 +76,88 @@ fn test_org_degrees_at_seed_1917() {
 #[test]
 fn test_global_pi0_is_13() {
     assert_eq!(global_pi0(&build_world(1917)), 13);
+}
+
+// ---------- Task 10: Stage 0 — deck-world reproduction ----------
+
+#[test]
+fn test_displayed_r_after_one_startup_tick() {
+    let mut world = build_world(1917);
+    do_tick(&mut world); // the deck runs doTick() once before first paint (:499)
+    assert!((transform(&world.industries).r - 0.4608359187088229).abs() < 1e-12);
+}
+
+#[test]
+fn test_falling_r_sequence_six_ticks() {
+    let want = [
+        0.4608359187088229,
+        0.45077630191919216,
+        0.44084464189389844,
+        0.43104290735742473,
+        0.4213729206846403,
+        0.4118363577727333,
+    ];
+    let mut world = build_world(1917);
+    for w in want {
+        do_tick(&mut world);
+        assert!((transform(&world.industries).r - w).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn test_s_invariant_under_ticks() {
+    let mut world = build_world(1917);
+    for _ in 0..6 {
+        do_tick(&mut world);
+        assert!((transform(&world.industries).big_s - 198.3).abs() < 1e-9);
+    }
+}
+
+#[test]
+fn test_net_t_zero_every_tick_and_both_zooms() {
+    // ΣT == 0 at tick1..6 (fine) — r=S/CV construction makes this hold for
+    // any industry state, ticked or not. The COARSE-zoom half of this
+    // invariant (partition-independent, Deviation 7) is already asserted
+    // over the raw fixture by Task 9's `test_net_t_zero_at_both_zooms`
+    // (`tests/test_instruments.rs`, `cells3d`-gated); nothing about
+    // aggregation depends on whether the industries were ticked.
+    let mut world = build_world(1917);
+    for _ in 0..6 {
+        do_tick(&mut world);
+        let net: f64 = transform(&world.industries).t.iter().sum();
+        assert!(net.abs() < 1e-9, "ΣT must be 0 at every tick, got {net}");
+    }
+}
+
+#[test]
+fn test_org_and_pi0_and_psa_golden() {
+    // Built on build_world(1917) then one do_tick (Finding 1: the wealth
+    // extraction step happens BEFORE the readouts are ever displayed).
+    let mut world = build_world(1917);
+    do_tick(&mut world);
+
+    assert_eq!(global_pi0(&world), 13);
+
+    let orgs: Vec<f64> = world.communities.iter().map(org_degree).collect();
+    assert!((orgs[0] - 0.2).abs() < 1e-12);
+    assert!((orgs[1] - 0.2).abs() < 1e-12);
+    assert!((orgs[2] - 0.2).abs() < 1e-12);
+    assert!((orgs[3] - 1.0).abs() < 1e-12);
+    let mean_org: f64 = orgs.iter().sum::<f64>() / orgs.len() as f64;
+    assert!((mean_org - 0.4).abs() < 1e-12);
+
+    let pw = periphery_mean_wealth(&world);
+    assert!((pw - 1.8250060787286078).abs() < 1e-12); // POST-tick, byte-exact (pure arithmetic)
+
+    let psr_v = psr(&world);
+    assert!((psr_v - 0.22222222222222215).abs() < 1e-12); // pure division, byte-exact
+
+    // psa = sigmoid(pw-3.0) routes through exp() => tolerance-bounded, NOT
+    // byte-exact (user CLAUDE.md §4 / Finding 3): a faithful Python
+    // re-derivation gives 0.23595349607058722 — last-ULP drift.
+    let psa_v = psa(&world);
+    assert!((psa_v - 0.23595349607058727).abs() < 1e-12);
+
+    // rupture NOT armed (psr<=psa).
+    assert!(psr_v <= psa_v);
 }
