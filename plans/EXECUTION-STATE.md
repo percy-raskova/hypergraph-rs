@@ -215,6 +215,7 @@ task list).
 | 9 cli | phase-9-cli.md | not started — **promoted**, render formats re-scoped json/svg/cells/ordering | 11 tasks; GitHub #280 |
 | R rasterizer | phase-R-rasterizer.md | **DONE + review fixed** (`67b1c17`, plan corrections `dc46166`) | 15 TDD tasks `a8e9b85`..`14e5edd` (run `wf_dea1d555-5b5`); Opus review fix-needed on 5 MAJORs → all fixed; owner-reverified: deck numbers 12/12, `rust:check`=0, **531** tests on `cells3d` / **536** on `raster-png`, 0 failed; GitHub #279 |
 | 10 react package | phase-10-react-package.md | **CANCELLED** (wire contract salvaged into Phase R schemas) | — |
+| I topology ingest | phase-I-topology-ingest.md | **DONE + review parked (10 advisories)** | 9 tasks (`3b62fef`..`84dd209`) + gate `f4eaed2`; 501 tests default / 538 `cells3d` / 543 `raster-png`; every golden fixture byte-identical |
 
 All Phase 2–10 plans in `plans/` are the **corrected** versions (preflight-reviewed, defects
 fixed, orchestrator rulings folded in — the rulings ledger is
@@ -305,6 +306,15 @@ merge_duplicate_edges MergeRename::New swallows AlreadyExists on collision (unre
 note only); cleanup() deviation #6 already declared.
 From Phase 3 review: katz all-zero guard — ALREADY documented in code (`5630357`); nothing
 further.
+From Phase I review (10 findings, all minor/advisory, none blocker/major — full text in UPDATE
+7 above): Task 7 spread-threshold disposition drift vs the plan; unvalidated PyO3
+cols/rows/width/height (reachable panic/allocation-abort); frozen Sankey NaN exposure on
+contract-valid degenerate industries; `ingest_nodes`/`ingest_edges` shipped crate-public instead
+of `pub(crate)`; stale `#[allow(dead_code)]` on `index_of`; silent unknown-key handling in the
+PyO3 `camera` dict; Task 8 Step 5 Python-reachability never verified; a doc comment citing the
+untracked plan file; Sankey `DEFAULT_LANE` collision risk at ≥5 lane-less industries; two
+factual errors in the plan's own Completion Summary (`IngestError` variant count, which crate
+feature gates `render_pixels`).
 
 ## End-of-program ceremony (babylon side, after Phase 10)
 
@@ -315,6 +325,99 @@ In the babylon repo (branch off `dev`, PR back to `dev`):
 3. Apply the parked doc advisories to the spec
    (`docs/superpowers/specs/2026-07-18-hypergraph-rs-design.md`).
 4. Conventional commits via `mise run commit`; verify HEAD moved (hooks can silently abort).
+
+## 2026-07-22 UPDATE 7 — Phase I DONE (topology ingest)
+
+Phase I (9 tasks, plan `plans/phase-I-topology-ingest.md`) is **complete**: the real
+`Hypergraph<Value,Value,Value>` → `DeckWorld` adapter (`raster/ingest/{mod,nodes,edges}.rs`)
+plus its PyO3 exposure now sit in front of the three frozen Phase-R instruments
+(Cylinder/Terrain/Sankey), unchanged. Commits `3b62fef`..`84dd209` (9 task commits: attribute
+contract v1 + typed `IngestError`, node ingest, edge ingest, `to_world` + preconditions,
+graceful degradation/`build_scene`, the byte-identity proof, the real-Hypergraph render
+acceptance test, and the `cells3d`-gated PyO3 surface `_hypergraph_rs_core.raster`), plus the
+Task 9 gate commit `f4eaed2`. No separate fix commit was needed — the review's confirmed
+findings were all minor/advisory, none blocker/major.
+
+**A machine power-loss interrupted the phase after task 8** (`84dd209` landed, then the box
+went down mid-Task-9); Task 9 (the final gate) and the 5-lens review were completed on resume
+in a fresh session, against the already-committed tree — no task work was lost or redone.
+
+**Gate results (Task 9, commit `f4eaed2`):** `mise run rust:check` => PASS (exit 0). Legs:
+`cargo fmt --all -- --check` clean; `cargo clippy --workspace --all-targets --locked -- -D
+warnings` clean (only a pre-existing benign cargo advisory about a bin/lib output-filename
+collision between `hypergraph-rs-cli` and `hypergraph-rs` — cargo issue #6313, unrelated to
+lints, not a clippy/rustdoc warning); `cargo test --workspace --locked` => **501 passed, 0
+failed** (default features across all workspace crates); `RUSTDOCFLAGS='-D warnings' cargo doc
+--workspace --no-deps --locked` clean. Test counts across the feature matrix: default
+(workspace) = 501, `cells3d` = 538, `raster-png` = 543 (`test_ingest.rs` alone = 35 tests on
+both feature legs). Two clippy lints fixed during the gate: `ingest_nodes`'s 5-tuple return
+got a named `IngestedNodes` struct (mirroring `IngestedEdges`, replacing an unjustified bare
+`#[allow(clippy::type_complexity)]`); two `#[allow(clippy::too_many_arguments)]` on
+`render_pixels`/`render_png` in `hypergraph-rs-python/src/raster.rs` were removed as dead
+exemptions (clippy stayed clean without them).
+
+**Review outcome:** 5-lens adversarial review → 23 raw findings → 13 canonical → **10 survived
+3-skeptic verification**, all minor/advisory, none blocker/major, so no fix phase ran. Two
+worth flagging for the next reader: (F1) Task 7's spread-acceptance thresholds were rewritten
+in-place from the plan's normative ≥40%/≥30% columns/rows to a self-calibrating absolute-floor
+scheme, contradicting the plan's Task 7 Step 3 disposition, while the plan's Completion Summary
+still advertises the original numbers; (F2) the new PyO3 raster surface passes caller-supplied
+`cols`/`rows`/`width`/`height` straight into the core rasterizers with no validation — a zero
+dimension is a reachable panic, a large one an allocation abort, both on the path the module
+doc promises always becomes a `PyErr`. The remaining eight (F3, F5-F8, F10-F12) are advisories
+about the frozen Sankey path's NaN exposure on contract-valid-but-degenerate industries, a
+widened `pub(crate)`→crate-public ingest surface, a stale `#[allow(dead_code)]` on `index_of`,
+silent unknown-key handling in the `camera` PyO3 dict, unverified Python-side reachability
+(Task 8 Step 5 was neither performed nor its absence declared), a doc comment citing the
+untracked plan file, a Sankey `DEFAULT_LANE` collision risk at ≥5 lane-less industries, and two
+factual errors in the plan's own Completion Summary (`IngestError` has 10 variants, not 11;
+`render_pixels` is `raster-png`-gated, not `cells3d`-gated). **All 10 PARKED** — none blocks
+Phase I closeout; they are listed here for the end-of-program ceremony rather than fixed
+piecemeal.
+
+**The safety property held.** Every golden fixture is byte-identical to pre-Phase-I
+(`git diff --exit-code -- tests/fixtures` clean, re-proven at both Task 6 and Task 9) — zero
+frozen-path lines were edited; `deck.rs` changed in doc comments only. This is structural, not
+merely tested: the adapter produces an ordinary `DeckWorld` and hands it to the untouched
+`instruments::build`.
+
+Phase I's **four open owner decisions** remain owner calls, each with the plan's stated default
+currently in force: **D-I1** (tension-attr inversion into a synthetic `subsistence`, reported
+via `TensionSource::Attr`, rather than editing `terrain.rs` to read tension directly — default:
+the inversion); **D-I2** (`h3_cell` is carried on `IngestReport` but consumed by no
+instrument — default: carry, don't consume); **D-I3** (`ATTR_CONTRACT_VERSION` bumps only on a
+key's meaning/default/error-disposition change, never on adding an optional key — default: this
+rule); **D-I4** (`DeckWorld` → `InstrumentWorld` rename, mechanically cheap post-Phase-I via a
+type alias — default: deferred).
+
+**What Phase I explicitly does NOT do**, carried verbatim from the plan's Completion Summary:
+it does not give babylon a way to *emit* a contract-shaped `Hypergraph` (no export path exists
+from `BabylonGraph`, a live in-process rustworkx structure, to anything Rust can consume); it
+does not solve scale (`DeckWorld` is a 28-agent/13-industry fixture, babylon's graph is
+national-scale, and no subsetting/aggregation policy exists); it does not invent an industry
+lane classification (babylon has no per-sector periphery/internal-colony/settler-garrison/apex
+vocabulary, so Phase I defaults every unlabelled industry to one lane and flags it); it does not
+adjudicate babylon's two non-equivalent tension sources
+(`repression_faced·(subsistence−wealth)` vs `contradiction_fields["exploitation"]`) or its two
+"organization" quantities (`SocialClass.organization` vs a Π₀ degree over community links) — the
+contract makes the choice explicit and reported, not made-for-the-caller; and it does not touch
+the **C9 swap gate** (`plans/C9-exclusion-crosscheck.md`) — Phase I is a rendering path, not the
+xgi swap.
+
+**Next steps, in order:**
+1. **C9 action A1** (required before the babylon swap merges): write the missing undirected
+   `"x" in H.nodes` containment oracle test (5 babylon call sites depend on it, incl. the
+   auto-created-member case) — it must run green against **both** real `xgi` and
+   `hypergraph_rs`, dual-run being the entire point. **C9 A2 is done as of this update**: on
+   inspection, `tests/DEFERRED_SYMBOLS.md:116` (`incidence_matrix`) was found to already sit
+   correctly under the file's "Bound symbols (93/164)" section, not the "Deferred symbols"
+   section — the C9 doc's claim that the line was stale did not hold up, so no edit was made
+   to `DEFERRED_SYMBOLS.md`. `conftest_exclusions.py` plus the passing suite remain the
+   authoritative gate artifacts.
+2. **Phase 9 (CLI)**, promoted, 11 tasks, plan `plans/phase-9-cli.md`, GitHub #280.
+3. Then the babylon-side swap (#282), gated on A1 above.
+
+Phase 8 (WASM) stays deferred (#289); Phase 10 stays cancelled.
 
 ## Key session artifacts (session `86ea08c6-...`, for same-session resume only)
 
