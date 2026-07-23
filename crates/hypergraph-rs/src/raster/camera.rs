@@ -70,10 +70,16 @@ fn to_camera_space(v: &Vertex3, cam: &Camera) -> Vertex3 {
 /// `cols x rows` character grid (braille 2x4 subcells per cell). Returns
 /// `None` if the vertex is at/behind the near plane (`z' <= NEAR_EPS`).
 pub fn project(v: &Vertex3, cam: &Camera, cols: u16, rows: u16) -> Projected {
-    let cs = to_camera_space(v, cam);
+    project_wh(v, cam, cols as f64 * 2.0, rows as f64 * 4.0)
+}
 
-    let width = cols as f64 * 2.0;
-    let height = rows as f64 * 4.0;
+/// Shared projection core (Task 14 DRY): rotation + perspective divide +
+/// viewport remap into a `width x height` target space. `project` (braille,
+/// `cols*2 x rows*4`) and `raster::png::render_pixels` (`width_px x
+/// height_px`) both call this — only the final NDC->viewport resolution
+/// differs (reuse ledger, Task 14 Step 1 note).
+pub(crate) fn project_wh(v: &Vertex3, cam: &Camera, width: f64, height: f64) -> Projected {
+    let cs = to_camera_space(v, cam);
 
     // Guard the perspective divide: at/behind the near plane, clamp z' to
     // NEAR_EPS so 1/z' never yields inf/NaN (primitive-level rejection is

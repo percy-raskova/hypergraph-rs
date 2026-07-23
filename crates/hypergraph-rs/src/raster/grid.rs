@@ -39,6 +39,17 @@ impl SubBuffer {
         y * self.w + x
     }
 
+    /// Read the buffer out as a row-major `Rgb` plate: every subcell/pixel
+    /// carries a color unconditionally, `clear` filling in anything the
+    /// z-test never wrote (Task 14: the Tier-1 pixel path's glyph-floor
+    /// analogue — every pixel is fully defined, mirroring Tier-0's
+    /// braille-cell contract). Bounded: one pass over `w*h` entries.
+    /// Only called from the `raster-png`-gated pixel path.
+    #[cfg(feature = "raster-png")]
+    pub(crate) fn to_rgb_plate(&self, clear: Rgb) -> Vec<Rgb> {
+        self.color.iter().map(|c| c.unwrap_or(clear)).collect()
+    }
+
     /// Z-test and write one subcell (Finding 4: caller passes already
     /// bounds-clamped `x,y` — never called with an out-of-range index).
     fn set(&mut self, x: usize, y: usize, depth: f64, color: Rgb) {
