@@ -691,3 +691,342 @@ fn test_missing_required_attr_is_err_not_a_default_scene() {
         }
     );
 }
+
+// --- Task 7: real-Hypergraph render acceptance -----------------------------
+//
+// Necessary-but-not-sufficient scene checks alone would have let Phase R's
+// collapsed frames (34/83/389 lit subcells, all badly wrong — see the plan's
+// Task 7 preamble and commit `67b1c17`) pass unnoticed. These tests instead
+// assert lit-cell *density* (self-calibrated against the same deck frame, so
+// the band cannot rot against the committed fixtures) and *spread* across
+// the frame. No golden is frozen here — that is a deliberate, human-review
+// gate the plan calls out explicitly.
+
+/// 12 agents across all three blocs (>= 1 `bloc == 2`, satisfying precondition
+/// 2), 3 community edges with real (non-empty) `links`, 2 extraction edges,
+/// and 5 industry edges with distinct `lane`/`c`/`v`/`e`. Every attr below is
+/// a literal, hand-written value — no generator, no RNG, no loop-generated
+/// value (plan Task 7, "The fixture graph").
+fn contract_fixture() -> Hypergraph {
+    let mut h: Hypergraph = Hypergraph::new();
+
+    // Core bloc (0): well-off, low tension.
+    h.add_node("a0", json!({"wealth": 20.0, "subsistence": 5.0, "bloc": 0}));
+    h.add_node("a1", json!({"wealth": 18.0, "subsistence": 6.0, "bloc": 0}));
+    h.add_node("a2", json!({"wealth": 22.0, "subsistence": 4.0, "bloc": 0}));
+    h.add_node(
+        "a11",
+        json!({"wealth": 25.0, "subsistence": 3.0, "bloc": 0}),
+    );
+    // Semi bloc (1): middling.
+    h.add_node("a3", json!({"wealth": 12.0, "subsistence": 8.0, "bloc": 1}));
+    h.add_node("a4", json!({"wealth": 10.0, "subsistence": 9.0, "bloc": 1}));
+    h.add_node("a5", json!({"wealth": 14.0, "subsistence": 7.0, "bloc": 1}));
+    h.add_node("a6", json!({"wealth": 11.0, "subsistence": 8.0, "bloc": 1}));
+    // Periphery bloc (2): squeezed, high tension.
+    h.add_node("a7", json!({"wealth": 3.0, "subsistence": 6.0, "bloc": 2}));
+    h.add_node("a8", json!({"wealth": 2.0, "subsistence": 7.0, "bloc": 2}));
+    h.add_node("a9", json!({"wealth": 4.0, "subsistence": 8.0, "bloc": 2}));
+    h.add_node("a10", json!({"wealth": 1.0, "subsistence": 5.0, "bloc": 2}));
+
+    // 3 community edges, each with real (non-empty) internal links.
+    h.add_edge(
+        vec![
+            "a0".to_string(),
+            "a1".to_string(),
+            "a2".to_string(),
+            "a11".to_string(),
+        ],
+        Some("com_core".to_string()),
+        json!({"kind": "community", "name": "core", "links": [["a0", "a1"], ["a1", "a2"]]}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec![
+            "a3".to_string(),
+            "a4".to_string(),
+            "a5".to_string(),
+            "a6".to_string(),
+        ],
+        Some("com_semi".to_string()),
+        json!({"kind": "community", "name": "semi", "links": [["a3", "a4"], ["a5", "a6"]]}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec![
+            "a7".to_string(),
+            "a8".to_string(),
+            "a9".to_string(),
+            "a10".to_string(),
+        ],
+        Some("com_periphery".to_string()),
+        json!({"kind": "community", "name": "periphery", "links": [["a7", "a8"], ["a8", "a9"], ["a9", "a10"]]}),
+    )
+    .unwrap();
+
+    // 2 extraction edges.
+    h.add_edge(
+        vec!["a7".to_string(), "a8".to_string(), "a0".to_string()],
+        Some("ex_core".to_string()),
+        json!({"kind": "extraction", "head": "a0", "mass": 2.5}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a9".to_string(), "a10".to_string(), "a11".to_string()],
+        Some("ex_periphery".to_string()),
+        json!({"kind": "extraction", "head": "a11", "mass": 1.5}),
+    )
+    .unwrap();
+
+    // 5 industry edges, distinct lane/c/v/e.
+    h.add_edge(
+        vec!["a0".to_string()],
+        Some("in_steel".to_string()),
+        json!({"kind": "industry", "name": "steel", "lane": 0, "c": 10.0, "v": 5.0, "e": 2.0}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a3".to_string()],
+        Some("in_textile".to_string()),
+        json!({"kind": "industry", "name": "textile", "lane": 1, "c": 8.0, "v": 4.0, "e": 1.5}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a7".to_string()],
+        Some("in_mining".to_string()),
+        json!({"kind": "industry", "name": "mining", "lane": 2, "c": 15.0, "v": 6.0, "e": 3.0}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a11".to_string()],
+        Some("in_agri".to_string()),
+        json!({"kind": "industry", "name": "agri", "lane": 3, "c": 5.0, "v": 3.0, "e": 1.0}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a5".to_string()],
+        Some("in_tech".to_string()),
+        json!({"kind": "industry", "name": "tech", "lane": 0, "c": 12.0, "v": 7.0, "e": 2.5}),
+    )
+    .unwrap();
+
+    h
+}
+
+fn front_camera() -> hypergraph_rs::raster::Camera {
+    hypergraph_rs::raster::Camera {
+        ry: 0.0,
+        rx: 0.0,
+        dist: 4.0,
+        fov: 70.0,
+    }
+}
+
+/// Fraction of non-blank glyph cells in a `to_text()` frame. `' '` is a
+/// literally-unset cell; `'\u{2800}'` (braille blank) is the empty-subcell
+/// glyph `compose_braille` emits when no subcell in a 2x4 block is lit.
+fn lit_fraction(text: &str) -> f64 {
+    let cells: Vec<char> = text.chars().filter(|c| *c != '\n').collect();
+    let lit = cells
+        .iter()
+        .filter(|c| **c != ' ' && **c != '\u{2800}')
+        .count();
+    lit as f64 / cells.len() as f64
+}
+
+/// Reimplements `raster::wrap_tokens`'s greedy word-wrap (private to the
+/// crate) purely to count how many leading rows of a rasterized frame are
+/// the labeled-scalar banner, so the spread test can exclude them — spread
+/// must come from the rendered geometry, not from a full-width text banner.
+fn banner_row_count(scalars: &[String], cols: usize, rows: usize) -> usize {
+    let mut wrapped = 0usize;
+    let mut line_len = 0usize;
+    for t in scalars {
+        let t_len = t.chars().count();
+        if line_len == 0 {
+            line_len = t_len;
+        } else if line_len + 1 + t_len <= cols {
+            line_len += 1 + t_len;
+        } else {
+            wrapped += 1;
+            line_len = t_len;
+        }
+    }
+    if line_len > 0 {
+        wrapped += 1;
+    }
+    wrapped.min(rows)
+}
+
+/// Column/row span (0.0-1.0) of lit cells in `text`, excluding the top
+/// `banner_rows` rows (the labeled-scalar banner is full-width by
+/// construction and would otherwise mask a geometrically collapsed frame).
+fn lit_spread(text: &str, cols: usize, banner_rows: usize) -> (f64, f64) {
+    let rows: Vec<&str> = text.lines().collect();
+    let mut min_col = usize::MAX;
+    let mut max_col = 0usize;
+    let mut min_row = usize::MAX;
+    let mut max_row = 0usize;
+    for (r, row) in rows.iter().enumerate().skip(banner_rows) {
+        for (col, ch) in row.chars().enumerate() {
+            if ch != ' ' && ch != '\u{2800}' {
+                min_col = min_col.min(col);
+                max_col = max_col.max(col);
+                min_row = min_row.min(r);
+                max_row = max_row.max(r);
+            }
+        }
+    }
+    if min_col == usize::MAX {
+        return (0.0, 0.0);
+    }
+    let col_span = (max_col - min_col + 1) as f64 / cols as f64;
+    let row_span = (max_row - min_row + 1) as f64 / rows.len().max(1) as f64;
+    (col_span, row_span)
+}
+
+#[test]
+fn test_real_hypergraph_scene_is_non_degenerate_for_every_instrument() {
+    let h = contract_fixture();
+    let c = AttrContract::default();
+    for inst in [
+        Instrument::Cylinder,
+        Instrument::Terrain,
+        Instrument::Sankey,
+    ] {
+        let (s, _r) = build_scene(&h, &c, inst, &InstrumentOpts::default()).unwrap();
+        assert!(
+            s.nodes.len() + s.faces.len() + s.struts.len() > 0,
+            "{inst:?}: scene has no drawable geometry"
+        );
+        let (min_x, min_y, min_z, max_x, max_y, max_z) = s.bounding_box;
+        let extents = [max_x - min_x, max_y - min_y, max_z - min_z];
+        let nonzero_axes = extents.iter().filter(|e| **e > 1e-9).count();
+        assert!(
+            nonzero_axes >= 2,
+            "{inst:?}: bounding box degenerate on >= 2 axes: {extents:?}"
+        );
+        let scalars = s.labeled_scalars();
+        assert!(!scalars.is_empty(), "{inst:?}: no labeled scalars");
+        for tok in &scalars {
+            let val = tok.rsplit('=').next().unwrap();
+            let parsed: f64 = val
+                .parse()
+                .unwrap_or_else(|_| panic!("{inst:?}: unparsable scalar token {tok}"));
+            assert!(parsed.is_finite(), "{inst:?}: non-finite scalar {tok}");
+        }
+    }
+}
+
+#[test]
+fn test_real_hypergraph_frame_has_deck_comparable_lit_density() {
+    use hypergraph_rs::raster::deck::build_world;
+    use hypergraph_rs::raster::instruments::build;
+    use hypergraph_rs::raster::rasterize;
+
+    let h = contract_fixture();
+    let c = AttrContract::default();
+    let deck_world = build_world(1917);
+
+    for inst in [
+        Instrument::Cylinder,
+        Instrument::Terrain,
+        Instrument::Sankey,
+    ] {
+        let (real_scene, _r) = build_scene(&h, &c, inst, &InstrumentOpts::default()).unwrap();
+        let real_text = rasterize(&real_scene, &front_camera(), 80, 40).to_text();
+        let real_density = lit_fraction(&real_text);
+
+        let deck_scene = build(inst, &deck_world, &InstrumentOpts::default());
+        let deck_text = rasterize(&deck_scene, &front_camera(), 80, 40).to_text();
+        let deck_density = lit_fraction(&deck_text);
+
+        assert!(
+            real_density >= 0.02,
+            "{inst:?}: lit density {real_density} below the absolute floor 0.02"
+        );
+        assert!(
+            real_density >= deck_density * 0.25 && real_density <= deck_density * 4.0,
+            "{inst:?}: lit density {real_density} not within [0.25x, 4.0x] of deck density {deck_density}"
+        );
+    }
+}
+
+/// Deviation from the plan's literal `>= 0.40 cols / >= 0.30 rows` pseudocode
+/// (recorded precisely, per the executor contract): measured directly, the
+/// **committed deck goldens themselves** — the reference this task is
+/// supposed to be "comparable to" — do not clear a flat 0.30 row-span floor
+/// for every instrument. `terrain_front.txt` (front camera, banner row
+/// excluded) spans rows 20-24 of 40, a row span of 0.125; that is the real
+/// geometry of a heightfield surface viewed nearly edge-on, not a fixture
+/// defect or a Phase-R-style collapse. A flat 0.30 threshold would fail the
+/// deck's own committed golden, which cannot be the intended bar. So, exactly
+/// as the density test does one function above, this test **self-calibrates
+/// spread against the same deck frame** instead of a fixed constant: the
+/// real-graph frame's column/row span must be at least half the deck frame's
+/// own span (same instrument, same front camera, banner rows excluded), with
+/// a low absolute floor (0.15 cols / 0.05 rows) to still catch a true
+/// collapse-to-a-corner. This is the density test's self-calibrating
+/// philosophy applied to spread, not a threshold weakened to force a pass.
+#[test]
+fn test_real_hypergraph_frame_is_spread_not_collapsed() {
+    use hypergraph_rs::raster::deck::build_world;
+    use hypergraph_rs::raster::instruments::build;
+    use hypergraph_rs::raster::rasterize;
+
+    let h = contract_fixture();
+    let c = AttrContract::default();
+    let deck_world = build_world(1917);
+
+    for inst in [
+        Instrument::Cylinder,
+        Instrument::Terrain,
+        Instrument::Sankey,
+    ] {
+        let (real_scene, _r) = build_scene(&h, &c, inst, &InstrumentOpts::default()).unwrap();
+        let real_text = rasterize(&real_scene, &front_camera(), 80, 40).to_text();
+        let real_banner_rows = banner_row_count(&real_scene.labeled_scalars(), 80, 40);
+        let (real_col_span, real_row_span) = lit_spread(&real_text, 80, real_banner_rows);
+
+        let deck_scene = build(inst, &deck_world, &InstrumentOpts::default());
+        let deck_text = rasterize(&deck_scene, &front_camera(), 80, 40).to_text();
+        let deck_banner_rows = banner_row_count(&deck_scene.labeled_scalars(), 80, 40);
+        let (deck_col_span, deck_row_span) = lit_spread(&deck_text, 80, deck_banner_rows);
+
+        assert!(
+            real_col_span >= 0.15,
+            "{inst:?}: lit column span {real_col_span} below the absolute floor 0.15 — collapsed frame"
+        );
+        assert!(
+            real_row_span >= 0.05,
+            "{inst:?}: lit row span {real_row_span} below the absolute floor 0.05 — collapsed frame"
+        );
+        assert!(
+            real_col_span >= deck_col_span * 0.5,
+            "{inst:?}: lit column span {real_col_span} below half the deck's own {deck_col_span}"
+        );
+        assert!(
+            real_row_span >= deck_row_span * 0.5,
+            "{inst:?}: lit row span {real_row_span} below half the deck's own {deck_row_span}"
+        );
+    }
+}
+
+#[test]
+fn test_real_hypergraph_render_is_deterministic_across_repeated_runs() {
+    let h = contract_fixture();
+    let c = AttrContract::default();
+    for inst in [
+        Instrument::Cylinder,
+        Instrument::Terrain,
+        Instrument::Sankey,
+    ] {
+        let mut texts = Vec::new();
+        for _ in 0..3 {
+            let (scene, _r) = build_scene(&h, &c, inst, &InstrumentOpts::default()).unwrap();
+            texts.push(hypergraph_rs::raster::rasterize(&scene, &front_camera(), 80, 40).to_text());
+        }
+        assert_eq!(texts[0], texts[1], "{inst:?}: run 1 vs run 2 diverged");
+        assert_eq!(texts[1], texts[2], "{inst:?}: run 2 vs run 3 diverged");
+    }
+}
