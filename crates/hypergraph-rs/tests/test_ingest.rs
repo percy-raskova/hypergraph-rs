@@ -627,6 +627,55 @@ fn test_all_three_instruments_are_panic_free_over_adversarial_graphs() {
     }
 }
 
+// --- Task 6: THE SAFETY PROPERTY -------------------------------------------
+
+/// The frozen deck path (`build_world` -> `instruments::build` ->
+/// `rasterize` -> `to_text()`) is untouched *in value*, not merely in
+/// source lines. Phase I's whole architecture (adapter into `DeckWorld`,
+/// never a trait threaded through the frozen builders) depends on this
+/// holding by construction; this test makes it an executable, red-on-drift
+/// claim rather than an implicit one. Byte-exact against the very same
+/// committed goldens Task 12 (Stage 2) pins in `tests/test_raster.rs`.
+#[test]
+fn test_deck_path_frames_still_match_the_committed_goldens() {
+    use hypergraph_rs::raster::deck::build_world;
+    use hypergraph_rs::raster::instruments::build;
+    use hypergraph_rs::raster::rasterize;
+    use hypergraph_rs::raster::Camera;
+
+    let front_camera = Camera {
+        ry: 0.0,
+        rx: 0.0,
+        dist: 4.0,
+        fov: 70.0,
+    };
+    let world = build_world(1917);
+
+    let cases = [
+        (
+            Instrument::Cylinder,
+            include_str!("fixtures/frames/cylinder_front.txt"),
+        ),
+        (
+            Instrument::Terrain,
+            include_str!("fixtures/frames/terrain_front.txt"),
+        ),
+        (
+            Instrument::Sankey,
+            include_str!("fixtures/frames/sankey_front.txt"),
+        ),
+    ];
+
+    for (inst, golden) in cases {
+        let scene = build(inst, &world, &InstrumentOpts::default());
+        let text = rasterize(&scene, &front_camera, 80, 40).to_text();
+        assert_eq!(
+            text, golden,
+            "{inst:?}: deck path frame drifted from golden"
+        );
+    }
+}
+
 #[test]
 fn test_missing_required_attr_is_err_not_a_default_scene() {
     let mut h: Hypergraph = Hypergraph::new();
