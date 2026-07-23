@@ -314,3 +314,152 @@ fn test_scene3d_golden_sankey_coarse() {
     let json = serde_json::to_string_pretty(&s).unwrap();
     assert_eq!(json, include_str!("fixtures/scene3d/sankey_coarse.json"));
 }
+
+// ---------- Task 13: Stage 3 — property tests ----------
+
+/// Property 2 (zoom-invariance of extensives vs intensives): every
+/// extensive (`c, v, s, T`) sums identically fine vs coarse — the h3o
+/// `parent()` aggregation only regroups rows, it never creates or destroys
+/// value (Deviation 7). The ratio-of-sums intensive `r` is likewise
+/// identical (already covered structurally by `transform`'s `r=S/CV`, and
+/// re-asserted here alongside the extensive sums as one grouped contract).
+/// A *per-entity* intensive (`e = s/v`) is explicitly NOT required to
+/// survive aggregation 1:1 — FINE has one row per industry (13), COARSE has
+/// strictly fewer (h3o `parent()` merges several industries per cell), so
+/// the two `e()` sequences cannot even be the same length, let alone equal
+/// element-wise; `e` is recomputed post-aggregation from summed extensives.
+#[test]
+fn test_property_zoom_invariance_extensive_vs_intensive_split() {
+    let fine = build_sankey(&deck_industries(), Zoom::Fine);
+    let coarse = build_sankey(&deck_industries(), Zoom::Coarse);
+
+    let fine_c: f64 = fine.entities.iter().map(|e| e.c).sum();
+    let coarse_c: f64 = coarse.entities.iter().map(|e| e.c).sum();
+    let fine_v: f64 = fine.entities.iter().map(|e| e.v).sum();
+    let coarse_v: f64 = coarse.entities.iter().map(|e| e.v).sum();
+    let fine_s: f64 = fine.entities.iter().map(|e| e.s).sum();
+    let coarse_s: f64 = coarse.entities.iter().map(|e| e.s).sum();
+    let fine_t: f64 = fine.entities.iter().map(|e| e.t).sum();
+    let coarse_t: f64 = coarse.entities.iter().map(|e| e.t).sum();
+    for (name, f, c) in [
+        ("c", fine_c, coarse_c),
+        ("v", fine_v, coarse_v),
+        ("s", fine_s, coarse_s),
+        ("t", fine_t, coarse_t),
+    ] {
+        assert!(
+            (f - c).abs() < 1e-9,
+            "extensive {name}: fine Σ={f} coarse Σ={c}"
+        );
+    }
+
+    // Intensive r: ratio of sums, invariant by construction.
+    assert!((fine.r - coarse.r).abs() < 1e-12);
+
+    // Explicit split: per-entity intensive e is NOT preserved 1:1 —
+    // aggregation strictly reduces row count (fine has 13 industries).
+    assert_eq!(fine.entities.len(), 13);
+    assert!(
+        coarse.entities.len() < fine.entities.len(),
+        "coarse aggregation must reduce entity count: fine={} coarse={}",
+        fine.entities.len(),
+        coarse.entities.len()
+    );
+}
+
+/// Property 3 (glyph-floor information parity): every labeled scalar an
+/// instrument computes appears as a literal substring of a `CellGrid`'s
+/// `to_text()` — no quantity is pixel-only. Uses the Task 13 hooks
+/// (`SceneGraph3D::labeled_scalars`, `CellGrid::from_banner_text`), which
+/// are independent of the pixel `rasterize()` path (they never touch a
+/// frame golden). Covers the sankey `Φ`/`r` conservation banner, every
+/// cylinder community's `o(C)`, and the deck-level `psa`/`psr` survival
+/// probabilities (Global Constraints; PHASE-R-MAP §4's `PHI=… r=…` banner
+/// is the model).
+#[test]
+fn test_property_glyph_floor_parity_sankey_conservation() {
+    let sankey = build_sankey(&deck_industries(), Zoom::Fine);
+    let labels = sankey.scene.labeled_scalars();
+    let banner = hypergraph_rs::raster::CellGrid::from_banner_text(&labels.join(" "));
+    let text = banner.to_text();
+
+    use hypergraph_rs::raster::fmt::fmt6;
+    let want_phi = format!("conservation.phi={}", fmt6(sankey.phi));
+    let want_r = format!("conservation.r={}", fmt6(sankey.r));
+    assert!(labels.contains(&want_phi), "missing {want_phi} in {labels:?}");
+    assert!(labels.contains(&want_r), "missing {want_r} in {labels:?}");
+    assert!(text.contains(&want_phi), "banner text lost {want_phi}");
+    assert!(text.contains(&want_r), "banner text lost {want_r}");
+}
+
+#[test]
+fn test_property_glyph_floor_parity_cylinder_org_degrees() {
+    let w = build_world(1917);
+    let s = build(Instrument::Cylinder, &w, &InstrumentOpts::default());
+    let labels = s.labeled_scalars();
+    let banner = hypergraph_rs::raster::CellGrid::from_banner_text(&labels.join(" "));
+    let text = banner.to_text();
+
+    use hypergraph_rs::raster::fmt::fmt6;
+    let comms = s.metadata.get("communities").unwrap().as_array().unwrap();
+    assert_eq!(comms.len(), 4, "sanity: 4 communities in the fixture");
+    for (i, c) in comms.iter().enumerate() {
+        let name = c["name"].as_str().unwrap();
+        let o = c["o"].as_f64().unwrap();
+        let want = format!("communities[{i}].o={}", fmt6(o));
+        assert!(labels.contains(&want), "missing {want} in {labels:?} (community {name})");
+        assert!(text.contains(&want), "banner text lost {want}");
+    }
+}
+
+#[test]
+fn test_property_glyph_floor_parity_psa_psr() {
+    use hypergraph_rs::raster::deck::{psa, psr};
+    use hypergraph_rs::raster::fmt::fmt6;
+
+    let w = build_world(1917);
+    let psa_v = psa(&w);
+    let psr_v = psr(&w);
+    let banner_text = format!("psa={} psr={}", fmt6(psa_v), fmt6(psr_v));
+    let banner = hypergraph_rs::raster::CellGrid::from_banner_text(&banner_text);
+    let text = banner.to_text();
+    assert!(text.contains(&format!("psa={}", fmt6(psa_v))));
+    assert!(text.contains(&format!("psr={}", fmt6(psr_v))));
+}
+
+/// Property 5 (mutation test, Deviation 6): `Φ == rent_imperial +
+/// rent_internal` holds at the seed-1917 fixture only because every lane-2/3
+/// industry is currently a net absorber. Perturb one lane-3 industry
+/// (finance) so it becomes a donor (`T < 0`) by inflating its exploitation
+/// rate `e` — the fixture property must then FAIL, proving the baseline
+/// equality (`test_phi_equals_rent_sum_at_seed_1917_fixture`,
+/// `tests/test_deck_fixture.rs`) is empirical, not structural, and that a
+/// regression hard-coding the equality would be caught.
+#[test]
+fn test_property_mutation_phi_rent_equality_is_not_structural() {
+    use hypergraph_rs::raster::algebra::transform;
+
+    let mut inds = deck_industries();
+    let finance = inds
+        .iter_mut()
+        .find(|i| i.name == "finance")
+        .expect("finance industry present");
+    assert_eq!(finance.lane, 3, "finance must be lane 2/3 for this mutation");
+    finance.e *= 50.0; // huge s = v*e -> strongly negative T -> finance becomes a donor
+
+    let e = transform(&inds);
+    let mutated_finance_t = e.t[inds.iter().position(|i| i.name == "finance").unwrap()];
+    assert!(
+        mutated_finance_t < 0.0,
+        "mutation must flip finance to a donor (T<0), got T={mutated_finance_t}"
+    );
+
+    let baseline_holds = (e.phi - (e.rent_imperial + e.rent_internal)).abs() < 1e-9;
+    assert!(
+        !baseline_holds,
+        "Φ==rent_imperial+rent_internal must FAIL once a lane-3 industry becomes a donor \
+         (Deviation 6) — got Φ={} rent_imperial+rent_internal={}",
+        e.phi,
+        e.rent_imperial + e.rent_internal
+    );
+}

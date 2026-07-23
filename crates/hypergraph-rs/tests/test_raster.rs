@@ -555,3 +555,143 @@ fn test_frame_cylinder_front_ansi_truecolor() {
         include_str!("fixtures/frames/cylinder_front.ansi.txt")
     );
 }
+
+// ---------- Task 13: Stage 3 — property tests ----------
+
+/// Property 1 (depth-sort stability): three non-overlapping equal-depth
+/// triangles, each in its own screen-space corner so no two ever composite
+/// onto the same subcell. Feeding `rasterize` the scene faces in insertion
+/// order vs. two other permutations of that same `Vec` must yield a
+/// byte-identical frame — the stable sort at equal depth never introduces a
+/// draw-order dependence when primitives don't actually overlap.
+#[test]
+fn test_property_depth_sort_stability_under_shuffle() {
+    let tri = |cx: f64, color: Rgb| Face {
+        verts: [
+            Vertex3 {
+                x: cx - 0.2,
+                y: -0.2,
+                z: 0.0,
+            },
+            Vertex3 {
+                x: cx + 0.2,
+                y: -0.2,
+                z: 0.0,
+            },
+            Vertex3 {
+                x: cx,
+                y: 0.2,
+                z: 0.0,
+            },
+        ],
+        fill: color,
+        opacity: 1.0,
+    };
+    let left = tri(-1.5, Rgb(255, 0, 0));
+    let mid = tri(0.0, Rgb(0, 255, 0));
+    let right = tri(1.5, Rgb(0, 0, 255));
+
+    let orderings: [[Face; 3]; 3] = [
+        [left.clone(), mid.clone(), right.clone()],
+        [right.clone(), left.clone(), mid.clone()],
+        [mid.clone(), right.clone(), left.clone()],
+    ];
+
+    let c = cam();
+    let mut frames = orderings.into_iter().map(|order| {
+        let mut scene = SceneGraph3D::empty();
+        scene.faces = order.to_vec();
+        rasterize(&scene, &c, 80, 40).to_text()
+    });
+    let first = frames.next().unwrap();
+    for other in frames {
+        assert_eq!(first, other, "non-overlapping equal-depth shuffle changed the frame");
+    }
+}
+
+/// Property 4 (determinism sweep): a fixed sweep of camera/size
+/// combinations — including cameras behind or through the scene
+/// (`dist <= 0`) and degenerate 1x1 grids — must be (a) deterministic
+/// (`rasterize` called twice gives a bit-identical `CellGrid`) and (b)
+/// panic-free. No RNG: the sweep is a literal, bounded table (Power-of-10
+/// rule 2), never `HashMap` order.
+#[test]
+fn test_property_determinism_sweep_panic_free() {
+    let mut scene = SceneGraph3D::empty();
+    scene.faces.push(Face {
+        verts: [
+            Vertex3 {
+                x: -0.5,
+                y: -0.5,
+                z: 0.3,
+            },
+            Vertex3 {
+                x: 0.5,
+                y: -0.5,
+                z: -0.2,
+            },
+            Vertex3 {
+                x: 0.0,
+                y: 0.6,
+                z: 0.1,
+            },
+        ],
+        fill: Rgb(200, 20, 20),
+        opacity: 1.0,
+    });
+    scene.struts.push(Strut {
+        a: Vertex3 {
+            x: -1.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        b: Vertex3 {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        color: Rgb(10, 200, 10),
+    });
+
+    let cameras = [
+        Camera {
+            ry: 0.0,
+            rx: 0.0,
+            dist: 4.0,
+            fov: 70.0,
+        },
+        Camera {
+            ry: 1.9,
+            rx: -1.2,
+            dist: 0.0,
+            fov: 90.0,
+        }, // camera at the origin
+        Camera {
+            ry: -0.4,
+            rx: 3.1,
+            dist: -5.0,
+            fov: 45.0,
+        }, // camera behind/through the scene
+        Camera {
+            ry: core::f64::consts::PI,
+            rx: core::f64::consts::PI,
+            dist: 100.0,
+            fov: 1.0,
+        }, // near-zero fov, huge dist
+        Camera {
+            ry: 0.0,
+            rx: 0.0,
+            dist: 0.5,
+            fov: 179.0,
+        }, // fov near the tan() blow-up edge
+    ];
+    let sizes: [(u16, u16); 3] = [(80, 40), (1, 1), (200, 1)];
+
+    for c in &cameras {
+        for &(w, h) in &sizes {
+            let a = rasterize(&scene, c, w, h);
+            let b = rasterize(&scene, c, w, h);
+            assert_eq!(a, b, "non-deterministic frame at {c:?} {w}x{h}");
+        }
+    }
+}

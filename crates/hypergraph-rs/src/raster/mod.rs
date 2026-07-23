@@ -56,6 +56,28 @@ impl CellGrid {
         }
     }
 
+    /// Render `text` as a single-row banner of literal glyph `Cell`s (Task
+    /// 13 Property 3 hook: the labeled-scalar text path, independent of the
+    /// pixel `rasterize()` path — it never touches a frame golden). Every
+    /// cell still carries `ch+fg+bg` unconditionally (glyph floor). Bounded:
+    /// `text.chars().count()`.
+    pub fn from_banner_text(text: &str) -> Self {
+        let cells: Vec<Cell> = text
+            .chars()
+            .map(|ch| Cell {
+                ch,
+                fg: Rgb(255, 255, 255),
+                bg: Rgb(0, 0, 0),
+            })
+            .collect();
+        let cols = cells.len() as u16;
+        Self {
+            cols,
+            rows: u16::from(!cells.is_empty()),
+            cells,
+        }
+    }
+
     /// Glyphs only, newline-joined — the diffable byte-exact golden form.
     pub fn to_text(&self) -> String {
         let cols = self.cols as usize;
@@ -155,6 +177,47 @@ impl SceneGraph3D {
             bounding_box: (0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
             metadata: serde_json::Map::new(),
         }
+    }
+
+    /// Every scalar (number) value in `metadata`, walked recursively through
+    /// nested objects/arrays, formatted as `"dotted.path=value"` (floats via
+    /// `fmt::fmt6`, the golden-fixture float formatter — Task 13 Property 3
+    /// hook: "SceneGraph3D labeled-scalar accessor"). `metadata` is a
+    /// `serde_json::Map` (BTreeMap-backed, no `preserve_order` feature) so
+    /// iteration order is key-sorted and deterministic, never `HashMap`
+    /// order. Bounded: total scalar count in `metadata`, a small fixed tree
+    /// built by the instrument builders.
+    pub fn labeled_scalars(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        for (k, v) in &self.metadata {
+            collect_scalars(v, k, &mut out);
+        }
+        out
+    }
+}
+
+/// Recursive walk backing [`SceneGraph3D::labeled_scalars`]. Bounded by the
+/// metadata JSON tree's own (small, fixed) size.
+fn collect_scalars(v: &serde_json::Value, prefix: &str, out: &mut Vec<String>) {
+    match v {
+        serde_json::Value::Number(n) => {
+            let text = match n.as_f64() {
+                Some(f) if !n.is_i64() && !n.is_u64() => fmt::fmt6(f),
+                _ => n.to_string(),
+            };
+            out.push(format!("{prefix}={text}"));
+        }
+        serde_json::Value::Object(map) => {
+            for (k, val) in map {
+                collect_scalars(val, &format!("{prefix}.{k}"), out);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for (i, val) in arr.iter().enumerate() {
+                collect_scalars(val, &format!("{prefix}[{i}]"), out);
+            }
+        }
+        _ => {}
     }
 }
 
