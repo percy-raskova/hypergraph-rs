@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::viz::NodeStyle;
 
+pub mod algebra;
 pub mod camera;
 pub mod color;
 pub mod fmt;
