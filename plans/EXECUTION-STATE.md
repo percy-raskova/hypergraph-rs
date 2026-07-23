@@ -164,6 +164,37 @@ records the complete deck→Rust component map for Phase R (reference artifact d
 verification stages 0-3, four open owner decisions). Next: Phase 7 (skip Task 0 — D1
 subsumed it; executor runs Task 1 onward).
 
+## 2026-07-22 UPDATE 6 — Phase 7 DONE (+review fixes); the swap pillar stands
+
+Phase 7 (PyO3 bindings + XGI conformance gate) executed as tasks 1–19 (Task 0's core
+`add_empty_edge` was NOT pre-subsumed after all — the executor landed it in `bf34208`
+when readwrite/HIF empty-edge records needed it; harmless, it's genuinely used). Run
+`wf_30795e12-aa1`, 20 agents / 0 errors / ~3.4M subagent tokens / 4.4h. Commits
+`cd4668f`..`50b7377` (22 incl. two owner-attribution commits `7595aff`/`14bd78a`
+interleaved). Opus review = **fix-needed**: the only blocker was the clippy gate red on
+**11 lint-level errors** in the binding crate (4× `wrong_self_convention` on the
+deliberately-ported `from_view` API surface, 5× needless borrows, 1× too_many_arguments,
+1× needless_range_loop) — NO logic defects (reviewer-confirmed; conformance was already
+311/0). One Sonnet fixer (`cecf8fa`): mechanical fixes + **declared** `#[allow]`s with
+reason comments where the XGI surface forces the shape (project rule: every exemption
+declared with a logical reason). **Owner independently re-verified all gates** (not the
+subagent's word): fmt=0, clippy `--all-targets -D warnings`=0, `cargo test --workspace`
+green (**470 tests**), `cargo doc -D warnings`=0, and a from-scratch `maturin develop` +
+`pytest tests/ported` rebuild = **311 passed / 83 skipped / 0 failed** against the live
+xgi 0.10.2 oracle. The `cargo doc` output-filename collision (CLI bin `hypergraph-rs` vs
+lib `hypergraph_rs`) is cargo issue #6313 — structural, pre-existing, non-fatal (doc leg
+exits 0). PARKED advisories (closeout ceremony): (a) plan-text drift — Task 0's stated
+rationale claimed core `add_edge` rejects empty members via a nonexistent
+`EdgeError::EmptyMembers`; false, register D1 already governs, no code impact; (b) latent
+invariant-guarded `expect`/empty-slice in `linalg.rs` weight path — unreachable via the
+safe public API today; (c) 3 unregistered `pytest.mark.slow` markers in
+`tests/ported/algorithms/test_centrality.py` (register the marker in pytest config).
+**Next: Phase R** — planned in full per owner's standing approvals ("Approve as proposed"
++ "I agree do it"), foundation `plans/PHASE-R-MAP.md`, with its 4 open owner decisions
+surfaced at plan time. Phase 9 (CLI) follows; Phase 8 (WASM) deferred; Phase 10 cancelled.
+GitHub backlog board (percy-raskova/projects/7): #278 Phase 7, #279 Phase R, #280 CLI,
+#282 the swap, #285 H3 BIGINT, #287 S9 ruling, #289 WASM record, #290 closeout.
+
 **Phase 4 resumes at task 6** (tasks 1-5 were already committed pre-reconciliation and are
 untouched by any reconciliation task; the reconciliation work landed entirely in `crates/`
 core, `tests/conformance/`, and `.mise.toml`, not in `phase-4-generators-stats-readwrite.md`'s
@@ -179,10 +210,11 @@ task list).
 | 4 generators/stats/readwrite | phase-4-generators-stats-readwrite.md | **PAUSED: tasks 1–5 of 19 committed; resumes at task 6** | `f65cc0e` `d9d80c7` `467b3ac` `af61224` `3f7ec00`; tree clean; run `wf_2cbb34ad-267` stopped mid-task-6; unaffected by reconciliation (703b334) |
 | 5 layout + viz | phase-5-layout-viz.md | not started | 11 tasks |
 | 6 convert/dynamics/communities/utils | phase-6-convert-dynamics-communities-utils.md | not started | 17 tasks |
-| 7 python conformance | phase-7-python-conformance.md | not started | 20 tasks; **Task 0 (core `add_empty_edge`) already subsumed by reconciliation D1 (`703b334`) — start at Task 1** |
-| 8 wasm | phase-8-wasm.md | not started | 8 tasks |
-| 9 cli | phase-9-cli.md | not started | 11 tasks |
-| 10 react package | phase-10-react-package.md | not started | 6 tasks |
+| 7 python conformance | phase-7-python-conformance.md | **DONE + review fixed** | tasks 1–19 (`cd4668f`..`50b7377`); Opus fix-needed on 11 clippy lints → fixed `cecf8fa`; 470 Rust tests, conformance 311 pass/83 skip/0 fail vs xgi 0.10.2; owner-reverified all gates. Run `wf_30795e12-aa1` |
+| 8 wasm | phase-8-wasm.md | **DEFERRED indefinitely** (raster re-plan; consumer superseded) | GitHub #289 |
+| 9 cli | phase-9-cli.md | not started — **promoted**, render formats re-scoped json/svg/cells/ordering | 11 tasks; GitHub #280 |
+| R rasterizer | phase-R-rasterizer.md (to be written) | **next — planning** | foundation PHASE-R-MAP.md; GitHub #279 |
+| 10 react package | phase-10-react-package.md | **CANCELLED** (wire contract salvaged into Phase R schemas) | — |
 
 All Phase 2–10 plans in `plans/` are the **corrected** versions (preflight-reviewed, defects
 fixed, orchestrator rulings folded in — the rulings ledger is
