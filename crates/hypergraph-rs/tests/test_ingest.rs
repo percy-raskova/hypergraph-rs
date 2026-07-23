@@ -2,9 +2,11 @@
 
 use hypergraph_rs::raster::deck::psa;
 use hypergraph_rs::raster::ingest::{
-    ingest_edges, ingest_nodes, to_world, AttrContract, IngestError, TensionSource,
+    build_scene, ingest_edges, ingest_nodes, to_world, AttrContract, IngestError, TensionSource,
     ATTR_CONTRACT_VERSION, DEFAULT_BLOC, DEFAULT_LANE, DEFAULT_MASS, DEFAULT_REPRESSION, K_WEALTH,
 };
+use hypergraph_rs::raster::instruments::{Instrument, InstrumentOpts};
+use hypergraph_rs::raster::SceneGraph3D;
 use hypergraph_rs::Hypergraph;
 use serde_json::json;
 
@@ -474,4 +476,169 @@ fn test_report_records_contract_version_counts_and_id_map() {
     assert_eq!(report.extraction_count, 0);
     assert_eq!(report.industry_count, 0);
     assert_eq!(report.node_ids, h.node_ids());
+}
+
+// --- Task 5: build_scene — graceful degradation ---------------------------
+
+fn graph_with_industries(n: usize) -> Hypergraph {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({"wealth": 10.0, "subsistence": 5.0, "bloc": 0}));
+    h.add_node("b", json!({"wealth": 8.0, "subsistence": 4.0, "bloc": 2}));
+    for i in 0..n {
+        h.add_edge(
+            vec!["a".to_string()],
+            Some(format!("in{i}")),
+            json!({"kind": "industry", "c": 1.0, "v": 1.0, "e": 0.5}),
+        )
+        .unwrap();
+    }
+    h
+}
+
+#[test]
+fn test_sankey_with_no_industries_returns_explicitly_empty_scene() {
+    let h = graph_with_two_communities(true);
+    let (s, r) = build_scene(
+        &h,
+        &AttrContract::default(),
+        Instrument::Sankey,
+        &InstrumentOpts::default(),
+    )
+    .unwrap();
+    assert_eq!(s, SceneGraph3D::empty());
+    assert_eq!(r.industry_count, 0);
+}
+
+#[test]
+fn test_sankey_with_industries_is_not_empty() {
+    let h = graph_with_industries(2);
+    let (s, r) = build_scene(
+        &h,
+        &AttrContract::default(),
+        Instrument::Sankey,
+        &InstrumentOpts::default(),
+    )
+    .unwrap();
+    assert_ne!(s, SceneGraph3D::empty());
+    assert_eq!(r.industry_count, 2);
+}
+
+#[test]
+fn test_no_scene_scalar_is_nan_or_infinite() {
+    let h = graph_with_two_communities(true);
+    let c = AttrContract::default();
+    for inst in [
+        Instrument::Cylinder,
+        Instrument::Terrain,
+        Instrument::Sankey,
+    ] {
+        let (s, _r) = build_scene(&h, &c, inst, &InstrumentOpts::default()).unwrap();
+        for tok in s.labeled_scalars() {
+            let val = tok.rsplit('=').next().unwrap();
+            let parsed: f64 = val
+                .parse()
+                .unwrap_or_else(|_| panic!("{inst:?}: unparsable scalar token {tok}"));
+            assert!(parsed.is_finite(), "{inst:?}: non-finite scalar {tok}");
+        }
+    }
+}
+
+#[test]
+fn test_isolated_agents_do_not_panic_the_spectral_embedding() {
+    // 4 agents, 1 community over 2 of them, 2 agents in no edge at all.
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({"wealth": 10.0, "subsistence": 5.0}));
+    h.add_node("b", json!({"wealth": 8.0, "subsistence": 4.0}));
+    h.add_node("c", json!({"wealth": 6.0, "subsistence": 3.0}));
+    h.add_node("d", json!({"wealth": 4.0, "subsistence": 2.0}));
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("com1".to_string()),
+        json!({"kind": "community", "name": "c1"}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    for inst in [
+        Instrument::Cylinder,
+        Instrument::Terrain,
+        Instrument::Sankey,
+    ] {
+        let result = build_scene(&h, &c, inst, &InstrumentOpts::default());
+        assert!(result.is_ok(), "{inst:?}: {:?}", result.err());
+    }
+}
+
+#[test]
+fn test_all_three_instruments_are_panic_free_over_adversarial_graphs() {
+    let mut graphs: Vec<Hypergraph> = Vec::new();
+
+    // empty-ish: exactly 2 agents, no edges at all.
+    let mut g1: Hypergraph = Hypergraph::new();
+    g1.add_node("a", json!({"wealth": 1.0, "subsistence": 0.5}));
+    g1.add_node("b", json!({"wealth": 2.0, "subsistence": 1.0}));
+    graphs.push(g1);
+
+    // isolated-only: 3 agents, no edges.
+    let mut g2: Hypergraph = Hypergraph::new();
+    g2.add_node("a", json!({"wealth": 1.0, "subsistence": 0.5}));
+    g2.add_node("b", json!({"wealth": 2.0, "subsistence": 1.0}));
+    g2.add_node("c", json!({"wealth": 3.0, "subsistence": 1.5}));
+    graphs.push(g2);
+
+    // single-community: 2 agents, one community edge.
+    graphs.push(graph_with_two_communities(true));
+
+    // duplicate-member: an edge listing the same node twice (deduped by
+    // `add_edge` itself; still exercises the community-with-repeats shape).
+    let mut g3: Hypergraph = Hypergraph::new();
+    g3.add_node("a", json!({"wealth": 1.0, "subsistence": 0.5}));
+    g3.add_node("b", json!({"wealth": 2.0, "subsistence": 1.0}));
+    g3.add_edge(
+        vec!["a".to_string(), "a".to_string(), "b".to_string()],
+        Some("com1".to_string()),
+        json!({"kind": "community", "name": "c1"}),
+    )
+    .unwrap();
+    graphs.push(g3);
+
+    // zero-link: a community edge with an explicit empty `links` array.
+    let mut g4: Hypergraph = Hypergraph::new();
+    g4.add_node("a", json!({"wealth": 1.0, "subsistence": 0.5}));
+    g4.add_node("b", json!({"wealth": 2.0, "subsistence": 1.0}));
+    g4.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("com1".to_string()),
+        json!({"kind": "community", "name": "c1", "links": []}),
+    )
+    .unwrap();
+    graphs.push(g4);
+
+    let c = AttrContract::default();
+    for g in &graphs {
+        for inst in [
+            Instrument::Cylinder,
+            Instrument::Terrain,
+            Instrument::Sankey,
+        ] {
+            // Never panics; either an Ok scene or a typed Err — both are a
+            // pass for this test, panic-freedom is the only claim.
+            let _ = build_scene(g, &c, inst, &InstrumentOpts::default());
+        }
+    }
+}
+
+#[test]
+fn test_missing_required_attr_is_err_not_a_default_scene() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({"subsistence": 5.0}));
+    h.add_node("b", json!({"wealth": 8.0, "subsistence": 4.0}));
+    let c = AttrContract::default();
+    let err = build_scene(&h, &c, Instrument::Cylinder, &InstrumentOpts::default()).unwrap_err();
+    assert_eq!(
+        err,
+        IngestError::MissingNodeAttr {
+            node: "a".to_string(),
+            key: "wealth".to_string(),
+        }
+    );
 }

@@ -44,6 +44,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::raster::deck::DeckWorld;
+#[cfg(feature = "cells3d")]
+use crate::raster::instruments::{self, Instrument, InstrumentOpts};
+#[cfg(feature = "cells3d")]
+use crate::raster::SceneGraph3D;
 use crate::Hypergraph;
 
 mod edges;
@@ -329,4 +333,38 @@ pub fn to_world(
     };
 
     Ok((world, report))
+}
+
+/// Ingest `h` per `c`, then dispatch to the **untouched**
+/// `instruments::build` (Task 5, graceful degradation). This is a thin
+/// wrapper: it never edits, wraps, or reimplements a builder — a change
+/// here can never be the reason a builder's byte-identity guarantee (Task
+/// 6) breaks.
+///
+/// Degradation policy (exhaustive, no case left to judgement):
+///
+/// - Any [`IngestError`] from `to_world` ⇒ `Err` — the caller learns which
+///   node/edge and which key.
+/// - [`Instrument::Sankey`] with zero industry edges ⇒
+///   `Ok((SceneGraph3D::empty(), report))`. `algebra::transform(&[])`
+///   computes `0.0/0.0 = NaN`, which would otherwise reach the glyph
+///   banner; an empty scene is the honest rendering of "no industries".
+/// - Every other `(instrument, world)` pair ⇒ `Ok((instruments::build(..),
+///   report))` — including zero-community `Cylinder`/`Terrain`, which is a
+///   legitimate degraded-but-real scene handled by the builders themselves.
+#[cfg(feature = "cells3d")]
+pub fn build_scene(
+    h: &Hypergraph<Value, Value, Value>,
+    c: &AttrContract,
+    inst: Instrument,
+    opts: &InstrumentOpts,
+) -> Result<(SceneGraph3D, IngestReport), IngestError> {
+    let (world, report) = to_world(h, c)?;
+
+    if inst == Instrument::Sankey && world.industries.is_empty() {
+        return Ok((SceneGraph3D::empty(), report));
+    }
+
+    let scene = instruments::build(inst, &world, opts);
+    Ok((scene, report))
 }
