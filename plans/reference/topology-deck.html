@@ -1,0 +1,502 @@
+<title>Babylon Topology Deck — Hypergraph Instruments</title>
+<style>
+:root{
+  --ground:#0B0906; --panel:#171008; --panel2:#1F160B; --line:#2E2313;
+  --crimson:#C43A2E; --crimson-hi:#E85A44; --gold:#D9A441; --gold-hi:#F2C56B;
+  --bone:#E9DFC9; --dim:#8A7A61; --faint:#4A3E2C;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--ground);color:var(--bone);font-family:var(--mono);font-size:13px;overflow:hidden}
+#app{display:grid;grid-template-columns:264px 1fr;grid-template-rows:auto 1fr auto;height:100vh}
+header{grid-column:1/3;display:flex;align-items:baseline;gap:14px;padding:10px 18px 8px;border-bottom:1px solid var(--line)}
+header .eyebrow{font-size:10px;letter-spacing:.22em;color:var(--dim)}
+header h1{font-family:var(--serif);font-weight:600;font-size:19px;color:var(--bone);text-wrap:balance}
+header h1 em{font-style:normal;color:var(--gold)}
+header .mock{margin-left:auto;font-size:10px;letter-spacing:.14em;color:var(--ground);background:var(--gold);padding:2px 8px;border-radius:2px}
+#rail{border-right:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto;background:var(--panel)}
+.railsec{padding:12px 14px;border-bottom:1px solid var(--line)}
+.railsec .lbl{font-size:10px;letter-spacing:.2em;color:var(--dim);margin-bottom:8px}
+.inst{display:block;width:100%;text-align:left;background:none;border:1px solid transparent;color:var(--dim);
+  font-family:var(--mono);font-size:12px;padding:7px 9px;cursor:pointer;border-radius:2px;margin-bottom:4px}
+.inst .t{color:inherit}
+.inst .d{display:block;font-size:10px;color:var(--faint);margin-top:2px}
+.inst:hover{color:var(--bone)}
+.inst[aria-pressed="true"]{color:var(--gold-hi);border-color:var(--gold);background:var(--panel2)}
+.inst[aria-pressed="true"] .d{color:var(--dim)}
+.inst:focus-visible,button:focus-visible,input:focus-visible{outline:1px solid var(--gold);outline-offset:1px}
+.stat{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;font-variant-numeric:tabular-nums}
+.stat .k{color:var(--dim);font-size:11px}
+.stat .v{font-size:14px}
+.stat .v.gold{color:var(--gold-hi)} .stat .v.crimson{color:var(--crimson-hi)}
+.bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin:3px 0 8px}
+.bar i{display:block;height:100%;background:var(--gold)}
+.bar.c i{background:var(--crimson)}
+#rupture{font-size:11px;padding:6px 8px;border:1px solid var(--line);border-radius:2px;color:var(--dim)}
+#rupture.armed{border-color:var(--crimson);color:var(--crimson-hi);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{background:rgba(196,58,46,.12)}}
+@media (prefers-reduced-motion:reduce){#rupture.armed{animation:none;background:rgba(196,58,46,.12)}}
+#stage{position:relative;background:var(--ground)}
+canvas{display:block;width:100%;height:100%;cursor:grab}
+canvas:active{cursor:grabbing}
+#caption{position:absolute;left:16px;bottom:12px;max-width:52ch;font-size:11px;line-height:1.55;color:var(--dim);
+  background:rgba(11,9,6,.82);padding:8px 10px;border-left:2px solid var(--gold);border-radius:0 2px 2px 0}
+#caption b{color:var(--bone);font-weight:600}
+footer{grid-column:1/3;display:flex;align-items:center;gap:8px;padding:8px 18px;border-top:1px solid var(--line);background:var(--panel)}
+.verb{font-family:var(--mono);font-size:11px;letter-spacing:.12em;background:var(--panel2);color:var(--bone);
+  border:1px solid var(--faint);padding:6px 12px;cursor:pointer;border-radius:2px}
+.verb:hover{border-color:var(--gold);color:var(--gold-hi)}
+.verb.danger:hover{border-color:var(--crimson);color:var(--crimson-hi)}
+.verb:active{transform:translateY(1px)}
+footer .sep{width:1px;height:18px;background:var(--line);margin:0 4px}
+footer label{color:var(--dim);font-size:11px;display:flex;align-items:center;gap:6px}
+footer input[type=number]{width:64px;background:var(--ground);border:1px solid var(--faint);color:var(--bone);
+  font-family:var(--mono);font-size:12px;padding:4px 6px;border-radius:2px}
+footer .note{margin-left:auto;font-size:10px;color:var(--faint)}
+</style>
+
+<div id="app">
+<header>
+  <span class="eyebrow">BABYLON // TOPOLOGY DECK</span>
+  <h1>The hypergraph, rendered as <em>instruments</em></h1>
+  <span class="mock">MOCK · REAL MATH</span>
+</header>
+
+<nav id="rail">
+  <div class="railsec">
+    <div class="lbl">INSTRUMENTS</div>
+    <button class="inst" data-i="0" aria-pressed="true"><span class="t">I. Adjoint Cylinder</span>
+      <span class="d">Lawvere's unity-of-opposites: atomization ⊣ organization</span></button>
+    <button class="inst" data-i="1" aria-pressed="false"><span class="t">II. Contradiction Terrain</span>
+      <span class="d">field value as height over the spectral base</span></button>
+    <button class="inst" data-i="2" aria-pressed="false"><span class="t">III. Hyper-Sankey Φ</span>
+      <span class="d">imperial rent flowing up the hierarchy</span></button>
+  </div>
+  <div class="railsec">
+    <div class="lbl">READOUTS</div>
+    <div class="stat"><span class="k">Π₀ (global components)</span><span class="v" id="r-pi0">–</span></div>
+    <div class="stat"><span class="k">mean organization ō</span><span class="v gold" id="r-org">–</span></div>
+    <div class="bar"><i id="b-org" style="width:0%"></i></div>
+    <div class="stat"><span class="k">upward transfer Φ / tick</span><span class="v crimson" id="r-phi">–</span></div>
+    <div class="bar c"><i id="b-phi" style="width:0%"></i></div>
+    <div class="stat"><span class="k">avg profit rate r = S/(C+V)</span><span class="v" id="r-rate">–</span></div>
+    <div class="stat"><span class="k">imperial rent (periphery →)</span><span class="v crimson" id="r-rimp">–</span></div>
+    <div class="stat"><span class="k">internal-colonial transfer</span><span class="v crimson" id="r-rint">–</span></div>
+    <div class="stat"><span class="k">P(S|A) periphery</span><span class="v" id="r-psa">–</span></div>
+    <div class="stat"><span class="k">P(S|R) periphery</span><span class="v" id="r-psr">–</span></div>
+    <div id="rupture">RUPTURE TEST · P(S|R) ≤ P(S|A)</div>
+  </div>
+  <div class="railsec">
+    <div class="lbl">COMMUNITIES</div>
+    <div id="commlist"></div>
+  </div>
+</nav>
+
+<main id="stage">
+  <canvas id="cv"></canvas>
+  <div id="caption"></div>
+</main>
+
+<footer>
+  <button class="verb" id="v-edu">EDUCATE</button>
+  <button class="verb" id="v-mob">MOBILIZE</button>
+  <button class="verb danger" id="v-rep">REPRESS</button>
+  <div class="sep"></div>
+  <button class="verb" id="v-tick">TICK ▸</button>
+  <button class="verb" id="v-zoom">GRID: FINE</button>
+  <button class="verb" id="v-zoom">GRID: FINE</button>
+  <div class="sep"></div>
+  <label>seed <input type="number" id="seed" value="1917"></label>
+  <button class="verb" id="v-reseed">REBUILD</button>
+  <span class="note">drag to orbit · every frame is a pure function of (state, camera) · seeded, deterministic</span>
+</footer>
+</div>
+
+<script>
+'use strict';
+/* ---------- deterministic core ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const sigmoid=x=>1/(1+Math.exp(-x));
+
+/* ---------- world model ----------
+   agents: bloc 0 = capital (core), 1 = core labor, 2 = periphery proletariat
+   communities: organizing hyperedges with internal links (cohesion)
+   extraction: directed hyperedges, tails (periphery) -> head (capital)   */
+let W=null;
+function buildWorld(seed){
+  const rnd=mulberry32(seed), agents=[], communities=[], extraction=[];
+  const B=[{n:5,bloc:0,w:8.5},{n:9,bloc:1,w:5.6},{n:14,bloc:2,w:2.1}];
+  let id=0;
+  for(const b of B) for(let k=0;k<b.n;k++)
+    agents.push({id:id++,bloc:b.bloc,wealth:b.w+rnd()*1.4-.7,subsistence:3.0});
+  const byBloc=b=>agents.filter(a=>a.bloc===b).map(a=>a.id);
+  // organizing communities (periphery cells, core union, capital bloc)
+  const mk=(pool,size,name)=>{const m=[...pool];for(let i=m.length-1;i>0;i--){const j=(rnd()*(i+1))|0;[m[i],m[j]]=[m[j],m[i]]}
+    return{name,members:m.slice(0,size),links:[]}};
+  communities.push(mk(byBloc(2),6,'cell α'));
+  communities.push(mk(byBloc(2),6,'cell β'));
+  communities.push(mk(byBloc(1),6,'union γ'));
+  communities.push(mk(byBloc(0),4,'capital δ'));
+  // capital starts fully cohesive; the rest start atomized with 1 link
+  for(const c of communities){
+    const full=c.name==='capital δ';
+    const want=full?c.members.length-1:1;
+    for(let i=0;i<want;i++)c.links.push([c.members[i],c.members[i+1]]);
+  }
+  // extraction hyperedges: many tails -> one head (multilateral extraction)
+  const per=byBloc(2),cap=byBloc(0);
+  for(let e=0;e<4;e++){
+    const tails=[];for(let t=0;t<4;t++)tails.push(per[(rnd()*per.length)|0]);
+    extraction.push({tails:[...new Set(tails)],head:[cap[e%cap.length]],mass:1.4+rnd()*1.2});
+  }
+  // industries: lane 0 periphery, 1 internal colonies, 2 settler garrisons, 3 apex.
+  // c = constant capital, v = variable, e = rate of exploitation s/v (superexploitation
+  // in the periphery + internal colonies; garrison wages absorb value).
+  const IND=[
+    {name:'export agriculture',lane:0,c:14,v:10,e:3.2},
+    {name:'textile assembly',  lane:0,c:10,v: 9,e:3.0},
+    {name:'extractive mining', lane:0,c:26,v: 7,e:2.6},
+    {name:'migrant agriculture',lane:1,c: 9,v: 8,e:2.4},
+    {name:'meatpacking',       lane:1,c:12,v: 8,e:2.2},
+    {name:'logistics depots',  lane:1,c:18,v: 9,e:1.9},
+    {name:'carceral labor',    lane:1,c: 4,v: 5,e:4.0},
+    {name:'defense aerospace', lane:2,c:34,v: 8,e:1.1},
+    {name:'suburban construction',lane:2,c:20,v:9,e:1.2},
+    {name:'professional strata',lane:2,c:16,v:11,e:0.9},
+    {name:'pharma IP',         lane:3,c:44,v: 6,e:1.0},
+    {name:'platform rents',    lane:3,c:52,v: 7,e:1.1},
+    {name:'finance',           lane:3,c:60,v: 5,e:0.8},
+  ].map(d=>({...d,T:0}));
+  // snap each industry to an invariant hex cell (axial coords — an honest mock of
+  // H3 semantics: fixed grid, parent = (q>>1, r>>1), aggregation sums extensives)
+  const CLUSTER=[[-6,0],[-2,0],[1,-1],[4,0]],OFF=[[0,0],[1,0],[0,1],[1,1]],cnt=[0,0,0,0];
+  for(const i of IND){const k=cnt[i.lane]++%OFF.length;
+    i.hq=CLUSTER[i.lane][0]+OFF[k][0];i.hr=CLUSTER[i.lane][1]+OFF[k][1]}
+  return{seed,rnd,agents,communities,extraction,industries:IND,repression:2.6,tick:0,zoom:0};
+}
+
+/* ---------- transformation algebra: value produced vs realized ----------
+   s_i = v_i·e_i ; r = ΣS/Σ(C+V) ; realized_i = r(c_i+v_i) ; T_i = realized − produced.
+   Below-average OCC ⇒ T<0 (donor); above ⇒ T>0 (absorber).                  */
+function transform(){
+  const I=W.industries;let S=0,CV=0;
+  for(const i of I){i.s=i.v*i.e;S+=i.s;CV+=i.c+i.v}
+  const r=S/CV;
+  for(const i of I)i.T=r*(i.c+i.v)-i.s;
+  W.profitRate=r;
+  W.rentImperial=-I.filter(i=>i.lane===0).reduce((s,i)=>s+i.T,0);
+  W.rentInternal=-I.filter(i=>i.lane===1).reduce((s,i)=>s+i.T,0);
+  W.lastPhi=I.filter(i=>i.T>0).reduce((s,i)=>s+i.T,0);
+}
+
+/* ---------- union-find ---------- */
+function unionFind(n){const p=Array.from({length:n},(_,i)=>i);
+  const f=x=>{while(p[x]!==x){p[x]=p[p[x]];x=p[x]}return x};
+  return{find:f,union:(a,b)=>{a=f(a);b=f(b);if(a!==b)p[a]=b}}}
+function globalPi0(){
+  const uf=unionFind(W.agents.length);
+  for(const c of W.communities)for(const[a,b]of c.links)uf.union(a,b);
+  for(const e of W.extraction){const h=e.head[0];for(const t of e.tails)uf.union(t,h)}
+  return new Set(W.agents.map(a=>uf.find(a.id))).size;
+}
+function orgOf(c){ // 1 - (|Pi0(C)| - 1)/(|C| - 1)   in [0,1]
+  if(c.members.length<2)return 1;
+  const ix=new Map(c.members.map((m,i)=>[m,i])), uf=unionFind(c.members.length);
+  for(const[a,b]of c.links)if(ix.has(a)&&ix.has(b))uf.union(ix.get(a),ix.get(b));
+  const comps=new Set(c.members.map(m=>uf.find(ix.get(m)))).size;
+  return 1-(comps-1)/(c.members.length-1);
+}
+
+/* ---------- spectral base layout (shifted-Laplacian power iteration) ---------- */
+function spectral(){
+  const n=W.agents.length,A=Array.from({length:n},()=>new Float64Array(n));
+  const link=(a,b,w)=>{A[a][b]+=w;A[b][a]+=w};
+  for(const c of W.communities)for(let i=0;i<c.members.length;i++)
+    for(let j=i+1;j<c.members.length;j++)link(c.members[i],c.members[j],.25);
+  for(const c of W.communities)for(const[a,b]of c.links)link(a,b,1);
+  for(const e of W.extraction)for(const t of e.tails)link(t,e.head[0],.5);
+  const deg=A.map(r=>r.reduce((s,x)=>s+x,0)),shift=2*Math.max(...deg)+1;
+  const prnd=mulberry32(W.seed^0x5EED);
+  const vecs=[];
+  for(let k=0;k<2;k++){
+    let v=Float64Array.from({length:n},()=>prnd()-.5);
+    for(let it=0;it<90;it++){
+      let m=v.reduce((s,x)=>s+x,0)/n;v=v.map(x=>x-m);            // ⟂ constant vec
+      for(const u of vecs){let d=0;for(let i=0;i<n;i++)d+=v[i]*u[i];
+        for(let i=0;i<n;i++)v[i]-=d*u[i]}                        // deflate
+      const w=new Float64Array(n);                               // w = (shift·I − L)v
+      for(let i=0;i<n;i++){let s=(shift-deg[i])*v[i];
+        for(let j=0;j<n;j++)s+=A[i][j]*v[j];w[i]=s}
+      const nm=Math.sqrt(w.reduce((s,x)=>s+x*x,0))||1;v=w.map(x=>x/nm);
+    }
+    vecs.push(v);
+  }
+  const sc=v=>{const mx=Math.max(...v.map(Math.abs))||1;return v.map(x=>x/mx)};
+  const X=sc(vecs[0]),Y=sc(vecs[1]);
+  W.agents.forEach((a,i)=>{a.x=X[i]*.92;a.y=Y[i]*.92});
+}
+
+/* ---------- economy tick ---------- */
+function doTick(){
+  W.tick++;
+  for(const e of W.extraction){const take=e.mass*.12;
+    for(const t of e.tails)W.agents[t].wealth=Math.max(.2,W.agents[t].wealth-take/e.tails.length);
+    W.agents[e.head[0]].wealth+=take*.8;W.agents.filter(a=>a.bloc===1)
+      .forEach(a=>a.wealth+=take*.2/9)}
+  // accumulation raises the organic composition — the falling-rate law animates:
+  for(const i of W.industries)i.c*=i.lane>=2?1.035:1.015;
+  transform();
+}
+
+/* ---------- verbs ---------- */
+function leastOrganized(){return W.communities.filter(c=>c.name!=='capital δ')
+  .sort((a,b)=>orgOf(a)-orgOf(b))[0]}
+function educate(){ // join two internal components of the weakest community
+  const c=leastOrganized(),ix=new Map(c.members.map((m,i)=>[m,i])),uf=unionFind(c.members.length);
+  for(const[a,b]of c.links)uf.union(ix.get(a),ix.get(b));
+  outer:for(const a of c.members)for(const b of c.members)
+    if(a!==b&&uf.find(ix.get(a))!==uf.find(ix.get(b))){c.links.push([a,b]);break outer}
+}
+function mobilize(){ // bridge two periphery cells through a shared-candidate agent
+  const[a,b]=W.communities;const cand=a.members.find(m=>!b.members.includes(m));
+  if(cand&&!b.members.includes(cand)){b.members.push(cand);b.links.push([cand,b.members[0]])}
+  educate();
+}
+function repress(){W.repression+=.35;
+  for(const c of W.communities)if(c.name!=='capital δ'&&c.links.length>1)c.links.splice((Math.random()*c.links.length)|0,1)}
+
+/* ---------- 3D projection ---------- */
+const cam={ry:.7,rx:.42,dist:3.4,fov:520};
+function proj(p,cx,cy){
+  const cr=Math.cos(cam.ry),sr=Math.sin(cam.ry),cx2=p.x*cr-p.z*sr,z2=p.x*sr+p.z*cr;
+  const cp=Math.cos(cam.rx),sp=Math.sin(cam.rx),y2=p.y*cp-z2*sp,z3=p.y*sp+z2*cp+cam.dist;
+  const s=cam.fov/z3;return{x:cx+cx2*s,y:cy-y2*s,d:z3,s};
+}
+const mix=(a,b,t)=>a+(b-a)*t;
+function heat(t){ // gold(low) -> bone -> crimson(high)
+  t=Math.max(0,Math.min(1,t));
+  const g=[217,164,65],bn=[233,223,201],c=[196,58,46];
+  const[f,u]=t<.5?[g,bn]:[bn,c],k=t<.5?t*2:(t-.5)*2;
+  return`rgb(${mix(f[0],u[0],k)|0},${mix(f[1],u[1],k)|0},${mix(f[2],u[2],k)|0})`;
+}
+
+/* ---------- instruments ---------- */
+let instrument=0;
+const CAPTIONS=[
+ '<b>I. Adjoint cylinder.</b> Bottom disc: the class in-itself — agents scattered at their spectral positions, Π₀ = n. Top disc: the class for-itself, one component. Each community floats at height = its organization degree o(C) = 1 − (|Π₀(C)|−1)/(|C|−1). EDUCATE adds internal cohesion; REPRESS cuts it. The categorical construction is the scene.',
+ '<b>II. Contradiction terrain.</b> Height = tension field t = repression·(subsistence − wealth), inverse-distance-diffused over the spectral base. The periphery pools into a crimson massif the core never sees from its plain; gold is slack, crimson is stored contradiction. TICK deepens it.',
+ '<b>III. Hyper-Sankey Φ — the transformation problem over the invariant grid.</b> Altitude = organic composition q = c/v; every industry snaps to a hex cell (H3 semantics: fixed coordinates, parent = bit-truncation). Each produces s = v·e; the equalized rate r = ΣS/Σ(C+V) prices it at (c+v)(1+r), so low-OCC superexploited cells — periphery, internal colonies — realize less than they produce: the difference IS the ribbon. GRID toggles the zoom functor: extensives sum, Φ and r invariant. TICK accumulates c — watch r fall.'
+];
+
+function drawCylinder(g,w,h){
+  const cx=w/2,cy=h/2+18,R=1.05,H=1.55,items=[];
+  const ring=(y,col,dash)=>{const pts=[];for(let i=0;i<=64;i++){const a=i/64*Math.PI*2;
+      pts.push(proj({x:Math.cos(a)*R,y,z:Math.sin(a)*R},cx,cy))}
+    items.push({d:Math.min(...pts.map(p=>p.d)),f(){g.strokeStyle=col;g.lineWidth=1;
+      g.setLineDash(dash||[]);g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));
+      g.stroke();g.setLineDash([])}})};
+  ring(-H/2,'rgba(138,122,97,.55)');ring(H/2,'rgba(217,164,65,.65)');
+  for(let i=0;i<12;i++){const a=i/12*Math.PI*2,p1=proj({x:Math.cos(a)*R,y:-H/2,z:Math.sin(a)*R},cx,cy),
+    p2=proj({x:Math.cos(a)*R,y:H/2,z:Math.sin(a)*R},cx,cy);
+    items.push({d:(p1.d+p2.d)/2,f(){g.strokeStyle='rgba(74,62,44,.5)';g.lineWidth=1;
+      g.setLineDash([2,5]);g.beginPath();g.moveTo(p1.x,p1.y);g.lineTo(p2.x,p2.y);g.stroke();g.setLineDash([])}})}
+  // atomized floor: every agent as a lone point
+  for(const a of W.agents){const p=proj({x:a.x*R*.85,y:-H/2,z:a.y*R*.85},cx,cy);
+    items.push({d:p.d,f(){g.fillStyle='rgba(233,223,201,.5)';g.beginPath();
+      g.arc(p.x,p.y,2.1*p.s/300,0,7);g.fill()}})}
+  // each community: hull at its organization height + struts
+  for(const c of W.communities){const o=orgOf(c),y=-H/2+o*H,col=heat(1-o);
+    const pts=c.members.map(m=>{const a=W.agents[m];
+      return proj({x:a.x*R*.85,y,z:a.y*R*.85},cx,cy)});
+    const hull=convexHull(pts);
+    items.push({d:pts.reduce((s,p)=>s+p.d,0)/pts.length,f(){
+      g.beginPath();hull.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.closePath();
+      g.fillStyle=col.replace('rgb','rgba').replace(')',`,${.12+.3*o})`);g.fill();
+      g.strokeStyle=col;g.lineWidth=1.4;g.stroke();
+      for(const m of c.members){const a=W.agents[m],
+        base=proj({x:a.x*R*.85,y:-H/2,z:a.y*R*.85},cx,cy),
+        top=proj({x:a.x*R*.85,y,z:a.y*R*.85},cx,cy);
+        g.strokeStyle='rgba(217,164,65,.22)';g.lineWidth=1;
+        g.beginPath();g.moveTo(base.x,base.y);g.lineTo(top.x,top.y);g.stroke();
+        g.fillStyle=col;g.beginPath();g.arc(top.x,top.y,2.6*top.s/300,0,7);g.fill()}
+      const lp=hull[0];g.fillStyle='rgba(233,223,201,.85)';g.font='10px '+getComputedStyle(document.body).getPropertyValue('--mono');
+      g.fillText(`${c.name} · o=${o.toFixed(2)}`,lp.x+6,lp.y-6)}});
+  }
+  items.sort((a,b)=>b.d-a.d).forEach(it=>it.f());
+}
+function convexHull(P){ // Andrew's monotone chain on projected points
+  const pts=[...P].sort((a,b)=>a.x-b.x||a.y-b.y);if(pts.length<3)return pts;
+  const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x),lo=[],up=[];
+  for(const p of pts){while(lo.length>1&&cross(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}
+  for(const p of pts.reverse()){while(up.length>1&&cross(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}
+  return lo.slice(0,-1).concat(up.slice(0,-1));
+}
+
+function drawTerrain(g,w,h){
+  const cx=w/2,cy=h/2+30,N=34,M=24,S=1.35,items=[];
+  const nodes=W.agents.map(a=>({x:a.x,y:a.y,
+    t:Math.max(0,W.repression*(a.subsistence-a.wealth))}));
+  const tmax=Math.max(.001,...nodes.map(n=>n.t));
+  const height=(x,y)=>{let num=0,den=0;for(const n of nodes){
+      const d2=(x-n.x)**2+(y-n.y)**2+.02;num+=n.t/d2;den+=1/d2}return(num/den)/tmax};
+  const grid=[];for(let i=0;i<=N;i++){grid.push([]);for(let j=0;j<=M;j++){
+    const x=(i/N*2-1)*S,z=(j/M*2-1)*S,t=height(x/S,z/S);
+    grid[i].push({p:proj({x,y:-.55+t*.95,z},cx,cy),t})}}
+  for(let i=0;i<N;i++)for(let j=0;j<M;j++){
+    const q=[grid[i][j],grid[i+1][j],grid[i+1][j+1],grid[i][j+1]],t=(q[0].t+q[2].t)/2;
+    items.push({d:q.reduce((s,c)=>s+c.p.d,0)/4,f(){
+      g.beginPath();q.forEach((c,k)=>k?g.lineTo(c.p.x,c.p.y):g.moveTo(c.p.x,c.p.y));g.closePath();
+      g.fillStyle=heat(t).replace('rgb','rgba').replace(')',`,${.16+t*.55})`);g.fill();
+      g.strokeStyle=`rgba(46,35,19,${.5-t*.25})`;g.lineWidth=.6;g.stroke()}})}
+  for(const a of W.agents){const t=height(a.x,a.y),
+    p=proj({x:a.x*S,y:-.53+t*.95,z:a.y*S},cx,cy);
+    items.push({d:p.d-1,f(){g.fillStyle=a.bloc===0?'#F2C56B':a.bloc===1?'#E9DFC9':'#E85A44';
+      g.beginPath();g.arc(p.x,p.y,2.4*p.s/300,0,7);g.fill()}})}
+  items.sort((a,b)=>b.d-a.d).forEach(it=>it.f());
+}
+
+function hexXZ(q,r,s){return{x:s*1.7320508*(q+r/2),z:s*1.5*r}}
+function occY(c,v){const q=Math.log(c/v);return -0.8+1.55*Math.max(0,Math.min(1,(q-(-0.3))/2.6))}
+function aggregateCells(){
+  const groups=new Map();
+  for(const i of W.industries){const key=(i.hq>>1)+','+(i.hr>>1);
+    if(!groups.has(key))groups.set(key,{name:'cell '+key,c:0,v:0,s:0,T:0,n:0,hx:0,hz:0,lane:-1});
+    const gr=groups.get(key),p=hexXZ(i.hq,i.hr,.15);
+    gr.c+=i.c;gr.v+=i.v;gr.s+=i.s;gr.T+=i.T;gr.n++;gr.hx+=p.x;gr.hz+=p.z}
+  return[...groups.values()].map(gr=>({...gr,e:gr.s/gr.v,hx:gr.hx/gr.n,hz:gr.hz/gr.n}));
+}
+function hexXZ(q,r,s){return{x:s*1.7320508*(q+r/2),z:s*1.5*r}}
+function occY(c,v){const q=Math.log(c/v);return -0.8+1.55*Math.max(0,Math.min(1,(q-(-0.3))/2.6))}
+function aggregateCells(){
+  const groups=new Map();
+  for(const i of W.industries){const key=(i.hq>>1)+','+(i.hr>>1);
+    if(!groups.has(key))groups.set(key,{name:'cell '+key,c:0,v:0,s:0,T:0,n:0,hx:0,hz:0,lane:-1});
+    const gr=groups.get(key),p=hexXZ(i.hq,i.hr,.15);
+    gr.c+=i.c;gr.v+=i.v;gr.s+=i.s;gr.T+=i.T;gr.n++;gr.hx+=p.x;gr.hz+=p.z}
+  return[...groups.values()].map(gr=>({...gr,e:gr.s/gr.v,hx:gr.hx/gr.n,hz:gr.hz/gr.n}));
+}
+function drawSankey(g,w,h,time){
+  const cx=w/2,cy=h/2+16,items=[],S=.15,coarse=W.zoom===1;
+  const ents=coarse?aggregateCells():W.industries.map(i=>{const p=hexXZ(i.hq,i.hr,S);
+    return{...i,hx:p.x,hz:p.z}});
+  const GROUNDY=-.95,hexR=coarse?S*1.9:S*.92;
+  // ground hexes (the invariant grid you snap to)
+  for(const e of ents){const corners=[];
+    for(let k=0;k<=6;k++){const a=Math.PI/180*(60*k+30);
+      corners.push(proj({x:e.hx+hexR*Math.cos(a),y:GROUNDY,z:e.hz+hexR*Math.sin(a)},cx,cy))}
+    items.push({d:Math.min(...corners.map(p=>p.d))+5,f(){
+      g.strokeStyle='rgba(217,164,65,.35)';g.lineWidth=1;g.beginPath();
+      corners.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.stroke();
+      g.fillStyle='rgba(217,164,65,.05)';g.fill()}})}
+  // lane region labels (fine level only)
+  if(!coarse){const LBL=[['PERIPHERY',-6.4,1.6],['INTERNAL COLONIES',-2.2,1.9],
+      ['SETTLER GARRISONS',1,1.2],['APEX CAPITAL',3.8,1.6]];
+    for(const[t,q,r]of LBL){const p0=hexXZ(q,r,S),p=proj({x:p0.x,y:GROUNDY,z:p0.z},cx,cy);
+      items.push({d:p.d+6,f(){g.fillStyle='rgba(138,122,97,.85)';g.font='9px '+MONO;
+        g.fillText(t,p.x-24,p.y+12)}})}}
+  // stems + industry/cell nodes at OCC altitude
+  for(const e of ents){const y=occY(e.c,e.v),
+    base=proj({x:e.hx,y:GROUNDY,z:e.hz},cx,cy),top=proj({x:e.hx,y,z:e.hz},cx,cy);
+    e._top={x:e.hx,y,z:e.hz};
+    const R=Math.sqrt(e.c+e.v)*.62*top.s/300;
+    items.push({d:top.d,f(){
+      g.strokeStyle='rgba(217,164,65,.25)';g.lineWidth=1;
+      g.beginPath();g.moveTo(base.x,base.y);g.lineTo(top.x,top.y);g.stroke();
+      g.fillStyle=heat(Math.min(1,e.e/4)).replace('rgb','rgba').replace(')',',.88)');
+      g.beginPath();g.arc(top.x,top.y,R,0,7);g.fill();
+      g.strokeStyle=e.T>0?'#F2C56B':'#C43A2E';g.lineWidth=1.3;g.stroke();
+      g.fillStyle='rgba(233,223,201,.82)';g.font='9px '+MONO;
+      g.fillText(`${e.name} q=${(e.c/e.v).toFixed(1)} ${e.T>0?'+':''}${e.T.toFixed(1)}`,top.x+R+3,top.y+3)}})}
+  // value-transfer ribbons: donors (T<0) feed absorbers (T>0), conserved at every zoom
+  const donors=ents.filter(e=>e.T<0).sort((a,b)=>a.T-b.T),
+    negSum=donors.reduce((s,e)=>s-e.T,0)||1;
+  for(const j of ents.filter(e=>e.T>0)){
+    for(const i of donors){const flow=j.T*(-i.T)/negSum;if(flow<.4)continue;
+      const a=i._top,b=j._top,mid={x:(a.x+b.x)/2,y:Math.max(a.y,b.y)+.32,z:(a.z+b.z)/2};
+      const P=[a,mid,b].map(p=>proj(p,cx,cy));
+      items.push({d:(P[0].d+P[2].d)/2+2,f(){
+        g.strokeStyle=`rgba(196,58,46,${.3+Math.min(.5,flow*.06)})`;
+        g.lineWidth=Math.max(1,flow*.5*P[1].s/300);g.lineCap='round';
+        g.beginPath();g.moveTo(P[0].x,P[0].y);
+        g.quadraticCurveTo(P[1].x,P[1].y,P[2].x,P[2].y);g.stroke();
+        if(!reduceMotion){const u=(time/1600+(i.hx*3+j.hz*5)*.11)%1,
+          qx=(1-u)**2*P[0].x+2*(1-u)*u*P[1].x+u*u*P[2].x,
+          qy=(1-u)**2*P[0].y+2*(1-u)*u*P[1].y+u*u*P[2].y;
+          g.fillStyle='#F2C56B';g.beginPath();g.arc(qx,qy,2,0,7);g.fill()}}});
+    }}
+  // conservation banner: the zoom invariant, stated on the instrument itself
+  items.push({d:1e9,f(){g.fillStyle='rgba(138,122,97,.9)';g.font='10px '+MONO;
+    g.fillText(`grid: ${coarse?'COARSE (parent cells, extensives summed)':'FINE (industry cells)'}`+
+      `   |   PHI = ${W.lastPhi.toFixed(1)}   r = ${W.profitRate.toFixed(3)}   -- invariant under zoom`,14,20)}});
+  items.sort((a,b)=>b.d-a.d).forEach(it=>it.f());
+}
+
+/* ---------- readouts ---------- */
+function fm(x,d=2){return Number(x).toFixed(d)}
+function refreshReadouts(){
+  const orgs=W.communities.map(orgOf),mean=orgs.reduce((s,x)=>s+x,0)/orgs.length;
+  const per=W.agents.filter(a=>a.bloc===2),
+    pw=per.reduce((s,a)=>s+a.wealth,0)/per.length,
+    psa=sigmoid(pw-per[0].subsistence),
+    psr=Math.min(1,(orgs[0]+orgs[1])/2/(W.repression/2.6*.9));
+  document.getElementById('r-pi0').textContent=globalPi0();
+  document.getElementById('r-org').textContent=fm(mean);
+  document.getElementById('b-org').style.width=(mean*100)+'%';
+  document.getElementById('r-phi').textContent=fm(W.lastPhi||0);
+  document.getElementById('b-phi').style.width=Math.min(100,(W.lastPhi||0))+'%';
+  document.getElementById('r-rate').textContent=fm(W.profitRate||0,3);
+  document.getElementById('r-rimp').textContent=fm(W.rentImperial||0,1);
+  document.getElementById('r-rint').textContent=fm(W.rentInternal||0,1);
+  document.getElementById('r-psa').textContent=fm(psa);
+  document.getElementById('r-psr').textContent=fm(psr);
+  const R=document.getElementById('rupture'),armed=psr>psa;
+  R.classList.toggle('armed',armed);
+  R.textContent=armed?'⚑ RUPTURE CONDITION · P(S|R) > P(S|A)':'RUPTURE TEST · P(S|R) ≤ P(S|A)';
+  document.getElementById('commlist').innerHTML=W.communities.map((c,i)=>
+    `<div class="stat"><span class="k">${c.name} · |C|=${c.members.length}</span>
+     <span class="v" style="color:${heat(1-orgs[i])}">${fm(orgs[i])}</span></div>`).join('');
+}
+
+/* ---------- shell ---------- */
+const cv=document.getElementById('cv'),g=cv.getContext('2d');
+const MONO=(getComputedStyle(document.body).getPropertyValue('--mono')||'monospace');
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function size(){const r=cv.parentElement.getBoundingClientRect();
+  cv.width=r.width*devicePixelRatio;cv.height=r.height*devicePixelRatio;
+  g.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
+addEventListener('resize',size);
+let dragging=false,lx=0,ly=0;
+cv.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(!dragging)return;
+  cam.ry+=(e.clientX-lx)*.008;cam.rx=Math.max(.05,Math.min(1.35,cam.rx+(e.clientY-ly)*.006));
+  lx=e.clientX;ly=e.clientY});
+cv.addEventListener('pointerup',()=>dragging=false);
+function frame(time){
+  const w=cv.width/devicePixelRatio,h=cv.height/devicePixelRatio;
+  g.clearRect(0,0,w,h);
+  if(!dragging&&!reduceMotion)cam.ry+=.0012;
+  [drawCylinder,drawTerrain,drawSankey][instrument](g,w,h,time);
+  requestAnimationFrame(frame);
+}
+document.querySelectorAll('.inst').forEach(b=>b.addEventListener('click',()=>{
+  instrument=+b.dataset.i;
+  document.querySelectorAll('.inst').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  document.getElementById('caption').innerHTML=CAPTIONS[instrument]}));
+const act=f=>()=>{f();refreshReadouts()};
+document.getElementById('v-edu').addEventListener('click',act(educate));
+document.getElementById('v-mob').addEventListener('click',act(mobilize));
+document.getElementById('v-rep').addEventListener('click',act(repress));
+document.getElementById('v-tick').addEventListener('click',act(doTick));
+document.getElementById('v-zoom').addEventListener('click',function(){
+  W.zoom^=1;this.textContent='GRID: '+(W.zoom?'COARSE':'FINE')});
+document.getElementById('v-zoom').addEventListener('click',function(){
+  W.zoom^=1;this.textContent='GRID: '+(W.zoom?'COARSE':'FINE')});
+document.getElementById('v-reseed').addEventListener('click',()=>{
+  W=buildWorld(+document.getElementById('seed').value||1917);spectral();doTick();refreshReadouts()});
+W=buildWorld(1917);spectral();doTick();refreshReadouts();
+document.getElementById('caption').innerHTML=CAPTIONS[0];
+size();requestAnimationFrame(frame);
+</script>
