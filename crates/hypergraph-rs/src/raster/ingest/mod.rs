@@ -42,8 +42,10 @@
 
 use serde::{Deserialize, Serialize};
 
+mod edges;
 mod nodes;
 
+pub use edges::{ingest_edges, IngestedEdges};
 #[allow(unused_imports)]
 pub(crate) use nodes::index_of;
 pub use nodes::ingest_nodes;

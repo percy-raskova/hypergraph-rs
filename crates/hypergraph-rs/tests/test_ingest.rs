@@ -1,8 +1,8 @@
 #![cfg(feature = "cells3d")]
 
 use hypergraph_rs::raster::ingest::{
-    ingest_nodes, AttrContract, IngestError, TensionSource, ATTR_CONTRACT_VERSION, DEFAULT_BLOC,
-    DEFAULT_REPRESSION, K_WEALTH,
+    ingest_edges, ingest_nodes, AttrContract, IngestError, TensionSource, ATTR_CONTRACT_VERSION,
+    DEFAULT_BLOC, DEFAULT_LANE, DEFAULT_MASS, DEFAULT_REPRESSION, K_WEALTH,
 };
 use hypergraph_rs::Hypergraph;
 use serde_json::json;
@@ -152,4 +152,226 @@ fn test_nodes_tension_attr_partial_coverage_is_missing_node_attr_error() {
             key: "tension".to_string(),
         }
     );
+}
+
+// --- Task 3: edge ingest -------------------------------------------------
+
+fn idx_for(ids: &[String]) -> std::collections::HashMap<&str, usize> {
+    ids.iter()
+        .enumerate()
+        .map(|(i, s)| (s.as_str(), i))
+        .collect()
+}
+
+#[test]
+fn test_edges_unknown_kind_is_skipped_and_reported_not_an_error() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({}));
+    h.add_node("b", json!({}));
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("e1".to_string()),
+        json!({"kind": "mystery"}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("e2".to_string()),
+        json!({}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    let ids = h.node_ids();
+    let index = idx_for(&ids);
+    let out = ingest_edges(&h, &c, &index).unwrap();
+    assert_eq!(out.skipped, vec!["e1".to_string(), "e2".to_string()]);
+    assert!(out.communities.is_empty());
+    assert!(out.extraction.is_empty());
+    assert!(out.industries.is_empty());
+}
+
+#[test]
+fn test_community_links_outside_members_is_typed_error() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({}));
+    h.add_node("b", json!({}));
+    h.add_node("z", json!({}));
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("com1".to_string()),
+        json!({"kind": "community", "name": "c1", "links": [["a", "z"]]}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    let ids = h.node_ids();
+    let index = idx_for(&ids);
+    let err = ingest_edges(&h, &c, &index).unwrap_err();
+    assert_eq!(
+        err,
+        IngestError::LinkOutsideCommunity {
+            edge: "com1".to_string(),
+            node: "z".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_community_with_no_links_ingests_and_org_degree_is_real() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({}));
+    h.add_node("b", json!({}));
+    h.add_node("c", json!({}));
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        Some("com1".to_string()),
+        json!({"kind": "community"}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    let ids = h.node_ids();
+    let index = idx_for(&ids);
+    let out = ingest_edges(&h, &c, &index).unwrap();
+    assert_eq!(out.communities.len(), 1);
+    let com = &out.communities[0];
+    assert!(com.links.is_empty());
+    assert_eq!(com.members.len(), 3);
+    assert_eq!(
+        hypergraph_rs::raster::deck::org_degree(com),
+        0.0,
+        "3 fully-disconnected members: org_degree is a real 0.0 reading"
+    );
+}
+
+#[test]
+fn test_extraction_head_must_be_a_member() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({}));
+    h.add_node("b", json!({}));
+    h.add_node("z", json!({}));
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("ex1".to_string()),
+        json!({"kind": "extraction", "head": "z"}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    let ids = h.node_ids();
+    let index = idx_for(&ids);
+    let err = ingest_edges(&h, &c, &index).unwrap_err();
+    assert_eq!(
+        err,
+        IngestError::HeadNotMember {
+            edge: "ex1".to_string(),
+            node: "z".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_extraction_mass_defaults_because_no_instrument_reads_it() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({}));
+    h.add_node("b", json!({}));
+    h.add_edge(
+        vec!["a".to_string(), "b".to_string()],
+        Some("ex1".to_string()),
+        json!({"kind": "extraction", "head": "b"}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    let ids = h.node_ids();
+    let index = idx_for(&ids);
+    let out = ingest_edges(&h, &c, &index).unwrap();
+    assert_eq!(out.extraction.len(), 1);
+    assert_eq!(out.extraction[0].mass, DEFAULT_MASS);
+}
+
+#[test]
+fn test_industry_missing_c_v_or_e_is_typed_error_not_zero() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({}));
+    h.add_edge(
+        vec!["a".to_string()],
+        Some("in1".to_string()),
+        json!({"kind": "industry", "c": 1.0, "v": 2.0}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    let ids = h.node_ids();
+    let index = idx_for(&ids);
+    let err = ingest_edges(&h, &c, &index).unwrap_err();
+    assert_eq!(
+        err,
+        IngestError::MissingEdgeAttr {
+            edge: "in1".to_string(),
+            kind: "industry".to_string(),
+            key: "e".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_industry_missing_lane_defaults_and_sets_lane_defaulted_flag() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({}));
+    h.add_edge(
+        vec!["a".to_string()],
+        Some("in1".to_string()),
+        json!({"kind": "industry", "c": 1.0, "v": 2.0, "e": 0.5}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    let ids = h.node_ids();
+    let index = idx_for(&ids);
+    let out = ingest_edges(&h, &c, &index).unwrap();
+    assert_eq!(out.industries[0].lane, DEFAULT_LANE);
+    assert!(out.lane_defaulted);
+}
+
+#[test]
+fn test_industry_zero_v_is_degenerate_industry_error() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({}));
+    h.add_edge(
+        vec!["a".to_string()],
+        Some("in1".to_string()),
+        json!({"kind": "industry", "c": 1.0, "v": 0.0, "e": 0.5}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    let ids = h.node_ids();
+    let index = idx_for(&ids);
+    let err = ingest_edges(&h, &c, &index).unwrap_err();
+    assert_eq!(
+        err,
+        IngestError::DegenerateIndustry {
+            edge: "in1".to_string(),
+        }
+    );
+}
+
+#[test]
+fn test_industry_slice_order_follows_edge_ids_order() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node("a", json!({}));
+    h.add_edge(
+        vec!["a".to_string()],
+        Some("in_z".to_string()),
+        json!({"kind": "industry", "c": 1.0, "v": 1.0, "e": 1.0}),
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["a".to_string()],
+        Some("in_a".to_string()),
+        json!({"kind": "industry", "c": 2.0, "v": 2.0, "e": 2.0}),
+    )
+    .unwrap();
+    let c = AttrContract::default();
+    let ids = h.node_ids();
+    let index = idx_for(&ids);
+    let out = ingest_edges(&h, &c, &index).unwrap();
+    assert_eq!(out.industries.len(), 2);
+    // edge_ids() insertion order: in_z then in_a — NOT sorted by name.
+    assert_eq!(out.industries[0].c, 1.0);
+    assert_eq!(out.industries[1].c, 2.0);
 }
