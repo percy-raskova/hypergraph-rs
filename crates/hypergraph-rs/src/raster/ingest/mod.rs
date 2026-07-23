@@ -42,6 +42,12 @@
 
 use serde::{Deserialize, Serialize};
 
+mod nodes;
+
+#[allow(unused_imports)]
+pub(crate) use nodes::index_of;
+pub use nodes::ingest_nodes;
+
 /// Version of the attribute contract's key spellings, defaults, and error
 /// dispositions. Bumped only on a meaning-changing edit (D-I3).
 pub const ATTR_CONTRACT_VERSION: u32 = 1;
