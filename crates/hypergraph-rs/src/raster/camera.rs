@@ -138,12 +138,28 @@ fn face_centroid_depth(face: &Face, cam: &Camera) -> f64 {
     let cx = (face.verts[0].x + face.verts[1].x + face.verts[2].x) / 3.0;
     let cy = (face.verts[0].y + face.verts[1].y + face.verts[2].y) / 3.0;
     let cz = (face.verts[0].z + face.verts[1].z + face.verts[2].z) / 3.0;
-    to_camera_space(&Vertex3 { x: cx, y: cy, z: cz }, cam).z
+    to_camera_space(
+        &Vertex3 {
+            x: cx,
+            y: cy,
+            z: cz,
+        },
+        cam,
+    )
+    .z
 }
 
 fn strut_centroid_depth(strut: &Strut, cam: &Camera) -> f64 {
     let cx = (strut.a.x + strut.b.x) / 2.0;
     let cy = (strut.a.y + strut.b.y) / 2.0;
     let cz = (strut.a.z + strut.b.z) / 2.0;
-    to_camera_space(&Vertex3 { x: cx, y: cy, z: cz }, cam).z
+    to_camera_space(
+        &Vertex3 {
+            x: cx,
+            y: cy,
+            z: cz,
+        },
+        cam,
+    )
+    .z
 }

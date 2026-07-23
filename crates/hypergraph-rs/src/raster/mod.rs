@@ -11,6 +11,7 @@ use crate::viz::NodeStyle;
 
 pub mod camera;
 pub mod fmt;
+mod grid;
 
 pub use camera::{depth_sort, face_is_clipped, project, strut_is_clipped, Camera, Projected};
 
@@ -121,4 +122,42 @@ impl SceneGraph3D {
             metadata: serde_json::Map::new(),
         }
     }
+}
+
+/// Rasterize `scene` under `camera` into a `cols x rows` `CellGrid`
+/// (Task 3): near-plane-clip, painter's depth-sort, rasterize into a
+/// braille 2x4 subcell buffer, then compose glyphs. Pure function of
+/// `(scene, camera, cols, rows)` — byte-exact golden-testable.
+pub fn rasterize(scene: &SceneGraph3D, camera: &Camera, cols: u16, rows: u16) -> CellGrid {
+    let mut faces: Vec<Face> = scene
+        .faces
+        .iter()
+        .filter(|f| !face_is_clipped(f, camera))
+        .cloned()
+        .collect();
+    let mut struts: Vec<Strut> = scene
+        .struts
+        .iter()
+        .filter(|s| !strut_is_clipped(s, camera))
+        .cloned()
+        .collect();
+    depth_sort(&mut faces, &mut struts, camera);
+
+    let w = cols as usize * 2;
+    let h = rows as usize * 4;
+    let mut buf = grid::SubBuffer::new(w, h);
+
+    for f in &faces {
+        let p0 = project(&f.verts[0], camera, cols, rows);
+        let p1 = project(&f.verts[1], camera, cols, rows);
+        let p2 = project(&f.verts[2], camera, cols, rows);
+        grid::fill_triangle(&mut buf, [p0, p1, p2], f.fill);
+    }
+    for s in &struts {
+        let a = project(&s.a, camera, cols, rows);
+        let b = project(&s.b, camera, cols, rows);
+        grid::line_bresenham(&mut buf, a, b, s.color);
+    }
+
+    grid::compose_braille(&buf, cols, rows)
 }
