@@ -55,7 +55,7 @@ mod nodes;
 
 pub use edges::{ingest_edges, IngestedEdges};
 pub(crate) use nodes::index_of;
-pub use nodes::ingest_nodes;
+pub use nodes::{ingest_nodes, IngestedNodes};
 
 /// Version of the attribute contract's key spellings, defaults, and error
 /// dispositions. Bumped only on a meaning-changing edit (D-I3).
@@ -287,8 +287,13 @@ pub fn to_world(
     }
     let zoom = read_zoom(h, &c.zoom)?;
 
-    let (agents, node_ids, h3_cells, bloc_defaulted, tension_source) =
-        ingest_nodes(h, c, repression)?;
+    let IngestedNodes {
+        agents,
+        node_ids,
+        h3_cells,
+        bloc_defaulted,
+        tension_source,
+    } = ingest_nodes(h, c, repression)?;
 
     if agents.len() < 2 {
         return Err(IngestError::TooFewAgents {

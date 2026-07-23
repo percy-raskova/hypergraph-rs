@@ -298,7 +298,6 @@ fn rasterize_text(
 #[cfg(feature = "raster-png")]
 #[pyfunction]
 #[pyo3(signature = (h, instrument, width, height, camera=None, contract=None))]
-#[allow(clippy::too_many_arguments)]
 fn render_pixels(
     py: Python<'_>,
     h: PyRef<'_, PyHypergraph>,
@@ -325,7 +324,6 @@ fn render_pixels(
 #[cfg(feature = "raster-png")]
 #[pyfunction]
 #[pyo3(signature = (h, instrument, width, height, camera=None, contract=None))]
-#[allow(clippy::too_many_arguments)]
 fn render_png(
     py: Python<'_>,
     h: PyRef<'_, PyHypergraph>,

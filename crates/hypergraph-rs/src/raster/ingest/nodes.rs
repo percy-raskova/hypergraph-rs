@@ -107,6 +107,22 @@ fn read_h3_cell(attrs: &Value, key: &str, owner: &str) -> Result<Option<u64>, In
     }
 }
 
+/// Result of [`ingest_nodes`]: agents in `node_ids()` order; the parallel
+/// original-id vector; the parallel optional H3 cells; the count of nodes
+/// whose `bloc` defaulted; and which formula produced `subsistence`.
+///
+/// A named struct rather than a 5-tuple — the Task 9 clippy leg's preferred
+/// fix for `clippy::type_complexity` over an `#[allow]` (the `IngestedEdges`
+/// precedent in `edges.rs` follows the same shape).
+#[derive(Debug, Clone, PartialEq)]
+pub struct IngestedNodes {
+    pub agents: Vec<Agent>,
+    pub node_ids: Vec<String>,
+    pub h3_cells: Vec<Option<u64>>,
+    pub bloc_defaulted: usize,
+    pub tension_source: TensionSource,
+}
+
 /// Ingest one node per agent, in [`Hypergraph::node_ids`] order.
 ///
 /// `repression` is the graph-level repression scalar (read from graph attrs
@@ -118,29 +134,14 @@ fn read_h3_cell(attrs: &Value, key: &str, owner: &str) -> Result<Option<u64>, In
 /// signature lets `to_world` supply it before agents exist. Recorded in the
 /// executor's deviations, not invented silently.
 ///
-/// Returns `(agents, node_ids, h3_cells, bloc_defaulted, tension_source)`:
-/// agents in `node_ids()` order; the parallel original-id vector; the
-/// parallel optional H3 cells; the count of nodes whose `bloc` defaulted;
-/// and which formula produced `subsistence`.
-///
 /// Bounded: two passes over `h.node_ids()` (node count) — pass 1 detects
 /// whether *any* node carries the tension key (which puts every node under
 /// the same, stricter, obligation), pass 2 builds the agents.
-#[allow(clippy::type_complexity)]
 pub fn ingest_nodes(
     h: &Hypergraph<Value, Value, Value>,
     c: &AttrContract,
     repression: f64,
-) -> Result<
-    (
-        Vec<Agent>,
-        Vec<String>,
-        Vec<Option<u64>>,
-        usize,
-        TensionSource,
-    ),
-    IngestError,
-> {
+) -> Result<IngestedNodes, IngestError> {
     let ids = h.node_ids();
     static EMPTY: Value = Value::Null;
 
@@ -204,5 +205,11 @@ pub fn ingest_nodes(
         h3_cells.push(h3);
     }
 
-    Ok((agents, ids, h3_cells, bloc_defaulted, tension_source))
+    Ok(IngestedNodes {
+        agents,
+        node_ids: ids,
+        h3_cells,
+        bloc_defaulted,
+        tension_source,
+    })
 }

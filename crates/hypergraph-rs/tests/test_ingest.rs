@@ -2,8 +2,9 @@
 
 use hypergraph_rs::raster::deck::psa;
 use hypergraph_rs::raster::ingest::{
-    build_scene, ingest_edges, ingest_nodes, to_world, AttrContract, IngestError, TensionSource,
-    ATTR_CONTRACT_VERSION, DEFAULT_BLOC, DEFAULT_LANE, DEFAULT_MASS, DEFAULT_REPRESSION, K_WEALTH,
+    build_scene, ingest_edges, ingest_nodes, to_world, AttrContract, IngestError, IngestedNodes,
+    TensionSource, ATTR_CONTRACT_VERSION, DEFAULT_BLOC, DEFAULT_LANE, DEFAULT_MASS,
+    DEFAULT_REPRESSION, K_WEALTH,
 };
 use hypergraph_rs::raster::instruments::{Instrument, InstrumentOpts};
 use hypergraph_rs::raster::SceneGraph3D;
@@ -58,8 +59,11 @@ fn test_nodes_missing_bloc_defaults_to_one_and_is_counted() {
     let mut h: Hypergraph = Hypergraph::new();
     h.add_node("a", json!({"wealth": 10.0, "subsistence": 5.0}));
     let c = AttrContract::default();
-    let (agents, _ids, _h3, bloc_defaulted, _tsrc) =
-        ingest_nodes(&h, &c, DEFAULT_REPRESSION).unwrap();
+    let IngestedNodes {
+        agents,
+        bloc_defaulted,
+        ..
+    } = ingest_nodes(&h, &c, DEFAULT_REPRESSION).unwrap();
     assert_eq!(agents[0].bloc, DEFAULT_BLOC);
     assert_eq!(bloc_defaulted, 1);
 }
@@ -71,8 +75,10 @@ fn test_nodes_agent_ids_are_dense_and_follow_node_ids_order() {
     h.add_node("a", json!({"wealth": 2.0, "subsistence": 1.0, "bloc": 1}));
     h.add_node("m", json!({"wealth": 3.0, "subsistence": 1.5, "bloc": 2}));
     let c = AttrContract::default();
-    let (agents, ids, _h3, _bd, _tsrc) = ingest_nodes(&h, &c, DEFAULT_REPRESSION).unwrap();
-    assert_eq!(ids, h.node_ids());
+    let IngestedNodes {
+        agents, node_ids, ..
+    } = ingest_nodes(&h, &c, DEFAULT_REPRESSION).unwrap();
+    assert_eq!(node_ids, h.node_ids());
     assert_eq!(agents.len(), 3);
     for (i, a) in agents.iter().enumerate() {
         assert_eq!(a.id, i);
@@ -114,7 +120,7 @@ fn test_h3_cell_accepts_u64_string_above_2_pow_53() {
         "a",
         json!({"wealth": 1.0, "subsistence": 0.5, "h3_cell": "622236723497533439"}),
     );
-    let (_agents, _ids, h3_cells, _bd, _tsrc) = ingest_nodes(&h, &c, DEFAULT_REPRESSION).unwrap();
+    let IngestedNodes { h3_cells, .. } = ingest_nodes(&h, &c, DEFAULT_REPRESSION).unwrap();
     assert_eq!(h3_cells[0], Some(622236723497533439u64));
 
     let mut h2: Hypergraph = Hypergraph::new();
@@ -135,8 +141,12 @@ fn test_nodes_tension_attr_overrides_subsistence_when_present_on_all_nodes() {
     h.add_node("a", json!({"wealth": 10.0, "tension": 2.0}));
     h.add_node("b", json!({"wealth": 5.0, "tension": 0.0}));
     let repression = 2.0;
-    let (agents, _ids, _h3, _bd, tsrc) = ingest_nodes(&h, &c, repression).unwrap();
-    assert_eq!(tsrc, TensionSource::Attr);
+    let IngestedNodes {
+        agents,
+        tension_source,
+        ..
+    } = ingest_nodes(&h, &c, repression).unwrap();
+    assert_eq!(tension_source, TensionSource::Attr);
     assert!((agents[0].subsistence - (10.0 + 2.0 / repression)).abs() < 1e-9);
     assert!((agents[1].subsistence - (5.0 + 0.0 / repression)).abs() < 1e-9);
 }
