@@ -7,7 +7,11 @@
 //! upstream floating-point DDA, and the braille glyph floor is designed
 //! fresh here — the reference ships half-blocks only).
 
-use super::{camera::Projected, Cell, CellGrid, Rgb};
+use super::{
+    camera::Projected,
+    color::{pick_fg_bg, LitSubcell},
+    Cell, CellGrid, Rgb,
+};
 
 /// A 2-wide x 4-tall-per-cell subcell buffer (`w = cols*2`, `h = rows*4`).
 /// `depth` starts at `f64::INFINITY` (nothing drawn yet); `color` starts
@@ -214,17 +218,18 @@ fn braille_bit(sub_col: usize, sub_row: usize) -> u8 {
 }
 
 /// Read the subcell buffer into a `cols x rows` `CellGrid`: each cell's
-/// glyph is `0x2800 + set_bits` over its 8 subcells; `fg` is the color of
-/// the nearest lit subcell (Task 4 finalizes color mixing); `bg` is black.
-/// Bounded loops: `cols*rows` cells x 8 subcells each.
+/// glyph is `0x2800 + set_bits` over its 8 subcells; `fg`/`bg` are picked
+/// under the braille "one fg + one bg" constraint (Task 4: majority-lit
+/// color for `fg`, ties broken by nearest depth then fixed subcell scan
+/// order — `color::pick_fg_bg`). Bounded loops: `cols*rows` cells x 8
+/// subcells each.
 pub(crate) fn compose_braille(buf: &SubBuffer, cols: u16, rows: u16) -> CellGrid {
     let mut cells = Vec::with_capacity(cols as usize * rows as usize);
 
     for row in 0..rows as usize {
         for col in 0..cols as usize {
             let mut bits: u8 = 0;
-            let mut nearest_depth = f64::INFINITY;
-            let mut nearest_color = None;
+            let mut lit: Vec<LitSubcell> = Vec::with_capacity(8);
 
             for sub_row in 0..4usize {
                 for sub_col in 0..2usize {
@@ -233,20 +238,17 @@ pub(crate) fn compose_braille(buf: &SubBuffer, cols: u16, rows: u16) -> CellGrid
                     let i = buf.idx(x, y);
                     if let Some(c) = buf.color[i] {
                         bits |= braille_bit(sub_col, sub_row);
-                        if buf.depth[i] < nearest_depth {
-                            nearest_depth = buf.depth[i];
-                            nearest_color = Some(c);
-                        }
+                        lit.push(LitSubcell {
+                            color: c,
+                            depth: buf.depth[i],
+                        });
                     }
                 }
             }
 
             let ch = char::from_u32(0x2800 + bits as u32).unwrap_or('\u{2800}');
-            cells.push(Cell {
-                ch,
-                fg: nearest_color.unwrap_or(Rgb(0, 0, 0)),
-                bg: Rgb(0, 0, 0),
-            });
+            let (fg, bg) = pick_fg_bg(&lit);
+            cells.push(Cell { ch, fg, bg });
         }
     }
 

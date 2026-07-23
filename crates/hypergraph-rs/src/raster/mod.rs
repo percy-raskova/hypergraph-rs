@@ -10,10 +10,12 @@ use serde::{Deserialize, Serialize};
 use crate::viz::NodeStyle;
 
 pub mod camera;
+pub mod color;
 pub mod fmt;
 mod grid;
 
 pub use camera::{depth_sort, face_is_clipped, project, strut_is_clipped, Camera, Projected};
+pub use color::{heat, to_ansi256, Palette};
 
 /// A truecolor RGB triple. No alpha — the glyph floor composes fg/bg
 /// unconditionally (Task 4 fills the quantization/heat-ramp logic).
@@ -58,10 +60,36 @@ impl CellGrid {
             .join("\n")
     }
 
-    /// Glyphs with truecolor fg/bg ANSI escapes. Task 4 fills in the real
-    /// escape sequences; this is a plain glyph fallback until then.
-    pub fn to_ansi(&self) -> String {
-        self.to_text()
+    /// Glyphs with fg/bg ANSI escapes under `palette` (Task 4): `\x1b[0m`
+    /// reset, then per-cell `\x1b[38;2;r;g;bm`/`\x1b[48;2;r;g;bm` (truecolor)
+    /// or `\x1b[38;5;{n}m`/`\x1b[48;5;{n}m` (256, via `color::to_ansi256`,
+    /// quantized after the fg/bg pick — pick in truecolor, degrade last),
+    /// followed by the glyph.
+    pub fn to_ansi(&self, palette: Palette) -> String {
+        let cols = self.cols as usize;
+        let mut out = String::from("\x1b[0m");
+        for (i, cell) in self.cells.iter().enumerate() {
+            if i > 0 && i % cols.max(1) == 0 {
+                out.push('\n');
+            }
+            match palette {
+                Palette::TrueColor => {
+                    out.push_str(&format!(
+                        "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m",
+                        cell.fg.0, cell.fg.1, cell.fg.2, cell.bg.0, cell.bg.1, cell.bg.2
+                    ));
+                }
+                Palette::Ansi256 => {
+                    out.push_str(&format!(
+                        "\x1b[38;5;{}m\x1b[48;5;{}m",
+                        to_ansi256(cell.fg),
+                        to_ansi256(cell.bg)
+                    ));
+                }
+            }
+            out.push(cell.ch);
+        }
+        out
     }
 }
 

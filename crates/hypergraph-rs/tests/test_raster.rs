@@ -323,3 +323,116 @@ fn test_frame_is_pure_function_byte_exact() {
         rasterize(&scene, &c, 40, 20).to_text()
     );
 }
+
+// ---------- Task 4: color under constraint ----------
+
+use hypergraph_rs::raster::{heat, to_ansi256};
+
+#[test]
+fn test_heat_endpoints_match_deck_canon() {
+    assert_eq!(heat(0.0), Rgb(217, 164, 65)); // gold
+    assert_eq!(heat(0.5), Rgb(233, 223, 201)); // bone
+    assert_eq!(heat(1.0), Rgb(196, 58, 46)); // crimson
+}
+
+#[test]
+fn test_heat_clamps_out_of_range() {
+    assert_eq!(heat(-1.0), heat(0.0));
+    assert_eq!(heat(2.0), heat(1.0));
+}
+
+#[test]
+fn test_ansi256_quantization_deterministic_and_pinned() {
+    assert_eq!(to_ansi256(Rgb(196, 58, 46)), to_ansi256(Rgb(196, 58, 46)));
+    // Pin the exact cube index for crimson (computed once, frozen as golden).
+    assert_eq!(to_ansi256(Rgb(196, 58, 46)), 167);
+    // Grayscale ramp: mid-gray maps into 232..=255.
+    assert!((232..=255).contains(&to_ansi256(Rgb(128, 128, 128))));
+}
+
+/// A single-cell (1x1, 2x4 subcells), depth-decoupled-from-screen-position
+/// camera rig: with `ry=rx=0.0, dist=1.0, fov=90.0` (`f=1`, `aspect=2`),
+/// `project()` reduces to `ndc_x = v.x/D*2`, `ndc_y = v.y/D`, `depth=D` for
+/// `v = (ndc_x*D/2, ndc_y*D, 1.0-D)` — letting a test pick screen subcell
+/// AND depth independently.
+fn subcell_cam() -> Camera {
+    Camera {
+        ry: 0.0,
+        rx: 0.0,
+        dist: 1.0,
+        fov: 90.0,
+    }
+}
+
+/// `ndc_x` for braille subcell column 0/1 in a 1-wide grid (`w=2`).
+fn col_ndc(sub_col: usize) -> f64 {
+    if sub_col == 0 {
+        -1.0
+    } else {
+        1.0
+    }
+}
+
+/// `ndc_y` for braille subcell row 0..3 in a 1-tall grid (`h=4`).
+fn row_ndc(sub_row: usize) -> f64 {
+    match sub_row {
+        0 => 1.0,
+        1 => 1.0 / 3.0,
+        2 => -1.0 / 3.0,
+        _ => -1.0,
+    }
+}
+
+/// A degenerate (`a==b`) strut at exactly subcell `(sub_col,sub_row)` at
+/// depth `d`, colored `color` — writes exactly one subcell.
+fn subcell_strut(sub_col: usize, sub_row: usize, d: f64, color: Rgb) -> Strut {
+    let ndc_x = col_ndc(sub_col);
+    let ndc_y = row_ndc(sub_row);
+    let v = Vertex3 {
+        x: ndc_x * d / 2.0,
+        y: ndc_y * d,
+        z: 1.0 - d,
+    };
+    Strut { a: v, b: v, color }
+}
+
+#[test]
+fn test_cell_fg_bg_pick_deterministic_tiebreak() {
+    // Case A: clean majority (5 vs 3, same depth) -> fg = majority color.
+    let a = Rgb(255, 0, 0);
+    let b = Rgb(0, 0, 255);
+    let mut scene = SceneGraph3D::empty();
+    let majority_subcells = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1)]; // 5
+    let minority_subcells = [(0, 3), (1, 2), (1, 3)]; // 3
+    for &(c, r) in &majority_subcells {
+        scene.struts.push(subcell_strut(c, r, 1.0, a));
+    }
+    for &(c, r) in &minority_subcells {
+        scene.struts.push(subcell_strut(c, r, 1.0, b));
+    }
+    let grid = rasterize(&scene, &subcell_cam(), 1, 1);
+    assert_eq!(grid.cells[0].fg, a);
+    assert_eq!(grid.cells[0].bg, b);
+
+    // Case B: 4-vs-4 count tie, broken by nearest depth (smaller depth wins).
+    let mut scene = SceneGraph3D::empty();
+    for r in 0..4usize {
+        scene.struts.push(subcell_strut(0, r, 2.0, a)); // farther
+        scene.struts.push(subcell_strut(1, r, 1.0, b)); // nearer
+    }
+    let grid = rasterize(&scene, &subcell_cam(), 1, 1);
+    assert_eq!(grid.cells[0].fg, b);
+    assert_eq!(grid.cells[0].bg, a);
+
+    // Case C: 4-vs-4 count AND depth tie, broken by fixed scan order
+    // ((sub_col,sub_row) in the order (0,0),(1,0),(0,1),(1,1),(0,2),(1,2),
+    // (0,3),(1,3)) -> the color occupying the lowest scan index wins.
+    let mut scene = SceneGraph3D::empty();
+    for r in 0..4usize {
+        scene.struts.push(subcell_strut(0, r, 1.0, a)); // scan indices 0,2,4,6
+        scene.struts.push(subcell_strut(1, r, 1.0, b)); // scan indices 1,3,5,7
+    }
+    let grid = rasterize(&scene, &subcell_cam(), 1, 1);
+    assert_eq!(grid.cells[0].fg, a);
+    assert_eq!(grid.cells[0].bg, b);
+}
