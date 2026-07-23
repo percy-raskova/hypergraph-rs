@@ -15,7 +15,7 @@ use core::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
-use super::{Face, Strut, Vertex3};
+use super::{Face, Node3, Strut, Vertex3};
 
 /// Near-plane epsilon: a vertex at/behind the camera (`z' <= NEAR_EPS`)
 /// makes its whole primitive rejected rather than risking a near-zero or
@@ -34,12 +34,20 @@ pub struct Camera {
 
 /// A vertex projected to subcell screen space; `depth` is camera-space z
 /// after rotation+translation (before the perspective divide), smaller =
-/// nearer.
+/// nearer. `scale` is the local perspective magnification in target units
+/// per world unit at this vertex's depth — the Rust analogue of the deck's
+/// `proj()` returning `s = fov/z3` alongside `x`/`y` (`topology-deck.html
+/// :273-277`), which every disc the deck draws uses for its radius
+/// (`2.1*p.s/300`, `:308`; `2.6*top.s/300`, `:325`; `2.4*p.s/300`, `:357`;
+/// `√(c+v)*.62*top.s/300`, `:412`). Measured on the **vertical** axis
+/// (`d sy / d world-y`), which is the isotropic one in braille subcell
+/// space (a 2x4 subcell of a 1:2 terminal cell is square).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Projected {
     pub sx: f64,
     pub sy: f64,
     pub depth: f64,
+    pub scale: f64,
 }
 
 /// Rotate `v` about Y by `ry`, then about X by `rx`, then place the camera
@@ -98,6 +106,7 @@ pub(crate) fn project_wh(v: &Vertex3, cam: &Camera, width: f64, height: f64) -> 
         sx,
         sy,
         depth: cs.z,
+        scale: f / z * (height - 1.0) / 2.0,
     }
 }
 
@@ -118,6 +127,12 @@ pub fn strut_is_clipped(strut: &Strut, cam: &Camera) -> bool {
     is_clipped(&strut.a, cam) || is_clipped(&strut.b, cam)
 }
 
+/// `true` if the node's center is at/behind the near plane (the whole disc
+/// is rejected — a node is a point primitive, never split).
+pub fn node_is_clipped(node: &Node3, cam: &Camera) -> bool {
+    is_clipped(&node.pos, cam)
+}
+
 fn nan_safe_cmp(a: f64, b: f64) -> Ordering {
     a.partial_cmp(&b).unwrap_or(Ordering::Equal)
 }
@@ -136,6 +151,20 @@ pub fn depth_sort(faces: &mut [Face], struts: &mut [Strut], cam: &Camera) {
     struts.sort_by(|a, b| {
         let da = strut_centroid_depth(a, cam);
         let db = strut_centroid_depth(b, cam);
+        nan_safe_cmp(db, da)
+    });
+}
+
+/// Stable painter's depth sort for node discs: farthest-first on each
+/// node's own center depth. Separate from [`depth_sort`] so the existing
+/// `(faces, struts)` signature (and its golden-pinned behaviour) is
+/// untouched; nodes are drawn after faces/struts in both raster tiers so
+/// an annotation dot at exactly equal depth wins its subcell. Bounded: one
+/// pass over a finite slice.
+pub fn depth_sort_nodes(nodes: &mut [Node3], cam: &Camera) {
+    nodes.sort_by(|a, b| {
+        let da = to_camera_space(&a.pos, cam).z;
+        let db = to_camera_space(&b.pos, cam).z;
         nan_safe_cmp(db, da)
     });
 }

@@ -11,7 +11,7 @@ use serde_json::json;
 use crate::communities::{normalized_laplacian, smallest_k_eigenvectors};
 use crate::layout::convex_hull;
 use crate::raster::color::heat;
-use crate::raster::deck::{deck_hypergraph, org_degree, Community, DeckWorld};
+use crate::raster::deck::{deck_hypergraph, org_degree, psa, psr, Community, DeckWorld};
 use crate::raster::{Face, Node3, Rgb, SceneGraph3D, Strut, Vertex3};
 use crate::viz::NodeStyle;
 
@@ -49,12 +49,47 @@ fn community_height_scalar(c: &Community, opts: &InstrumentOpts) -> f64 {
     }
 }
 
-/// Every agent's spectral `(x,y)` disc position, indexed by `Agent.id`.
+/// Per-vector max-abs normalization inset, `a.x = X[i]*.92`
+/// (`topology-deck.html:238-240`). Applied to BOTH coordinate columns
+/// before any instrument's own draw scale.
+const SPECTRAL_INSET: f64 = 0.92;
+
+/// The deck's `sc(v) = {const mx = Math.max(...v.map(Math.abs)) || 1;
+/// return v.map(x => x/mx)}` (`topology-deck.html:238`) applied to one
+/// coordinate column, followed by the `*.92` inset (`:240`). The `|| 1`
+/// all-zero guard is carried verbatim: a column of exact zeros divides by
+/// `1.0`, never by `0.0`. Bounded: one pass over `col`.
+fn scale_column(col: &mut [f64]) {
+    let mut mx = 0.0_f64;
+    for v in col.iter() {
+        let a = v.abs();
+        if a > mx {
+            mx = a;
+        }
+    }
+    // JS `|| 1`: substitutes 1 for a falsy (exactly 0 / NaN) maximum only.
+    if mx.is_nan() || mx <= 0.0 {
+        mx = 1.0;
+    }
+    for v in col.iter_mut() {
+        *v = *v / mx * SPECTRAL_INSET;
+    }
+}
+
+/// Every agent's spectral `(x,y)` disc position, indexed by `Agent.id`,
+/// normalized exactly as the deck normalizes it: per-coordinate-column
+/// max-abs scaling then the `0.92` inset (`topology-deck.html:238-240`), so
+/// the returned components span `[-0.92, 0.92]` — the frame every
+/// instrument's own draw scale (`R*0.85` on the cylinder, `S` on the
+/// terrain) is written against. Review MAJOR 4: returning raw eigenvector
+/// components instead left the cylinder disc spanning ~38% of its radius.
+///
 /// Reuses the shared `deck_hypergraph` adapter (Finding 6) + the crate's
 /// pinned-seed eigensolver (Deviation 2: structural-parity, not deck-byte-
 /// exact). `pub(crate)` so Task 8's terrain builder (which needs the same
 /// per-agent `(x,y)` the deck's `drawTerrain` reads off `a.x`/`a.y`) reuses
-/// it rather than re-deriving spectral positions a second time (DRY).
+/// it rather than re-deriving spectral positions a second time (DRY) — the
+/// deck likewise normalizes ONCE in `spectral()` and shares the result.
 pub(crate) fn spectral_positions(world: &DeckWorld) -> Vec<(f64, f64)> {
     let hg = deck_hypergraph(world);
     let (l, ids) = normalized_laplacian(&hg)
@@ -66,14 +101,17 @@ pub(crate) fn spectral_positions(world: &DeckWorld) -> Vec<(f64, f64)> {
         row_of.insert(id.clone(), row);
     }
 
-    world
-        .agents
-        .iter()
-        .map(|a| {
-            let row = row_of[&a.id.to_string()];
-            (ev[[row, 0]], ev[[row, 1]])
-        })
-        .collect()
+    let mut xs: Vec<f64> = Vec::with_capacity(world.agents.len());
+    let mut ys: Vec<f64> = Vec::with_capacity(world.agents.len());
+    for a in &world.agents {
+        let row = row_of[&a.id.to_string()];
+        xs.push(ev[[row, 0]]);
+        ys.push(ev[[row, 1]]);
+    }
+    scale_column(&mut xs);
+    scale_column(&mut ys);
+
+    xs.into_iter().zip(ys).collect()
 }
 
 /// Fan-triangulate a (possibly non-triangular) convex hull into `Face`s at
@@ -108,6 +146,37 @@ fn hull_faces(hull: &[(f64, f64)], y: f64, fill: Rgb, opacity: f64) -> Vec<Face>
     faces
 }
 
+/// Segments per ring (`topology-deck.html:297`, `i<=64`).
+const RING_SEGMENTS: usize = 64;
+/// Vertical body struts around the barrel (`:302`, `i<12`).
+const BODY_STRUTS: usize = 12;
+/// Bottom ring ink, `rgba(138,122,97,.55)` (`:301`).
+const RING_BOTTOM_COLOR: Rgb = Rgb(138, 122, 97);
+/// Top ring ink, `rgba(217,164,65,.65)` (`:301`).
+const RING_TOP_COLOR: Rgb = Rgb(217, 164, 65);
+/// Body strut ink, `rgba(74,62,44,.5)` (`:304`).
+const BODY_STRUT_COLOR: Rgb = Rgb(74, 62, 44);
+
+/// One 64-segment circle of radius `R` at height `y`, as 64 chord `Strut`s
+/// (`topology-deck.html:296-300`). Bounded: `RING_SEGMENTS`.
+fn ring(y: f64, color: Rgb) -> Vec<Strut> {
+    let point = |i: usize| -> Vertex3 {
+        let a = i as f64 / RING_SEGMENTS as f64 * std::f64::consts::TAU;
+        Vertex3 {
+            x: a.cos() * R,
+            y,
+            z: a.sin() * R,
+        }
+    };
+    (0..RING_SEGMENTS)
+        .map(|i| Strut {
+            a: point(i),
+            b: point(i + 1),
+            color,
+        })
+        .collect()
+}
+
 /// Build Instrument I (`topology-deck.html:294-336`).
 pub fn build_cylinder(world: &DeckWorld, opts: &InstrumentOpts) -> SceneGraph3D {
     let pos = spectral_positions(world);
@@ -116,6 +185,21 @@ pub fn build_cylinder(world: &DeckWorld, opts: &InstrumentOpts) -> SceneGraph3D 
     let mut faces = Vec::new();
     let mut struts = Vec::new();
     let mut community_labels = Vec::with_capacity(world.communities.len());
+
+    // The barrel itself: two rings + 12 vertical body struts (`:301-305`).
+    // Without these the instrument has no cylinder silhouette at all
+    // (review MAJOR 4 / FIX B3).
+    struts.extend(ring(-H / 2.0, RING_BOTTOM_COLOR));
+    struts.extend(ring(H / 2.0, RING_TOP_COLOR));
+    for i in 0..BODY_STRUTS {
+        let a = i as f64 / BODY_STRUTS as f64 * std::f64::consts::TAU;
+        let (x, z) = (a.cos() * R, a.sin() * R);
+        struts.push(Strut {
+            a: Vertex3 { x, y: -H / 2.0, z },
+            b: Vertex3 { x, y: H / 2.0, z },
+            color: BODY_STRUT_COLOR,
+        });
+    }
 
     // Bottom disc: every agent as a lone point (Power-of-10: bounded by
     // agents.len()).
@@ -187,6 +271,24 @@ pub fn build_cylinder(world: &DeckWorld, opts: &InstrumentOpts) -> SceneGraph3D 
 
     let mut metadata = serde_json::Map::new();
     metadata.insert("communities".to_string(), json!(community_labels));
+    // The survival calculus (`topology-deck.html:443-444`) is read off the
+    // SAME organization degrees this instrument uses for its hull heights
+    // (`psr` is literally `mean(org(cell α), org(cell β))` over a repression
+    // denominator), so the cylinder is where those two labeled scalars
+    // belong. Carrying them in `metadata` is what makes them appear as
+    // literal glyph text in every rendered frame — the Global Constraint
+    // that names `psa`/`psr` explicitly (review MAJOR 5).
+    //
+    // Tolerance caveat (extends the plan's Task 11 Step 3 note): `psa`
+    // routes through `sigmoid`'s `exp`, a libm transcendental, so the
+    // cylinder's JSON golden is now **platform-pinned** on this one field
+    // exactly as the Sankey's `ln`-derived altitudes already are. Every
+    // other cylinder field remains basic-IEEE-754 byte-exact, and the
+    // `fmt6`-rounded banner text is stable to 6 significant digits.
+    if world.communities.len() >= 2 {
+        metadata.insert("psa".to_string(), json!(psa(world)));
+        metadata.insert("psr".to_string(), json!(psr(world)));
+    }
 
     SceneGraph3D {
         nodes,

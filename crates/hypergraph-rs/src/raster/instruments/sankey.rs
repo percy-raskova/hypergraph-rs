@@ -221,8 +221,15 @@ fn coarse_entities(inds: &[Industry]) -> Vec<(CellIndex, SankeyEntity)> {
 /// `donors.len() * absorbers.len()`.
 fn allocate_ribbons(entities: &[SankeyEntity]) -> Vec<RibbonFlow> {
     let mut donors: Vec<&SankeyEntity> = entities.iter().filter(|e| e.t < 0.0).collect();
-    donors.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap());
-    let neg_sum: f64 = donors.iter().map(|e| -e.t).sum::<f64>().max(1.0);
+    // NaN-safe comparator (review MINOR 6): the plan forbids `.unwrap()` on
+    // `partial_cmp` absolutely — same pattern as `camera.rs`'s depth sort.
+    donors.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap_or(core::cmp::Ordering::Equal));
+    // The deck's `negSum = donors.reduce(...) || 1` (`:429`) substitutes 1
+    // for EXACTLY zero — JS `||` tests falsiness, not magnitude. Review
+    // MAJOR 2: `.max(1.0)` also substituted 1 for any `0 < Σ(−T) < 1`,
+    // silently breaking `Σflow == Φ` on any scaled-down industry table.
+    let raw_neg_sum: f64 = donors.iter().map(|e| -e.t).sum();
+    let neg_sum = if raw_neg_sum == 0.0 { 1.0 } else { raw_neg_sum };
 
     let mut ribbons = Vec::with_capacity(donors.len() * entities.len());
     for j in entities.iter().filter(|e| e.t > 0.0) {

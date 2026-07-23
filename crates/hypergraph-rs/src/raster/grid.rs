@@ -8,9 +8,12 @@
 //! fresh here — the reference ships half-blocks only).
 
 use super::{
-    camera::Projected,
+    camera::{
+        depth_sort, depth_sort_nodes, face_is_clipped, node_is_clipped, project_wh,
+        strut_is_clipped, Projected,
+    },
     color::{pick_fg_bg, LitSubcell},
-    Cell, CellGrid, Rgb,
+    Camera, Cell, CellGrid, Rgb, SceneGraph3D,
 };
 
 /// A 2-wide x 4-tall-per-cell subcell buffer (`w = cols*2`, `h = rows*4`).
@@ -207,6 +210,99 @@ pub(crate) fn fill_triangle(buf: &mut SubBuffer, verts: [Projected; 3], color: R
             let depth = bc0 * d0 + bc1 * d1 + bc2 * d2;
             buf.set(x, y, depth, color);
         }
+    }
+}
+
+/// Depth-tested filled disc — the `Node3` point primitive (review MAJOR 3).
+/// `radius` is already in target units (subcells for the Tier-0 braille
+/// buffer, pixels for the Tier-1 pixel buffer): the caller multiplies the
+/// node's world-space `radius` by `Projected::scale`, mirroring the deck's
+/// own `r * p.s / 300` disc radii (`topology-deck.html:308,325,357,412`).
+///
+/// The center subcell is ALWAYS written (subject to the z-test), even for a
+/// sub-unit radius — a node in the scene is never invisible, which is what
+/// makes the Tier-0 frame "fully informative by construction". Bounded: the
+/// bounding box is clamped into the buffer on all four sides, so the worst
+/// case is one pass over `w*h` (Power-of-10 rule 2). NaN-safe: `clamp_coord`
+/// maps non-finite coordinates to 0 and the `radius > 0.5` test is false for
+/// `NaN`, so a degenerate node degrades to a single center subcell.
+pub(crate) fn fill_disc(buf: &mut SubBuffer, p: Projected, radius: f64, color: Rgb) {
+    let cx = clamp_coord(p.sx, buf.w);
+    let cy = clamp_coord(p.sy, buf.h);
+    buf.set(cx, cy, p.depth, color);
+
+    if radius.is_nan() || radius <= 0.5 {
+        return; // sub-unit (or NaN) radius: the center subcell IS the disc.
+    }
+
+    let min_x = clamp_coord(p.sx - radius, buf.w);
+    let max_x = clamp_coord(p.sx + radius, buf.w);
+    let min_y = clamp_coord(p.sy - radius, buf.h);
+    let max_y = clamp_coord(p.sy + radius, buf.h);
+    let r2 = radius * radius;
+
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let dx = x as f64 - p.sx;
+            let dy = y as f64 - p.sy;
+            if dx * dx + dy * dy <= r2 {
+                buf.set(x, y, p.depth, color);
+            }
+        }
+    }
+}
+
+/// The ONE scene->buffer draw core both raster tiers call (reuse ledger —
+/// Tier-0 braille `rasterize` and Tier-1 `png::render_pixels` differ only in
+/// their target resolution and their read-out, never in geometry).
+///
+/// Order: near-plane clip, stable painter's depth sort, then faces, then
+/// struts, then node discs — every write z-tested, so draw order only
+/// decides exact-depth ties, and each pass is itself stably sorted, keeping
+/// the frame a pure function of `(scene, cam, width, height)`. Bounded: one
+/// pass per primitive over finite scene collections.
+pub(crate) fn draw_scene(
+    buf: &mut SubBuffer,
+    scene: &SceneGraph3D,
+    cam: &Camera,
+    width: f64,
+    height: f64,
+) {
+    let mut faces: Vec<_> = scene
+        .faces
+        .iter()
+        .filter(|f| !face_is_clipped(f, cam))
+        .cloned()
+        .collect();
+    let mut struts: Vec<_> = scene
+        .struts
+        .iter()
+        .filter(|s| !strut_is_clipped(s, cam))
+        .cloned()
+        .collect();
+    let mut nodes: Vec<_> = scene
+        .nodes
+        .iter()
+        .filter(|n| !node_is_clipped(n, cam))
+        .cloned()
+        .collect();
+    depth_sort(&mut faces, &mut struts, cam);
+    depth_sort_nodes(&mut nodes, cam);
+
+    for f in &faces {
+        let p0 = project_wh(&f.verts[0], cam, width, height);
+        let p1 = project_wh(&f.verts[1], cam, width, height);
+        let p2 = project_wh(&f.verts[2], cam, width, height);
+        fill_triangle(buf, [p0, p1, p2], f.fill);
+    }
+    for s in &struts {
+        let a = project_wh(&s.a, cam, width, height);
+        let b = project_wh(&s.b, cam, width, height);
+        line_bresenham(buf, a, b, s.color);
+    }
+    for n in &nodes {
+        let p = project_wh(&n.pos, cam, width, height);
+        fill_disc(buf, p, n.radius * p.scale, n.color);
     }
 }
 

@@ -22,7 +22,10 @@ pub mod instruments;
 #[cfg(feature = "raster-png")]
 pub mod png;
 
-pub use camera::{depth_sort, face_is_clipped, project, strut_is_clipped, Camera, Projected};
+pub use camera::{
+    depth_sort, depth_sort_nodes, face_is_clipped, node_is_clipped, project, strut_is_clipped,
+    Camera, Projected,
+};
 pub use color::{heat, to_ansi256, Palette};
 
 /// A truecolor RGB triple. No alpha — the glyph floor composes fg/bg
@@ -77,6 +80,28 @@ impl CellGrid {
             cols,
             rows: u16::from(!cells.is_empty()),
             cells,
+        }
+    }
+
+    /// Overwrite cells with the literal glyphs of `text`, starting at
+    /// `(row, col)` and wrapping onto the following rows, clipped at the
+    /// grid's last row (review MAJOR 5: the glyph-floor information-parity
+    /// constraint is met by stamping labeled scalars into the REAL frame,
+    /// not by building a separate banner grid nothing renders). Every
+    /// stamped cell still carries `ch+fg+bg` unconditionally. Bounded:
+    /// `text.chars().count()`, and never writes past `cells.len()`.
+    pub fn stamp_text(&mut self, row: u16, col: u16, text: &str, fg: Rgb, bg: Rgb) {
+        let cols = self.cols as usize;
+        if cols == 0 {
+            return;
+        }
+        let mut i = row as usize * cols + col as usize;
+        for ch in text.chars() {
+            if i >= self.cells.len() {
+                return;
+            }
+            self.cells[i] = Cell { ch, fg, bg };
+            i += 1;
         }
     }
 
@@ -223,40 +248,70 @@ fn collect_scalars(v: &serde_json::Value, prefix: &str, out: &mut Vec<String>) {
     }
 }
 
+/// The banner's foreground: the deck's own readout ink
+/// (`rgba(138,122,97,.9)`, `topology-deck.html:430-431`).
+const BANNER_FG: Rgb = Rgb(138, 122, 97);
+/// The banner's background — the frame's clear color.
+const BANNER_BG: Rgb = Rgb(0, 0, 0);
+
+/// Greedy word-wrap of the labeled-scalar tokens into `cols`-wide rows, one
+/// space between tokens, never splitting a token that fits on its own row
+/// (an over-long token gets its own row and is clipped by `stamp_text`).
+/// Bounded: one pass over `tokens`.
+fn wrap_tokens(tokens: &[String], cols: usize) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut line = String::new();
+    for t in tokens {
+        if line.is_empty() {
+            line.push_str(t);
+        } else if line.chars().count() + 1 + t.chars().count() <= cols {
+            line.push(' ');
+            line.push_str(t);
+        } else {
+            out.push(core::mem::take(&mut line));
+            line.push_str(t);
+        }
+    }
+    if !line.is_empty() {
+        out.push(line);
+    }
+    out
+}
+
 /// Rasterize `scene` under `camera` into a `cols x rows` `CellGrid`
-/// (Task 3): near-plane-clip, painter's depth-sort, rasterize into a
-/// braille 2x4 subcell buffer, then compose glyphs. Pure function of
-/// `(scene, camera, cols, rows)` — byte-exact golden-testable.
+/// (Task 3): near-plane-clip, painter's depth-sort, rasterize faces,
+/// struts and node discs into a braille 2x4 subcell buffer via the shared
+/// `grid::draw_scene` core, compose glyphs, then stamp the scene's labeled
+/// scalars across the top rows as literal glyph cells.
+///
+/// The banner stamp is the Global Constraint (plan §Global Constraints,
+/// PHASE-R-MAP §4): *every labeled scalar an instrument computes must
+/// appear as literal text somewhere in the `CellGrid`* — the deck's own
+/// `PHI = … r = … — invariant under zoom` conservation banner
+/// (`topology-deck.html:430-433`) is the canonical case. A scene with empty
+/// `metadata` stamps nothing, so the pure-geometry tests are unaffected.
+///
+/// Pure function of `(scene, camera, cols, rows)` — byte-exact
+/// golden-testable.
 pub fn rasterize(scene: &SceneGraph3D, camera: &Camera, cols: u16, rows: u16) -> CellGrid {
-    let mut faces: Vec<Face> = scene
-        .faces
+    let mut buf = grid::SubBuffer::new(cols as usize * 2, rows as usize * 4);
+    grid::draw_scene(
+        &mut buf,
+        scene,
+        camera,
+        cols as f64 * 2.0,
+        rows as f64 * 4.0,
+    );
+    let mut out = grid::compose_braille(&buf, cols, rows);
+
+    for (i, line) in wrap_tokens(&scene.labeled_scalars(), cols as usize)
         .iter()
-        .filter(|f| !face_is_clipped(f, camera))
-        .cloned()
-        .collect();
-    let mut struts: Vec<Strut> = scene
-        .struts
-        .iter()
-        .filter(|s| !strut_is_clipped(s, camera))
-        .cloned()
-        .collect();
-    depth_sort(&mut faces, &mut struts, camera);
-
-    let w = cols as usize * 2;
-    let h = rows as usize * 4;
-    let mut buf = grid::SubBuffer::new(w, h);
-
-    for f in &faces {
-        let p0 = project(&f.verts[0], camera, cols, rows);
-        let p1 = project(&f.verts[1], camera, cols, rows);
-        let p2 = project(&f.verts[2], camera, cols, rows);
-        grid::fill_triangle(&mut buf, [p0, p1, p2], f.fill);
+        .enumerate()
+    {
+        if i >= rows as usize {
+            break;
+        }
+        out.stamp_text(i as u16, 0, line, BANNER_FG, BANNER_BG);
     }
-    for s in &struts {
-        let a = project(&s.a, camera, cols, rows);
-        let b = project(&s.b, camera, cols, rows);
-        grid::line_bresenham(&mut buf, a, b, s.color);
-    }
-
-    grid::compose_braille(&buf, cols, rows)
+    out
 }

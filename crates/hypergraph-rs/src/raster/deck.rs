@@ -215,39 +215,105 @@ pub fn do_tick(world: &mut DeckWorld) {
     }
 }
 
+/// Weight quantum of the deck's spectral adjacency: every weight the deck
+/// uses (`.25` intra-community, `.5` extraction, `1` community link,
+/// `topology-deck.html:216-220`) is an exact integer multiple of `0.25`,
+/// so multiplicity encodes weight exactly (see [`deck_hypergraph`]).
+const SPECTRAL_WEIGHT_QUANTUM: f64 = 0.25;
+
+/// Add the 2-node edge `(a,b)` `round(w / 0.25)` times — the multiplicity
+/// encoding of a weighted edge (see [`deck_hypergraph`]). Bounded: `w` comes
+/// from the deck's three literal constants, so the count is 1, 2 or 4.
+fn add_weighted_pair(h: &mut Hypergraph<Value, Value, Value>, a: usize, b: usize, w: f64) {
+    let reps = (w / SPECTRAL_WEIGHT_QUANTUM).round() as u32;
+    for _ in 0..reps {
+        let _ = h.add_edge(vec![a.to_string(), b.to_string()], None, Value::Null);
+    }
+}
+
 /// The shared `DeckWorld -> &Hypergraph` adapter (Finding 6): 28 agents
-/// become nodes keyed by their id, each community link becomes a 2-node
-/// edge. The single bridge from `DeckWorld` to the shipped `&Hypergraph`
-/// APIs (`subhypergraph`, `connected_components`, Task 7's
-/// `normalized_laplacian`), none of which take `DeckWorld` directly.
+/// become nodes keyed by their id. The single bridge from `DeckWorld` to the
+/// shipped `&Hypergraph` APIs (`subhypergraph`, `connected_components`,
+/// Task 7's `normalized_laplacian`), none of which take `DeckWorld` directly.
 ///
-/// Task 7 deviation: at seed 1917 only 10 of the 28 agents ever appear as a
-/// community-link endpoint (cell α/β and union γ each contribute one link =
-/// 2 agents; capital δ's chain covers all 4 of its members; several agents
-/// belong to no community at all) — feeding that graph straight into
-/// `normalized_laplacian` (Task 7) trips `SpectralError::IsolatedNode` for
-/// every uncovered agent, since the normalized Laplacian divides by node
-/// degree. Rather than fork a second `DeckWorld -> Hypergraph` adapter
-/// (violating DRY / the "shared adapter" contract this fn documents), any
-/// agent left with degree 0 after the community-link pass gets a singleton
-/// self-edge (`add_edge(vec![id])`), giving it degree 1 with zero coupling
-/// to any other node (`L[i,i] = 0`, all other entries in its row/col are 0)
-/// — an inert placeholder position for the eigensolver, not a real semantic
-/// edge. This does not change the Laplacian block for already-connected
-/// agents.
+/// **Review MINOR 8 correction (2026-07-22).** This adapter previously built
+/// edges from community *links* only. That is NOT the graph the deck's
+/// `spectral()` diagonalizes (`topology-deck.html:216-220`), which is:
+///
+/// * all-pairs intra-community coupling at weight `.25`,
+/// * each community link at weight `1`,
+/// * each extraction tail -> head at weight `.5`,
+///
+/// accumulated symmetrically (`A[a][b] += w`), so a pair appearing in
+/// several roles sums its weights. Deviation 2 sanctions a *different
+/// eigensolver* producing different eigenvector VALUES; it does not sanction
+/// a structurally different input graph. This fn now builds the deck's
+/// actual adjacency.
+///
+/// **Weight encoding (declared deviation).** The shipped `Hypergraph` has no
+/// per-edge weight and `communities::normalized_laplacian` builds a 0/1
+/// incidence, so weights are encoded by **edge multiplicity**: one 2-node
+/// edge per `0.25` of weight (`.25` -> x1, `.5` -> x2, `1` -> x4). This is
+/// exact, not approximate — every deck weight is an integer multiple of
+/// `0.25`. It is also exactly faithful to the spectrum: for 2-node edges
+/// (`De = 2`) the hypergraph normalized Laplacian reduces to
+/// `L = ½·(I − D^{-1/2} W D^{-1/2})` with `W[i,k]` the multiplicity and
+/// `D[i] = Σ_k W[i,k]`, i.e. exactly one half of the standard weighted
+/// normalized Laplacian — a uniform positive scale, which leaves every
+/// eigenVECTOR unchanged (only eigenvalues halve). The spectral layout reads
+/// eigenvectors only.
+///
+/// **Isolated nodes (retained, narrowed).** Even under the deck's full
+/// adjacency, 5 of the 28 agents at seed 1917 (ids 7, 9, 11, 15, 27) belong
+/// to no community and appear in no extraction hyperedge, so their degree is
+/// 0 — verified directly against the reference implementation, whose own
+/// `deg` array carries five zeros. `normalized_laplacian` divides by node
+/// degree and rejects those with `SpectralError::IsolatedNode`, so each such
+/// agent still gets an inert singleton self-edge (`add_edge(vec![id])`):
+/// degree 1, zero coupling to any other node (`L[i,i] = 0`, its row/column
+/// otherwise zero). The deck reaches the same place by a different route —
+/// an isolated row of its shifted operator is `shift·v[i]`, i.e. eigenvalue
+/// 0 of `L`, decoupled from everything — so this is a representational
+/// necessity of the shipped API, not a structural difference. The count of
+/// affected agents drops from 18 to 5 under this correction.
 pub fn deck_hypergraph(w: &DeckWorld) -> Hypergraph<Value, Value, Value> {
     let mut h: Hypergraph<Value, Value, Value> = Hypergraph::new();
     for a in &w.agents {
         h.add_node(&a.id.to_string(), Value::Null);
     }
     let mut degree = vec![0u32; w.agents.len()];
+    let link = |h: &mut Hypergraph<Value, Value, Value>,
+                degree: &mut Vec<u32>,
+                a: usize,
+                b: usize,
+                weight: f64| {
+        add_weighted_pair(h, a, b, weight);
+        degree[a] += 1;
+        degree[b] += 1;
+    };
+
+    // All-pairs intra-community coupling at .25 (`:217-218`). Bounded:
+    // Σ_C |C|·(|C|−1)/2 over a fixed 4-community fixture.
     for c in &w.communities {
-        for (a, b) in &c.links {
-            let _ = h.add_edge(vec![a.to_string(), b.to_string()], None, Value::Null);
-            degree[*a] += 1;
-            degree[*b] += 1;
+        for i in 0..c.members.len() {
+            for j in (i + 1)..c.members.len() {
+                link(&mut h, &mut degree, c.members[i], c.members[j], 0.25);
+            }
         }
     }
+    // Community cohesion links at 1 (`:219`).
+    for c in &w.communities {
+        for &(a, b) in &c.links {
+            link(&mut h, &mut degree, a, b, 1.0);
+        }
+    }
+    // Extraction tails -> head at .5 (`:220`).
+    for e in &w.extraction {
+        for &t in &e.tails {
+            link(&mut h, &mut degree, t, e.head, 0.5);
+        }
+    }
+
     for a in &w.agents {
         if degree[a.id] == 0 {
             let _ = h.add_edge(vec![a.id.to_string()], None, Value::Null);

@@ -147,12 +147,18 @@ pub fn build_terrain(world: &DeckWorld, _opts: &InstrumentOpts) -> SceneGraph3D 
     for a in &world.agents {
         let (x, y) = pos[a.id];
         let t = idw_height(x, y, &tension_nodes, tmax);
+        // `proj({x:a.x*S, y:-.53+t*.95, z:a.y*S})` (`:356`) — the height
+        // field is sampled in the UNSCALED spectral frame (`height(a.x,a.y)`,
+        // matching the grid's own `height(x/S, z/S)`), but the agent is
+        // PLACED in the same `±S` world frame the quad grid spans. Review
+        // MAJOR 1: dropping `*S` left the agents in a 1/S-shrunk frame,
+        // geometrically decoupled from the terrain they annotate.
         nodes.push(Node3 {
             id: format!("agent-{}", a.id),
             pos: Vertex3 {
-                x,
+                x: x * S,
                 y: -0.53 + t * 0.95,
-                z: y,
+                z: y * S,
             },
             radius: 0.024,
             color: BLOC_COLORS[a.bloc as usize],

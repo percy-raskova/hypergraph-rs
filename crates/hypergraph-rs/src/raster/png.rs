@@ -9,8 +9,7 @@
 //! test + bounds-clamped writes from `grid.rs` (Task 3), targeting a pixel
 //! `SubBuffer` instead of the `cols*2 x rows*4` braille one.
 
-use super::camera::{depth_sort, face_is_clipped, project_wh, strut_is_clipped};
-use super::grid::{fill_triangle, line_bresenham, SubBuffer};
+use super::grid::{draw_scene, SubBuffer};
 use super::{Camera, Rgb, SceneGraph3D};
 
 /// A full-resolution RGB8 pixel raster, row-major, `px.len() == w*h`.
@@ -28,47 +27,21 @@ pub struct PixelBuffer {
 const CLEAR: Rgb = Rgb(0, 0, 0);
 
 /// Rasterize `scene` under `cam` into a `width_px x height_px` `PixelBuffer`
-/// (Task 14): near-plane-clip, painter's depth-sort (both from Task 2),
-/// rasterize into a pixel-resolution depth buffer via the shared
-/// `fill_triangle`/`line_bresenham` core (Task 3), then read the buffer out
-/// directly as `Rgb` per pixel (no braille composition — Tier-1 is raw
-/// pixels). Pure function of `(scene, cam, width_px, height_px)` —
-/// byte-exact golden-testable.
+/// (Task 14) via the SAME `grid::draw_scene` core the Tier-0 braille
+/// `rasterize` calls — near-plane clip, painter's depth sort, triangle
+/// fill, integer Bresenham struts and `Node3` discs (review MAJOR 3), only
+/// the target resolution differs — then read the buffer out directly as
+/// `Rgb` per pixel (no braille composition — Tier-1 is raw pixels, and no
+/// glyph banner: a pixel plate has no text cells). Pure function of
+/// `(scene, cam, width_px, height_px)` — byte-exact golden-testable.
 pub fn render_pixels(
     scene: &SceneGraph3D,
     cam: &Camera,
     width_px: u32,
     height_px: u32,
 ) -> PixelBuffer {
-    let mut faces: Vec<_> = scene
-        .faces
-        .iter()
-        .filter(|f| !face_is_clipped(f, cam))
-        .cloned()
-        .collect();
-    let mut struts: Vec<_> = scene
-        .struts
-        .iter()
-        .filter(|s| !strut_is_clipped(s, cam))
-        .cloned()
-        .collect();
-    depth_sort(&mut faces, &mut struts, cam);
-
-    let w = width_px as f64;
-    let h = height_px as f64;
     let mut buf = SubBuffer::new(width_px as usize, height_px as usize);
-
-    for f in &faces {
-        let p0 = project_wh(&f.verts[0], cam, w, h);
-        let p1 = project_wh(&f.verts[1], cam, w, h);
-        let p2 = project_wh(&f.verts[2], cam, w, h);
-        fill_triangle(&mut buf, [p0, p1, p2], f.fill);
-    }
-    for s in &struts {
-        let a = project_wh(&s.a, cam, w, h);
-        let b = project_wh(&s.b, cam, w, h);
-        line_bresenham(&mut buf, a, b, s.color);
-    }
+    draw_scene(&mut buf, scene, cam, width_px as f64, height_px as f64);
 
     PixelBuffer {
         w: width_px,

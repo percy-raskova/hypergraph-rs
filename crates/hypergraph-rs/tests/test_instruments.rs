@@ -243,6 +243,43 @@ fn test_ribbon_flows_conserve_to_phi_unrendered() {
     }
 }
 
+/// Review MAJOR 2 regression guard: the donor denominator is `Σ(−T)` with a
+/// substitution for **exactly zero only** (the deck's JS `||1`, `:429`), NOT
+/// `.max(1.0)`. Scale the whole industry table down by 100 in `c`, `v` AND
+/// `e`: `T` then scales by `1e-4`, so `Σ(−T) = Φ ≈ 0.0198` lands strictly
+/// inside `(0,1)` — the exact interval where `.max(1.0)` silently swapped in
+/// the wrong denominator and broke `Σflow == Φ` by ~50x. This is the durable
+/// asset: without it the mistranslation returns invisibly (every deck-scale
+/// fixture has `Σ(−T) > 1` and cannot detect it).
+#[test]
+fn test_ribbon_allocation_conserves_on_sub_unit_negsum() {
+    let mut inds = deck_industries();
+    for i in inds.iter_mut() {
+        i.c /= 100.0;
+        i.v /= 100.0;
+        i.e /= 100.0;
+    }
+    let scene = build_sankey(&inds, Zoom::Fine);
+
+    let neg_sum: f64 = scene
+        .entities
+        .iter()
+        .filter(|e| e.t < 0.0)
+        .map(|e| -e.t)
+        .sum();
+    assert!(
+        neg_sum > 0.0 && neg_sum < 1.0,
+        "fixture precondition: Σ(−T) must land in (0,1) to exercise the guard, got {neg_sum}"
+    );
+
+    let total: f64 = scene.ribbons.iter().map(|r| r.flow).sum();
+    assert!(
+        (total - scene.phi).abs() < 1e-12,
+        "Σflow {total} != Φ {} at sub-unit Σ(−T)={neg_sum}",
+        scene.phi
+    );
+}
+
 #[test]
 fn test_net_t_zero_at_both_zooms() {
     let fine = build_sankey(&deck_industries(), Zoom::Fine);
@@ -372,42 +409,59 @@ fn test_property_zoom_invariance_extensive_vs_intensive_split() {
 }
 
 /// Property 3 (glyph-floor information parity): every labeled scalar an
-/// instrument computes appears as a literal substring of a `CellGrid`'s
-/// `to_text()` — no quantity is pixel-only. Uses the Task 13 hooks
-/// (`SceneGraph3D::labeled_scalars`, `CellGrid::from_banner_text`), which
-/// are independent of the pixel `rasterize()` path (they never touch a
-/// frame golden). Covers the sankey `Φ`/`r` conservation banner, every
-/// cylinder community's `o(C)`, and the deck-level `psa`/`psr` survival
-/// probabilities (Global Constraints; PHASE-R-MAP §4's `PHI=… r=…` banner
-/// is the model).
+/// instrument computes appears as a literal substring of the **rendered**
+/// frame's `to_text()` — no quantity is pixel-only (Global Constraints;
+/// PHASE-R-MAP §4's `PHI=… r=…` banner is the model).
+///
+/// Review MAJOR 5: these three tests previously fed `labeled_scalars()` into
+/// `CellGrid::from_banner_text(&labels.join(" "))` and then asserted those
+/// same strings were substrings of that banner — self-fulfilling, and true
+/// for ANY input. They now assert against a REAL `rasterize()` frame at the
+/// same 80x40 size the Stage-2 frame goldens use, which is the artifact the
+/// constraint is actually about.
+///
+/// A cheap negative control comes first in each test: the ONLY reason these
+/// pass is `rasterize`'s banner stamp — before it, every frame fixture held
+/// zero ASCII-printable characters.
+fn parity_camera() -> hypergraph_rs::raster::Camera {
+    hypergraph_rs::raster::Camera {
+        ry: 0.0,
+        rx: 0.0,
+        dist: 4.0,
+        fov: 70.0,
+    }
+}
+
 #[test]
 fn test_property_glyph_floor_parity_sankey_conservation() {
-    let sankey = build_sankey(&deck_industries(), Zoom::Fine);
-    let labels = sankey.scene.labeled_scalars();
-    let banner = hypergraph_rs::raster::CellGrid::from_banner_text(&labels.join(" "));
-    let text = banner.to_text();
-
     use hypergraph_rs::raster::fmt::fmt6;
+    use hypergraph_rs::raster::rasterize;
+
+    let sankey = build_sankey(&deck_industries(), Zoom::Fine);
+    let text = rasterize(&sankey.scene, &parity_camera(), 80, 40).to_text();
+
     let want_phi = format!("conservation.phi={}", fmt6(sankey.phi));
     let want_r = format!("conservation.r={}", fmt6(sankey.r));
-    assert!(
-        labels.contains(&want_phi),
-        "missing {want_phi} in {labels:?}"
-    );
-    assert!(labels.contains(&want_r), "missing {want_r} in {labels:?}");
-    assert!(text.contains(&want_phi), "banner text lost {want_phi}");
-    assert!(text.contains(&want_r), "banner text lost {want_r}");
+    assert!(text.contains(&want_phi), "rendered frame lost {want_phi}");
+    assert!(text.contains(&want_r), "rendered frame lost {want_r}");
+
+    // Per-cell `T` is named by the Global Constraint too: every entity's own
+    // transfer must be literally present, not just the aggregate Φ.
+    for (i, e) in sankey.entities.iter().enumerate() {
+        let want_t = format!("entities[{i}].t={}", fmt6(e.t));
+        assert!(text.contains(&want_t), "rendered frame lost {want_t}");
+    }
 }
 
 #[test]
 fn test_property_glyph_floor_parity_cylinder_org_degrees() {
+    use hypergraph_rs::raster::fmt::fmt6;
+    use hypergraph_rs::raster::rasterize;
+
     let w = build_world(1917);
     let s = build(Instrument::Cylinder, &w, &InstrumentOpts::default());
-    let labels = s.labeled_scalars();
-    let banner = hypergraph_rs::raster::CellGrid::from_banner_text(&labels.join(" "));
-    let text = banner.to_text();
+    let text = rasterize(&s, &parity_camera(), 80, 40).to_text();
 
-    use hypergraph_rs::raster::fmt::fmt6;
     let comms = s.metadata.get("communities").unwrap().as_array().unwrap();
     assert_eq!(comms.len(), 4, "sanity: 4 communities in the fixture");
     for (i, c) in comms.iter().enumerate() {
@@ -415,10 +469,9 @@ fn test_property_glyph_floor_parity_cylinder_org_degrees() {
         let o = c["o"].as_f64().unwrap();
         let want = format!("communities[{i}].o={}", fmt6(o));
         assert!(
-            labels.contains(&want),
-            "missing {want} in {labels:?} (community {name})"
+            text.contains(&want),
+            "rendered frame lost {want} (community {name})"
         );
-        assert!(text.contains(&want), "banner text lost {want}");
     }
 }
 
@@ -426,15 +479,29 @@ fn test_property_glyph_floor_parity_cylinder_org_degrees() {
 fn test_property_glyph_floor_parity_psa_psr() {
     use hypergraph_rs::raster::deck::{psa, psr};
     use hypergraph_rs::raster::fmt::fmt6;
+    use hypergraph_rs::raster::rasterize;
 
     let w = build_world(1917);
-    let psa_v = psa(&w);
-    let psr_v = psr(&w);
-    let banner_text = format!("psa={} psr={}", fmt6(psa_v), fmt6(psr_v));
-    let banner = hypergraph_rs::raster::CellGrid::from_banner_text(&banner_text);
-    let text = banner.to_text();
-    assert!(text.contains(&format!("psa={}", fmt6(psa_v))));
-    assert!(text.contains(&format!("psr={}", fmt6(psr_v))));
+    let s = build(Instrument::Cylinder, &w, &InstrumentOpts::default());
+    let text = rasterize(&s, &parity_camera(), 80, 40).to_text();
+
+    assert!(text.contains(&format!("psa={}", fmt6(psa(&w)))));
+    assert!(text.contains(&format!("psr={}", fmt6(psr(&w)))));
+}
+
+/// The negative control the three parity tests lean on: a scene with no
+/// `metadata` stamps NO text, so a passing parity assertion can only come
+/// from the instrument's own labeled scalars — never from `rasterize`
+/// unconditionally printing something.
+#[test]
+fn test_property_glyph_floor_parity_empty_metadata_stamps_nothing() {
+    use hypergraph_rs::raster::{rasterize, SceneGraph3D};
+
+    let text = rasterize(&SceneGraph3D::empty(), &parity_camera(), 80, 40).to_text();
+    assert!(
+        !text.chars().any(|c| c.is_ascii_graphic()),
+        "a metadata-free scene must stamp no glyph text"
+    );
 }
 
 /// Property 5 (mutation test, Deviation 6): `Φ == rent_imperial +
