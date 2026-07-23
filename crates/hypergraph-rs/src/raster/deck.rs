@@ -189,14 +189,37 @@ pub fn build_world(seed: u32) -> DeckWorld {
 /// edge. The single bridge from `DeckWorld` to the shipped `&Hypergraph`
 /// APIs (`subhypergraph`, `connected_components`, Task 7's
 /// `normalized_laplacian`), none of which take `DeckWorld` directly.
+///
+/// Task 7 deviation: at seed 1917 only 10 of the 28 agents ever appear as a
+/// community-link endpoint (cell α/β and union γ each contribute one link =
+/// 2 agents; capital δ's chain covers all 4 of its members; several agents
+/// belong to no community at all) — feeding that graph straight into
+/// `normalized_laplacian` (Task 7) trips `SpectralError::IsolatedNode` for
+/// every uncovered agent, since the normalized Laplacian divides by node
+/// degree. Rather than fork a second `DeckWorld -> Hypergraph` adapter
+/// (violating DRY / the "shared adapter" contract this fn documents), any
+/// agent left with degree 0 after the community-link pass gets a singleton
+/// self-edge (`add_edge(vec![id])`), giving it degree 1 with zero coupling
+/// to any other node (`L[i,i] = 0`, all other entries in its row/col are 0)
+/// — an inert placeholder position for the eigensolver, not a real semantic
+/// edge. This does not change the Laplacian block for already-connected
+/// agents.
 pub fn deck_hypergraph(w: &DeckWorld) -> Hypergraph<Value, Value, Value> {
     let mut h: Hypergraph<Value, Value, Value> = Hypergraph::new();
     for a in &w.agents {
         h.add_node(&a.id.to_string(), Value::Null);
     }
+    let mut degree = vec![0u32; w.agents.len()];
     for c in &w.communities {
         for (a, b) in &c.links {
             let _ = h.add_edge(vec![a.to_string(), b.to_string()], None, Value::Null);
+            degree[*a] += 1;
+            degree[*b] += 1;
+        }
+    }
+    for a in &w.agents {
+        if degree[a.id] == 0 {
+            let _ = h.add_edge(vec![a.id.to_string()], None, Value::Null);
         }
     }
     h

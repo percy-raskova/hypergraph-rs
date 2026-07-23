@@ -15,6 +15,8 @@ pub mod color;
 pub mod deck;
 pub mod fmt;
 mod grid;
+#[cfg(feature = "cells3d")]
+pub mod instruments;
 
 pub use camera::{depth_sort, face_is_clipped, project, strut_is_clipped, Camera, Projected};
 pub use color::{heat, to_ansi256, Palette};
