@@ -4,6 +4,7 @@
 //! lane gate — 3D spatial embeddings are library/CLI capability only).
 
 pub mod cylinder;
+pub mod terrain;
 
 use crate::raster::deck::DeckWorld;
 use crate::raster::SceneGraph3D;
@@ -46,7 +47,7 @@ pub struct InstrumentOpts {
 pub fn build(inst: Instrument, world: &DeckWorld, opts: &InstrumentOpts) -> SceneGraph3D {
     match inst {
         Instrument::Cylinder => cylinder::build_cylinder(world, opts),
-        Instrument::Terrain => unimplemented!("Instrument::Terrain lands in Task 8"),
+        Instrument::Terrain => terrain::build_terrain(world, opts),
         Instrument::Sankey => unimplemented!("Instrument::Sankey lands in Task 9"),
     }
 }

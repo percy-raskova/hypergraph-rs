@@ -38,5 +38,5 @@ rand_core = "0.10.1"
 rayon = "1"
 ndarray = "0.17"
 sprs = "0.11"
-h3o = "0.10"
+h3o = { version = "0.10", default-features = false }
 png = "0.18"

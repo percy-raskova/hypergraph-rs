@@ -52,8 +52,10 @@ fn community_height_scalar(c: &Community, opts: &InstrumentOpts) -> f64 {
 /// Every agent's spectral `(x,y)` disc position, indexed by `Agent.id`.
 /// Reuses the shared `deck_hypergraph` adapter (Finding 6) + the crate's
 /// pinned-seed eigensolver (Deviation 2: structural-parity, not deck-byte-
-/// exact).
-fn spectral_positions(world: &DeckWorld) -> Vec<(f64, f64)> {
+/// exact). `pub(crate)` so Task 8's terrain builder (which needs the same
+/// per-agent `(x,y)` the deck's `drawTerrain` reads off `a.x`/`a.y`) reuses
+/// it rather than re-deriving spectral positions a second time (DRY).
+pub(crate) fn spectral_positions(world: &DeckWorld) -> Vec<(f64, f64)> {
     let hg = deck_hypergraph(world);
     let (l, ids) = normalized_laplacian(&hg)
         .expect("deck_hypergraph guarantees every agent has degree >= 1 (Task 7 deviation)");
