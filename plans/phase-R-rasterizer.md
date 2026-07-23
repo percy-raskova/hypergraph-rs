@@ -31,7 +31,7 @@ PHASE-R-MAP row 17 marks the deck's `mulberry32(1917)` RNG as "shipped (P4)" via
 - **TDD discipline:** every task is red → green → commit. Integration tests are **direct children of `crates/hypergraph-rs/tests/`** (`test_raster.rs`, `test_instruments.rs`, `test_deck_fixture.rs`) — cargo discovers targets only there.
 - **`assert_eq!`/`assert_ne!` require `Debug`** — every public raster type derives `Debug` (+ `PartialEq` for equality asserts, `Serialize`/`Deserialize` for the JSON golden class). Float→text emission for golden fixtures uses the **exact Phase-5 deterministic formatter pattern** (`viz/svg.rs:109-117`: `format!("{:.6}", v)`, trailing zeros trimmed, `-0`→`0`) — that fn is private, so Task 1 re-copies it into `raster/fmt.rs` as `pub(crate) fn fmt6(v: f64) -> String`.
 - **Commit convention:** conventional commits; end every message with `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
-- **Feature gating:** new modules gated `#[cfg(feature = "raster")]`; `raster = ["viz"]` (it consumes the `SceneGraph`/glyph/style/`HyperedgeGeometry` pattern from `viz`, which implies `layout`). The 3D-embedding instruments additionally require `cells3d = ["raster", "communities", "dep:h3o"]` (the S9 lane gate + the eigensolver + the H3 index dep — `h3o` is consumed ONLY by the `cells3d`-gated `raster/h3.rs` + `sankey.rs`, so it hangs off `cells3d`, never off `raster`; Finding 7). **Merge** both into the existing `[features]` table and append `"raster"` to the existing `default` array; leave `cells3d` OUT of `default` (it is the owner-gated capability). **Never overwrite `default` wholesale** (phase-5 lesson, phase-5-layout-viz.md:149-157).
+- **Feature gating:** new modules gated `#[cfg(feature = "raster")]`; `raster = ["viz"]` (it consumes the `SceneGraph`/glyph/style/`HyperedgeGeometry` pattern from `viz`, which implies `layout`). The 3D-embedding instruments additionally require `cells3d = ["raster", "communities", "dep:h3o"]` (the S9 lane gate + the eigensolver + the H3 index dep — `h3o` is consumed ONLY by the `cells3d`-gated `raster/h3.rs` + `sankey.rs`, so it hangs off `cells3d`, never off `raster`; Finding 7). The Tier-1 PNG pixel plate (Task 14) adds `raster-png = ["cells3d", "dep:png"]`: it rasterizes the same 3D `SceneGraph3D` the instruments build, so it rides on the `cells3d` 3D-lane gate plus the optional pure-Rust `png` encoder dep (`png` is consumed ONLY by the `raster-png`-gated `raster/png.rs`, so `dep:png` hangs off `raster-png`, never off `raster`/`cells3d` — narrowest gate). **Merge** all three into the existing `[features]` table and append `"raster"` to the existing `default` array; leave `cells3d` AND `raster-png` OUT of `default` (both are owner-gated capabilities). **Never overwrite `default` wholesale** (phase-5 lesson, phase-5-layout-viz.md:149-157).
 
 ---
 
@@ -82,7 +82,7 @@ Verified by the crate-reuse scout against the live tree. **Do not re-implement a
 
 ```
 hypergraph-rs/crates/hypergraph-rs/
-├── Cargo.toml                          # + h3o dep; + [features] raster, cells3d
+├── Cargo.toml                          # + h3o dep; + png dep; + [features] raster, cells3d, raster-png
 ├── src/
 │   ├── lib.rs                          # + pub mod raster; (cfg-gated)
 │   └── raster/
@@ -96,6 +96,8 @@ hypergraph-rs/crates/hypergraph-rs/
 │       │                               #   braille 2×4 glyph selection, Cell composition
 │       ├── color.rs                    # Rgb, heat() (deck gold→bone→crimson), truecolor +
 │       │                               #   256-palette deterministic quantization, fg/bg pick
+│       ├── png.rs                      # ADR097 Tier-1 pixel plate: render_pixels/render_png
+│       │                               #   (shares project/depth_sort/fill from camera+grid; png crate)
 │       ├── h3.rs                       # h3o u64 <-> raster boundary; parent aggregation
 │       ├── algebra.rs                  # transformation algebra (s=v·e, r, T, Φ) — pure ~30 lines
 │       ├── deck.rs                     # mulberry32 port + buildWorld fixture + o(C) org degree
@@ -108,12 +110,14 @@ hypergraph-rs/crates/hypergraph-rs/
     ├── test_raster.rs                  # Tasks 1-4 (types, camera, grid, color)
     ├── test_deck_fixture.rs            # Tasks 5, 6, 10 (algebra, buildWorld, Stage 0)
     ├── test_instruments.rs             # Tasks 7-9 (three builders)
-    └── fixtures/                       # Task 11/12 golden artifacts
+    ├── test_png.rs                     # Task 14 (Tier-1 PNG pixel plate; #![cfg(feature="raster-png")])
+    └── fixtures/                       # Task 11/12/14 golden artifacts
         ├── scene3d/*.json              # SceneGraph3D JSON goldens (Stage 1)
-        └── frames/*.txt                # CellGrid text goldens (Stage 2)
+        ├── frames/*.txt                # CellGrid text goldens (Stage 2)
+        └── png/*.png                   # platform-pinned PNG plate goldens (Task 14)
 ```
 
-**Note on the `[features]` table:** the current table (verified) is `default = ["algorithms","generators","stats","readwrite","layout","viz"]` with `all = ["default","dynamics","communities","convert","network"]`. **Merge** `raster = ["viz"]` and `cells3d = ["raster","communities","dep:h3o"]` in (Finding 7: h3o rides on `cells3d`, not `raster`); append `"raster"` to `default`; add `"cells3d"` to `all` (not `default`). Task 1 shows the fully-merged target.
+**Note on the `[features]` table:** the current table (verified) is `default = ["algorithms","generators","stats","readwrite","layout","viz"]` with `all = ["default","dynamics","communities","convert","network"]`. **Merge** `raster = ["viz"]`, `cells3d = ["raster","communities","dep:h3o"]`, and `raster-png = ["cells3d","dep:png"]` in (Finding 7: h3o rides on `cells3d`, not `raster`; likewise `png` rides on `raster-png`, not `raster`/`cells3d`); append `"raster"` to `default`; add both `"cells3d"` and `"raster-png"` to `all` (not `default`). Task 1 shows the fully-merged target.
 
 ---
 
@@ -124,7 +128,7 @@ hypergraph-rs/crates/hypergraph-rs/
 **Files:**
 - Modify: `crates/hypergraph-rs/Cargo.toml`, `crates/hypergraph-rs/src/lib.rs`
 - Create: `src/raster/mod.rs`, `src/raster/fmt.rs`, `crates/hypergraph-rs/tests/test_raster.rs`
-- Modify (workspace): `crates/hypergraph-rs/../../Cargo.toml` (workspace root — h3o pin)
+- Modify (workspace): `crates/hypergraph-rs/../../Cargo.toml` (workspace root — h3o pin + png pin)
 
 **Interfaces:** `raster::{Rgb, Cell, CellGrid, Vertex3, Face, Strut, SceneGraph3D}` (all `Debug + Clone + PartialEq + Serialize + Deserialize`); `raster::fmt::fmt6(v: f64) -> String`. `Cell { ch: char, fg: Rgb, bg: Rgb }` (glyph floor: all three always present). `CellGrid { cols: u16, rows: u16, cells: Vec<Cell> }` (row-major, `cells.len() == cols*rows`) with `fn to_text(&self) -> String` (glyphs only, newline-joined — the diffable byte-exact form) and `fn to_ansi(&self) -> String` (with fg/bg escapes). `SceneGraph3D { nodes: Vec<Node3>, faces: Vec<Face>, struts: Vec<Strut>, bounding_box: (f64,f64,f64,f64,f64,f64), metadata: serde_json::Map<String,Value> }` mirroring `viz::SceneGraph` (`viz/mod.rs:74-80`) with a 3D bbox and triangle faces.
 
@@ -167,12 +171,12 @@ fn test_fmt6_matches_phase5_formatter() {
 - [ ] **Step 2: Run test to verify it fails** — `cd hypergraph-rs && cargo test -p hypergraph-rs --features raster --test test_raster`. Expected: FAIL — module `raster` does not exist.
 
 - [ ] **Step 3: Implement.**
-  - **Workspace `Cargo.toml`:** `grep -c '^h3o' Cargo.toml` (expect 0), then add to `[workspace.dependencies]`: `h3o = "0.10"`.
-  - **Crate `Cargo.toml`:** add `h3o = { workspace = true, optional = true }` to `[dependencies]`; merge features: `raster = ["viz"]`, `cells3d = ["raster", "communities", "dep:h3o"]` (h3o is used only by the `cells3d`-gated `raster/h3.rs` + `sankey.rs`, so `dep:h3o` hangs off `cells3d`, NOT `raster` — otherwise the Task-14 `--no-default-features --features raster` leg compiles h3o unused and muddies the S9 gate; Finding 7); append `"raster"` to `default`; add `"cells3d"` to `all`.
+  - **Workspace `Cargo.toml`:** `grep -c '^h3o' Cargo.toml` (expect 0), then add to `[workspace.dependencies]`: `h3o = "0.10"`. Likewise, single-owner-of-the-pin: `grep -c '^png' Cargo.toml` (expect 0), then add `png = "0.18"` (the image-rs `png` crate — pure Rust, deterministic; current stable line, `max_stable_version` 0.18.1 as of 2026-07-22). Verify the exact `Encoder`/`Compression`/`Filter` setter API against docs.rs 0.18 before binding in Task 14 (same docs.rs-first discipline as h3o's `parent()` Option-vs-Result check).
+  - **Crate `Cargo.toml`:** add `h3o = { workspace = true, optional = true }` and `png = { workspace = true, optional = true }` to `[dependencies]`; merge features: `raster = ["viz"]`, `cells3d = ["raster", "communities", "dep:h3o"]`, `raster-png = ["cells3d", "dep:png"]` (h3o is used only by the `cells3d`-gated `raster/h3.rs` + `sankey.rs`, so `dep:h3o` hangs off `cells3d`, NOT `raster` — otherwise the Task-15 `--no-default-features --features raster` leg compiles h3o unused and muddies the S9 gate; Finding 7; and `png` is used only by the `raster-png`-gated `raster/png.rs`, so `dep:png` hangs off `raster-png`, never off `raster`/`cells3d`); append `"raster"` to `default`; add both `"cells3d"` and `"raster-png"` to `all` (both stay OUT of `default` — owner-gated capabilities).
   - **`lib.rs`:** `#[cfg(feature = "raster")] pub mod raster;`.
   - **`raster/fmt.rs`:** copy `viz/svg.rs:109-117` verbatim as `pub(crate) fn fmt6(v: f64) -> String` (re-exported `pub` under `raster::fmt` for the test). Do NOT alter the algorithm — byte-exactness depends on it.
   - **`raster/mod.rs`:** `pub mod fmt;` + the seven types. `Rgb(pub u8, pub u8, pub u8)`. `Cell { pub ch: char, pub fg: Rgb, pub bg: Rgb }`. `CellGrid` with `filled`, `to_text` (map each row to its chars, join rows with `'\n'`), `to_ansi` (Task 4 fills the escape logic; a plain glyph fallback is fine now). `Node3 { id: String, pos: Vertex3, radius: f64, color: Rgb, style: NodeStyle, attrs: Value }` — instruments set `color` via `heat() -> Rgb`, type-matching `Face`/`Strut` (which are `Rgb`); the reused `viz::NodeStyle` (CSS `#rrggbb` `String` fill/stroke) rides along for **metadata only** and is NEVER the rasterizer's color source (its strings are type-incompatible with `Rgb` — Finding 8; the `#rrggbb`→`Rgb` parser is added in Task 3 only if hex metadata must round-trip). `Vertex3 { x: f64, y: f64, z: f64 }`. `Face { verts: [Vertex3;3], fill: Rgb, opacity: f64 }`. `Strut { a: Vertex3, b: Vertex3, color: Rgb }`. `SceneGraph3D` per the interface, with `empty()`. Derive `Debug, Clone, PartialEq, Serialize, Deserialize` on all. `rasterize` is a stub `todo!`-free signature returning an empty grid for now (Task 3 fills it).
-  - **Lockfile (`--locked` discipline, Finding 9):** after adding `h3o`, run a plain (un-`--locked`) `cargo build -p hypergraph-rs --features cells3d` once so `h3o` resolves into `Cargo.lock`, then commit the updated `Cargo.lock` **alongside** the manifest in Step 5 — every later `--locked` leg (Task 14 / `mise run rust:check`) fails on a stale lockfile.
+  - **Lockfile (`--locked` discipline, Finding 9):** after adding `h3o` and `png`, run a plain (un-`--locked`) `cargo build -p hypergraph-rs --features raster-png` once so BOTH `h3o` and `png` resolve into `Cargo.lock` (`raster-png` pulls `cells3d` → `h3o` transitively, plus `png`), then commit the updated `Cargo.lock` **alongside** the manifest in Step 5 — every later `--locked` leg (Task 15 / `mise run rust:check`) fails on a stale lockfile.
 
 - [ ] **Step 4: Run test to verify it passes** — same command. Expected: PASS — 4 tests, 0 failures.
 
@@ -457,7 +461,7 @@ fn test_global_pi0_is_13() {
 
 ### Task 7: Instrument I — the adjoint cylinder (`state → SceneGraph3D`)
 
-**Files:** Create `src/raster/instruments/mod.rs`, `src/raster/instruments/cylinder.rs`; modify `src/raster/mod.rs`; create `tests/test_instruments.rs`. **Feature-gated `cells3d`** (spectral embedding = 3D layout, S9 lane gate). **`test_instruments.rs` MUST begin with a crate-level `#![cfg(feature = "cells3d")]` header (Finding 2)** — it imports the `cells3d`-gated `raster::instruments` module, so at DEFAULT features (cells3d OFF, per Task 14 / `mise run rust:check`) the whole file must compile to nothing rather than a missing-module error; this matches the shipped precedent `tests/test_communities.rs`, `test_convert.rs`, `test_dynamics.rs`, which each open with `#![cfg(feature = "…")]`.
+**Files:** Create `src/raster/instruments/mod.rs`, `src/raster/instruments/cylinder.rs`; modify `src/raster/mod.rs`; create `tests/test_instruments.rs`. **Feature-gated `cells3d`** (spectral embedding = 3D layout, S9 lane gate). **`test_instruments.rs` MUST begin with a crate-level `#![cfg(feature = "cells3d")]` header (Finding 2)** — it imports the `cells3d`-gated `raster::instruments` module, so at DEFAULT features (cells3d OFF, per Task 15 / `mise run rust:check`) the whole file must compile to nothing rather than a missing-module error; this matches the shipped precedent `tests/test_communities.rs`, `test_convert.rs`, `test_dynamics.rs`, which each open with `#![cfg(feature = "…")]`.
 
 **Interfaces:** `raster::instruments::Instrument { Cylinder, Terrain, Sankey }`; `raster::instruments::build(inst: Instrument, world: &DeckWorld, opts: &InstrumentOpts) -> SceneGraph3D`. Cylinder builder (`topology-deck.html:294-336`): bottom disc = every agent as a lone point (the atomized class-in-itself) at `(x·R·.85, -H/2, y·R·.85)` where `(x,y)` are **spectral positions** (reuse `communities::smallest_k_eigenvectors`, pinned seed — Deviation 2); each community's hull at height `y = -H/2 + o(C)·H`; ghost-edge struts from every member's bottom-disc point to its community-height point. Constants `R=1.05`, `H=1.55`. Hull via `layout::convex_hull` on the **camera-projected 2D points** (the deck computes hull post-projection; but PHASE-R-MAP's SceneGraph3D/rasterizer split wants camera-independent scene data — see OPEN DECISION D-R6; **default: world-space hull projected afterward**, so `SceneGraph3D` is camera-independent). Hull face color `heat(1 - o)` at opacity `0.12 + 0.3·o`.
 
@@ -680,12 +684,104 @@ fn test_org_and_pi0_and_psa_golden() {
 
 ---
 
-### Task 14: Clippy, fmt, feature-matrix build, full suite
+### Task 14: Rust-side PNG pixel-plate emission (ADR097 Tier-1)
+
+**Files:**
+- Create: `src/raster/png.rs`, `crates/hypergraph-rs/tests/test_png.rs`, `tests/fixtures/png/cylinder_128x96.png`
+- Modify: `src/raster/mod.rs` (re-export `png` module under the `raster-png` gate)
+- (No new manifest work: Task 1 already added the optional `png` dep, the workspace pin, and the `raster-png = ["cells3d","dep:png"]` feature.)
+
+**Feature-gated `raster-png`** (`= ["cells3d", "dep:png"]`, owner-gated OUT of `default`; see Global Constraints + Task 1). ADR097 Tier-1 is a **pixel** plate: an actual RGB pixel raster of the SAME `SceneGraph3D` the instruments build — a **different tier** from the Tier-0 braille `CellGrid`. Tier-0 packs 2×4 subcells into one braille cell; Tier-1 emits **one `Rgb` per pixel** at arbitrary `(width_px, height_px)`. The kitty-TGP consumer path (ADR097) reads these PNG bytes. Because it renders the 3D scene, it rides on the `cells3d` 3D-lane gate; the pure-Rust `png` encoder is the only added dep. **DRY (project law, reuse ledger): the pixel path MUST reuse the shared geometry — it does NOT duplicate the rasterization math.**
+
+**Interfaces:**
+- `raster::png::PixelBuffer { w: u32, h: u32, px: Vec<Rgb> }` — RGB8, row-major, `px.len() == (w*h) as usize`. Derive `Debug + Clone + PartialEq`.
+- `raster::png::render_pixels(scene: &SceneGraph3D, cam: &Camera, width_px: u32, height_px: u32) -> PixelBuffer` — the intermediate full-resolution pixel raster. It **shares** the geometry from Tasks 2/3: `project` (rotation + perspective divide + **near-plane clip** `NEAR_EPS`) and `depth_sort` (stable painter's) from **Task 2**, and the edge-function scanline **triangle fill** (explicit top-left rule), integer **Bresenham** line walk, **NaN-safe** depth test, and **bounds-clamped** subcell/pixel writes from **Task 3** — targeting a **pixel** depth buffer at `(width_px × height_px)` instead of the `cols*2 × rows*4` braille `SubBuffer`. Factor the rasterization core (edge function, top-left tie-break, depth test, Bresenham, clamp) so ONE implementation is parameterized by output resolution: the Tier-0 braille path passes `(cols*2, rows*4)` + `compose_braille`; the Tier-1 pixel path passes `(width_px, height_px)` and reads the buffer straight out as `Rgb` per pixel. The rotation+perspective-divide+near-plane-clip NDC core of `project` (Task 2 steps 1–2) is shared verbatim; only the final NDC→viewport remap resolution differs. Do NOT reimplement `fill_triangle`/`line_bresenham`/`project`/`depth_sort` — reuse ledger.
+- `raster::png::render_png(scene: &SceneGraph3D, cam: &Camera, width_px: u32, height_px: u32) -> Vec<u8>` — encodes the `PixelBuffer` via the `png` crate with **PINNED encoder settings** (color type RGB8, bit depth 8, compression + filter fixed to ONE frozen choice, e.g. `Compression::Fast` + `FilterType::NoFilter`) for reproducibility. Verify the exact `png` 0.18 `Encoder`/`Compression`/`Filter` setter API against docs.rs before binding (Task 1 note).
+
+**Files:** create `src/raster/png.rs`; modify `src/raster/mod.rs` (`#[cfg(feature = "raster-png")] pub mod png;`); create `tests/test_png.rs` with the crate-level header `#![cfg(feature = "raster-png")]` (Finding-2 precedent: `test_communities.rs`/`test_convert.rs`/`test_dynamics.rs` each open with `#![cfg(feature = "…")]`, so at default features — `raster-png` OFF — the file compiles to nothing rather than a missing-module error).
+
+- [ ] **Step 1: Write the failing test** — `tests/test_png.rs`:
+```rust
+#![cfg(feature = "raster-png")]
+use hypergraph_rs::raster::deck::build_world;
+use hypergraph_rs::raster::instruments::{build, Instrument, InstrumentOpts};
+use hypergraph_rs::raster::png::{render_pixels, render_png};
+use hypergraph_rs::raster::{Camera, Rgb, SceneGraph3D};
+
+fn fixture() -> (SceneGraph3D, Camera) {
+    let w = build_world(1917);
+    let s = build(Instrument::Cylinder, &w, &InstrumentOpts::default());
+    (s, Camera { ry: 0.7, rx: 0.3, dist: 4.0, fov: 70.0 })
+}
+
+#[test]
+fn test_render_pixels_dims_and_len() {
+    let (s, c) = fixture();
+    let pb = render_pixels(&s, &c, 128, 96);
+    assert_eq!((pb.w, pb.h), (128, 96));
+    assert_eq!(pb.px.len(), 128 * 96);
+}
+
+#[test]
+fn test_render_pixels_is_pure_function_byte_exact() {
+    let (s, c) = fixture();
+    assert_eq!(render_pixels(&s, &c, 128, 96), render_pixels(&s, &c, 128, 96));
+}
+
+#[test]
+fn test_png_decodes_back_to_exact_pixelbuffer() {
+    // PRIMARY golden — platform-INDEPENDENT for the pure-arithmetic geometry path:
+    // decode the encoded PNG and assert the RGB pixels are byte-exact vs render_pixels.
+    // (The decode dodges the cross-platform DEFLATE trap: pixels, not compressed bytes.)
+    let (s, c) = fixture();
+    let pb = render_pixels(&s, &c, 128, 96);
+    let bytes = render_png(&s, &c, 128, 96);
+    let mut decoded: Vec<Rgb> = Vec::new();
+    // decode `bytes` via png::Decoder → RGB8 rows → Vec<Rgb> (verify 0.18 reader API on docs.rs)
+    /* ...decode into `decoded`... */
+    assert_eq!(decoded, pb.px);
+}
+
+#[test]
+fn test_png_encoded_bytes_match_pinned_fixture() {
+    // SECONDARY golden — PLATFORM-PINNED: encoded .png bytes are byte-exact on the
+    // reference platform under the pinned `png` 0.18 crate + pinned encoder settings.
+    // DEFLATE output is NOT guaranteed identical across arbitrary zlib impls (CLAUDE.md §4),
+    // so this is a platform-pinned fixture, NOT a universal byte-exact guarantee.
+    let (s, c) = fixture();
+    assert_eq!(render_png(&s, &c, 128, 96), include_bytes!("fixtures/png/cylinder_128x96.png"));
+}
+
+#[test]
+fn test_png_random_camera_deterministic_and_panic_free() {
+    // Determinism + panic-free property: many random cameras → stable output, never
+    // NaN/inf/oob. Reuses the near-plane clip (Task 2) + NaN-safe depth compare +
+    // bounds-clamped pixel writes (Task 3): a camera behind/through the scene yields a
+    // stable frame, never a panic. Render each camera twice; assert equal.
+    let (s, _) = fixture();
+    /* for a fixed list of adversarial (ry, rx, dist, fov): render_png twice, assert_eq */
+    let _ = &s;
+}
+```
+
+- [ ] **Step 2: Run** — `cd hypergraph-rs && cargo test -p hypergraph-rs --features raster-png --test test_png`. Expected: FAIL — module `raster::png` does not exist.
+
+- [ ] **Step 3: Implement `png.rs`.**
+  - `PixelBuffer` as above. `render_pixels`: reuse the shared geometry core (Task 2 `project` + near-plane clip + `depth_sort`; Task 3 `fill_triangle` top-left rule + `line_bresenham` + NaN-safe depth test + bounds-clamp), targeting a `(width_px × height_px)` `Rgb` + depth buffer (depth cleared to `f64::INFINITY`, farther primitives painted first, nearer wins). Refactor Task 3's rasterization primitives to take the target resolution as a parameter (or operate on a generic pixel target) so the braille and pixel tiers call ONE implementation — no copied triangle/line math (DRY). Empty/background pixels are a fixed clear color (e.g. `Rgb(0,0,0)`), keeping the buffer fully defined (every pixel carries an `Rgb`, mirroring the Tier-0 glyph floor).
+  - `render_png`: build a `png::Encoder` (RGB8, 8-bit), set the FROZEN compression + filter, write `pb.px` flattened to `&[u8]`, return the encoded `Vec<u8>`. Pin ONE encoder-setting choice and never vary it — reproducibility depends on it.
+  - **Determinism + goldens.** PRIMARY = decode-and-compare-pixels (`test_png_decodes_back_to_exact_pixelbuffer`): the decoded RGB `PixelBuffer` is byte-exact and **platform-independent for the pure-arithmetic geometry path** (cylinder/terrain are basic IEEE ops → reproduce cross-platform, CLAUDE.md §4). SECONDARY = the encoded `.png` bytes frozen as a **platform-pinned** fixture (byte-exact only on the reference platform under pinned `png` 0.18, since DEFLATE bytes are not guaranteed identical across zlib impls). **Tolerance caveat (Finding 3, mirrors Task 11):** an instrument whose geometry routes through a libm transcendental — the **Sankey** `occY` uses `ln` (deck :362) — keeps its existing tolerance note: its pixel golden inherits the platform-pinned policy (not a universal byte-exact guarantee), whereas the cylinder golden (basic arithmetic) is byte-exact cross-platform. Generate the fixture once, eyeball the decoded image for sanity (silhouette reads), then freeze.
+
+- [ ] **Step 4: Run** — same command. Expected: PASS.
+- [ ] **Step 5: Commit** — `feat(hypergraph-rs): Rust-side PNG pixel-plate emission (ADR097 Tier-1, shared geometry)`.
+
+---
+
+### Task 15: Clippy, fmt, feature-matrix build, full suite
 
 **Files:** any files with lints.
 
-- [ ] **Step 1: Clippy (raster + cells3d):** `cargo clippy -p hypergraph-rs --features cells3d -- -D warnings`. Fix all. Expected lints & preferred fixes:
-  - `clippy::too_many_arguments` on projection/raster fns — prefer grouping into `Camera`/`Projected` structs over `#[allow]`.
+- [ ] **Step 1: Clippy (raster + cells3d + raster-png):** `cargo clippy -p hypergraph-rs --features cells3d -- -D warnings` AND `cargo clippy -p hypergraph-rs --features raster-png -- -D warnings`. Fix all. Expected lints & preferred fixes:
+  - `clippy::too_many_arguments` on projection/raster/png fns — prefer grouping into `Camera`/`Projected` structs over `#[allow]`.
   - `clippy::excessive_precision` on the embedded golden constants — `#[allow]` locally with a "deck golden, exact" comment (they are byte-parity fixtures).
   - `clippy::float_cmp` in determinism tests — false positive for the bit-equality contract; `#[allow]` in the test module with a comment.
 - [ ] **Step 2: Feature matrix** — confirm each compiles:
@@ -693,26 +789,28 @@ fn test_org_and_pi0_and_psa_golden() {
   cd hypergraph-rs
   cargo build -p hypergraph-rs --no-default-features --features raster
   cargo build -p hypergraph-rs --no-default-features --features cells3d
-  cargo build -p hypergraph-rs                       # default (raster on, cells3d off)
+  cargo build -p hypergraph-rs --no-default-features --features raster-png
+  cargo build -p hypergraph-rs                       # default (raster on, cells3d + raster-png off)
   cargo build -p hypergraph-rs --no-default-features
   ```
-  `--features cells3d` must pull `raster` + `communities` transitively; default must NOT enable `cells3d` (the S9 gate).
-- [ ] **Step 3: Full gate** — `mise run rust:check` (full workspace — fmt --check + clippy --workspace --all-targets --locked -D warnings + test --workspace --locked + doc -D warnings). This is the canonical composite gate (Phase-5 Task-12 style); prefer it over spelling out the four cargo commands.
-- [ ] **Step 4: Commit** — `chore(hypergraph-rs): clippy + fmt + feature-matrix cleanup (raster/cells3d)`.
+  `--features cells3d` must pull `raster` + `communities` transitively; `--features raster-png` must pull `cells3d` (→ `raster` + `communities` + `h3o`) + `png` transitively; default must NOT enable `cells3d` OR `raster-png` (the S9 gate), and `--no-default-features` must exclude both.
+- [ ] **Step 3: Full gate** — `mise run rust:check` (full workspace — fmt --check + clippy --workspace --all-targets --locked -D warnings + test --workspace --locked + doc -D warnings). This is the canonical composite gate (Phase-5 Task-12 style); prefer it over spelling out the cargo commands.
+- [ ] **Step 4: Commit** — `chore(hypergraph-rs): clippy + fmt + feature-matrix cleanup (raster/cells3d/raster-png)`.
 
 ---
 
 ## Phase R Completion Summary
 
-After all 14 tasks the `hypergraph-rs` core crate has:
+After all 15 tasks the `hypergraph-rs` core crate has:
 
 - **`raster/` module** (feature `raster` ⇒ `viz`, default-on): `Rgb`, `Cell`, `CellGrid` (row-major, `to_text`/`to_ansi`), `SceneGraph3D` (+ `Node3`/`Vertex3`/`Face`/`Strut`), `Camera` + `project` (rotY∘rotX + perspective divide) + `depth_sort` (stable painter's), the braille 2×4 cell rasterizer (subcell depth buffer, integer Bresenham, top-left-rule scanline fill), color-under-constraint (`heat` crimson/gold canon, 256-palette quantization, per-cell fg/bg pick), the transformation algebra (`transform`/`Economy`), the `mulberry32` deck RNG + `build_world` fixture + `o(C)` org degree + `do_tick`.
 - **`raster/instruments/` + `raster/h3.rs`** (feature `cells3d` ⇒ `raster` + `communities` + `dep:h3o`, owner-gated OUT of default per S9): three builders — adjoint cylinder (o(C) heights, `CylinderHeight` enum default `OrgDegree`), contradiction terrain (IDW heightfield), OCC hyper-Sankey over real `h3o::CellIndex` (u64 parent-aggregation zoom functor, T ribbons).
-- **New tests**, all deterministic/golden: Stage 0 deck-number reproduction (falling-r, S invariant, net-T at both zooms, Π₀=13, org=[0.2,0.2,0.2,1], pw/psa), Stage 1 SceneGraph3D JSON goldens (assert-the-source), Stage 2 CellGrid text frame goldens, Stage 3 property contracts (depth stability, zoom invariance, glyph-floor parity, mutation). Clippy + fmt clean; four-way feature matrix verified.
+- **`raster/png.rs`** (feature `raster-png` ⇒ `cells3d` + `dep:png`, owner-gated OUT of default per S9): the ADR097 Tier-1 pixel plate — `render_pixels` (RGB8 `PixelBuffer` at arbitrary `width_px × height_px`, sharing Task 2/3 project/depth_sort/near-plane-clip/edge-function-fill — no duplicated math) and `render_png` (pinned-encoder PNG bytes for the kitty-TGP consumer).
+- **New tests**, all deterministic/golden: Stage 0 deck-number reproduction (falling-r, S invariant, net-T at both zooms, Π₀=13, org=[0.2,0.2,0.2,1], pw/psa), Stage 1 SceneGraph3D JSON goldens (assert-the-source), Stage 2 CellGrid text frame goldens, Stage 3 property contracts (depth stability, zoom invariance, glyph-floor parity, mutation), and Task 14 PNG-plate goldens (PRIMARY = decoded-pixel byte-exact / cross-platform; SECONDARY = platform-pinned `.png` bytes; determinism + panic-free random-camera property). Clippy + fmt clean; five-way feature matrix verified (`raster`, `cells3d`, `raster-png`, default, `--no-default-features`).
 
 **Conformance note:** spectral disc positions are structural-parity, not deck-byte-exact (Deviation 2); Rust's own spectral output is self-golden at Stage 1. `Φ == rent_imperial + rent_internal` is a seed-1917 fixture property, not a structural law (Deviation 6, mutation-tested). The coarse-zoom partition is h3o-derived; only the partition-independent invariants (`net-T ≡ 0`, `r` = ratio of sums) are deck-golden (Deviation 7).
 
-**Next: Phase R.2** — worldtube stratigraphy (time-as-z, the deferred 4th instrument, D-R2) once babylon commits a per-tick projection; and the owner PNG-plate ruling (D-R3) if Tier-1 pixel emission collapses into the crate.
+**Next: Phase R.2** — worldtube stratigraphy (time-as-z, the deferred 4th instrument, D-R2) once babylon commits a per-tick projection. (The Tier-1 PNG-plate question, D-R3, is now RESOLVED and lands in this phase as Task 14 — no longer deferred.)
 
 ---
 
@@ -721,9 +819,9 @@ After all 14 tasks the `hypergraph-rs` core crate has:
 Each is resolved to an executable default so this plan runs under defaults; the ones needing a genuine owner call are flagged.
 
 - **D-R1 — cylinder height metric (`o(C)` vs hull-fill/simpliciality).** **DISSOLVED — no owner call needed.** Task 7 exposes both via `enum CylinderHeight { OrgDegree, HullFill }`, default `OrgDegree` (the deck's choice). Both ship; the owner may flip the default later at zero cost.
-- **D-R2 — worldtube stratigraphy (4th instrument, time-as-z).** **RECOMMEND: DEFER to Phase R.2.** The deck v3 ships only THREE instruments; a worldtube needs a *committed per-tick projection* (which babylon has not fixed). Building it now would invent a time-parameterization the engine does not yet emit — a new-formalism risk the closed-surface constraint forbids. Deferred; not in the 14 tasks.
-- **D-R3 — Rust-side PNG plate emission vs leaving Tier-1 pixel plates to babylon textual-image.** **GENUINE OWNER CALL. RECOMMEND: glyph cells mandatory now (this plan), PNG as an optional deferred sub-task.** `rasterizer.md` leans toward collapsing Tier-1 into the crate; ADR097 currently splits it. The glyph floor already satisfies ADR097 Tier-0 natively and Tier-1 regenerates from the same `SceneGraph3D` (information parity by construction). Adding a Rust PNG encoder is real scope with no consumer yet (babylon's textual-image path covers pixels today). Ship glyphs; revisit PNG only if the owner rules the tiers should collapse.
-- **D-R4 — effort envelope.** Phase-5-sized core (~2.3k-line plan, 14 tasks) + golden fixtures + 3 instrument builders + h3o + mulberry32. **Estimate ≈ 3.0 Mtok, ≈ 3 execution windows.** The instrument builders (Tasks 7–9) and the fixture-generation tasks (11–12, which require visual inspection before freezing) are the heaviest; Tasks 1–6 are mechanical Sonnet work, Tasks 10/13 are assertion-dense but shallow.
+- **D-R2 — worldtube stratigraphy (4th instrument, time-as-z).** **RECOMMEND: DEFER to Phase R.2.** The deck v3 ships only THREE instruments; a worldtube needs a *committed per-tick projection* (which babylon has not fixed). Building it now would invent a time-parameterization the engine does not yet emit — a new-formalism risk the closed-surface constraint forbids. Deferred; not in the 15 tasks.
+- **D-R3 — Rust-side PNG plate emission vs leaving Tier-1 pixel plates to babylon textual-image.** **RESOLVED (owner, 2026-07-22): INCLUDE Rust PNG — implemented in Task 14.** The owner ruled that Tier-1 pixel emission collapses into the crate now rather than deferring to babylon's textual-image path: the glyph floor already satisfies ADR097 Tier-0 natively, and Task 14 adds `render_pixels`/`render_png` (feature `raster-png`, owner-gated OUT of default) that regenerate the Tier-1 pixel plate from the SAME `SceneGraph3D` by reusing the Task 2/3 geometry (information parity by construction, no duplicated rasterization math). The prior recommendation (glyphs now, PNG deferred) is superseded by this ruling. *(Historical note, per doc immutability: the earlier reasoning weighed "no PNG consumer yet"; the owner accepted that scope to unblock the ADR097 kitty-TGP consumer.)*
+- **D-R4 — effort envelope.** Phase-5-sized core (~2.3k-line plan, 15 tasks) + golden fixtures + 3 instrument builders + PNG plate + h3o + png + mulberry32. **Estimate ≈ 3.2 Mtok, ≈ 3 execution windows.** The instrument builders (Tasks 7–9) and the fixture-generation tasks (11–12, and Task 14's PNG plate — all require visual inspection before freezing) are the heaviest; Tasks 1–6 are mechanical Sonnet work, Tasks 10/13 are assertion-dense but shallow.
 - **D-R5 — coarse-zoom H3 partition: lane-uniform coarsening vs the deck's asymmetric 6-cell behavior.** **RECOMMEND: do NOT require lane-uniform coarsening.** Real `h3o::parent()` will not reproduce the deck's synthetic `(hq>>1,hr>>1)` 6-cell split, and it need not: the load-bearing invariant (`net-T ≡ 0`, `r` = ratio of sums) is *partition-independent* — it survives any grouping, including real H3. Assert the invariants as deck-golden; treat the per-cell `T` decomposition as an h3o-derived (re-derived) golden. Flag for owner awareness only; the plan runs under this default (Deviation 7).
 - **D-R6 — community hull: camera-dependent (deck) vs camera-independent scene data.** **RECOMMEND: camera-independent (world-space hull, projected afterward).** The deck computes the hull on camera-projected 2D points (`:330`), making the silhouette a function of camera orientation; but PHASE-R-MAP's SceneGraph3D/rasterizer split wants the scene to be camera-independent assert-the-source data with projection only at the rasterizer stage. Default to world-space hulls (visually near-identical, architecturally clean). Owner may override to match the deck exactly if pixel-parity with the reference is later required.
 - **D-R7 — `psr` calibrated form (deck `/2.6·0.9`) vs the textbook `P(S|R)=Org/Repression`.** **RECOMMEND: reproduce the deck's calibrated form for the fixture** so `psr=0.2222` is a true deck golden (Task 10), with a doc comment noting it diverges from the parent project's canonical formula (game/CLAUDE.md §7). When babylon supplies real repression state, the textbook form is the production path; the calibrated constants are deck-specific mock tuning that does not travel.
