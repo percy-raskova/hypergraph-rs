@@ -343,7 +343,12 @@ def h1():
 
 # --- Task 15: conformance exclusion glue (spec §9.1) ---
 import pytest
-from conftest_exclusions import FILE_EXCLUSIONS, TEST_EXCLUSIONS, entry_matches_name
+from conftest_exclusions import (
+    ENTRY_CLASSES,
+    FILE_EXCLUSIONS,
+    TEST_EXCLUSIONS,
+    entry_matches_name,
+)
 
 
 def pytest_ignore_collect(collection_path, config):
@@ -364,11 +369,23 @@ def _entry_matches(item, entry: str) -> bool:
     return entry_matches_name(name, entry)
 
 
+# Classes whose tests genuinely cannot run. Everything else runs and is
+# expected to fail, so it gets a STRICT xfail: if the gap is ever closed the
+# test XPASSes and the build breaks, forcing the registry to be updated. That
+# is what makes the register self-correcting rather than a document that rots
+# into over-reporting (spec §5.1).
+_SKIP_CLASSES = frozenset({"env", "upstream-bug", "out-of-scope"})
+
+
 def pytest_collection_modifyitems(config, items):
     for item in items:
         rel = str(item.fspath).split("/ported/", 1)[-1]
         for name, reason in TEST_EXCLUSIONS.get(rel, []):
-            if _entry_matches(item, name):
-                item.add_marker(
-                    pytest.mark.skip(reason=f"[conformance-exclusion] {reason}")
-                )
+            if not _entry_matches(item, name):
+                continue
+            cls = ENTRY_CLASSES.get((rel, name), "deferred-symbol")
+            tag = f"[conformance-exclusion:{cls}] {reason}"
+            if cls in _SKIP_CLASSES:
+                item.add_marker(pytest.mark.skip(reason=tag))
+            else:
+                item.add_marker(pytest.mark.xfail(reason=tag, strict=True))

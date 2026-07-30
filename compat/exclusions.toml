@@ -200,12 +200,6 @@ class = "core-gap"
 reason = "same core gap as test_write_hif (needs DiHypergraph HIF export), plus write_hif_collection/read_hif_collection are unbound deferred symbols."
 
 [[test_exclusion]]
-path = "readwrite/test_hif.py"
-test = "test_write_hif_compressed"
-class = "env"
-reason = "env: gzip-compressed HIF write/read of a plain Hypergraph is IMPLEMENTED and passes; this entry exists only to record that it was previously skipped by the prefix-match bug (spec F1). REMOVE this entry in Task 5 — it must become a passing test, not an xfail."
-
-[[test_exclusion]]
 path = "linalg/test_matrix.py"
 test = "test_fix_649"
 class = "deferred-symbol"
@@ -228,12 +222,6 @@ path = "linalg/test_matrix.py"
 test = "test_adjacency_tensor"
 class = "deferred-symbol"
 reason = "deferred: adjacency_tensor (Phase 3 'Deferred', §A ledger)."
-
-[[test_exclusion]]
-path = "linalg/test_matrix.py"
-test = "test_empty_order"
-class = "env"
-reason = "env: passes; previously swept up by the `test_empty` prefix entry (spec F1). REMOVE in Task 5."
 
 [[test_exclusion]]
 path = "core/test_hypergraph.py"
@@ -306,18 +294,6 @@ path = "core/test_simplicialcomplex.py"
 test = "test_issue_445"
 class = "core-gap"
 reason = "deferred: same core-gap as test_remove_node (also calls SC.remove_node)."
-
-[[test_exclusion]]
-path = "core/test_simplicialcomplex.py"
-test = "test_add_simplices_from_iterable_of_members"
-class = "env"
-reason = "env: passes; previously swept up by the `test_add_simplices_from` prefix entry (spec F1). REMOVE in Task 5."
-
-[[test_exclusion]]
-path = "core/test_simplicialcomplex.py"
-test = "test_add_simplices_from_wrong_format"
-class = "env"
-reason = "env: passes; previously swept up by the `test_add_simplices_from` prefix entry (spec F1). REMOVE in Task 5."
 
 [[test_exclusion]]
 path = "core/test_views.py"
