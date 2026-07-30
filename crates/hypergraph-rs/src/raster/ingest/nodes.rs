@@ -16,9 +16,8 @@ use super::{AttrContract, IngestError, TensionSource, DEFAULT_BLOC};
 /// its `HashMap` iteration order must never reach an output `Vec` (Global
 /// Constraints — determinism).
 ///
-/// `#[allow(dead_code)]`: unused until Task 3's `ingest_edges` consumes it —
-/// this task (Task 2) only defines it, per the plan's stated interface.
-#[allow(dead_code)]
+/// Live: called from `to_world` (`ingest/mod.rs`) to build the index handed
+/// to `ingest_edges`.
 pub(crate) fn index_of(ids: &[String]) -> HashMap<&str, usize> {
     let mut out = HashMap::with_capacity(ids.len());
     // Bounded: one pass over `ids` (node count).

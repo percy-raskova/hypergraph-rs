@@ -200,15 +200,54 @@ fn extract_opt_f64(d: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<f64>> {
     }
 }
 
+/// The four optional camera overrides, each `None` when the caller's dict
+/// didn't mention that key.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct CameraFields {
+    ry: Option<f64>,
+    rx: Option<f64>,
+    dist: Option<f64>,
+    fov: Option<f64>,
+}
+
+/// The camera dict's four known keys — the single source of truth checked
+/// both by the rejection loop and by the doc/error text below.
+const KNOWN_CAMERA_KEYS: &[&str] = &["ry", "rx", "dist", "fov"];
+
+/// Extract the four known camera keys, rejecting anything else — a typo in
+/// a camera override must not be silently ignored, the same discipline
+/// [`contract_overrides_from_dict`]/[`apply_contract_overrides`] already
+/// enforce for the `contract` dict (F7). Unknown keys and non-numeric
+/// values both produce a `PyErr` naming the offending key.
+fn camera_fields_from_dict(d: &Bound<'_, PyDict>) -> PyResult<CameraFields> {
+    for k in d.keys() {
+        let key: String = k
+            .extract()
+            .map_err(|_| xgi_error("camera override keys must be strings"))?;
+        if !KNOWN_CAMERA_KEYS.contains(&key.as_str()) {
+            return Err(xgi_error(format!(
+                "unknown camera key `{key}`; expected one of \"ry\", \"rx\", \"dist\", \"fov\""
+            )));
+        }
+    }
+    let ry = extract_opt_f64(d, "ry")?;
+    let rx = extract_opt_f64(d, "rx")?;
+    let dist = extract_opt_f64(d, "dist")?;
+    let fov = extract_opt_f64(d, "fov")?;
+    Ok(CameraFields { ry, rx, dist, fov })
+}
+
 fn build_camera(camera: Option<&Bound<'_, PyDict>>) -> PyResult<Camera> {
     match camera {
         None => Ok(DEFAULT_CAMERA),
         Some(d) => {
-            let ry = extract_opt_f64(d, "ry")?;
-            let rx = extract_opt_f64(d, "rx")?;
-            let dist = extract_opt_f64(d, "dist")?;
-            let fov = extract_opt_f64(d, "fov")?;
-            Ok(camera_from_overrides(ry, rx, dist, fov))
+            let fields = camera_fields_from_dict(d)?;
+            Ok(camera_from_overrides(
+                fields.ry,
+                fields.rx,
+                fields.dist,
+                fields.fov,
+            ))
         }
     }
 }
@@ -423,6 +462,38 @@ mod tests {
         assert_eq!(cam.rx, DEFAULT_CAMERA.rx);
         assert_eq!(cam.dist, DEFAULT_CAMERA.dist);
         assert_eq!(cam.fov, DEFAULT_CAMERA.fov);
+    }
+
+    #[test]
+    fn camera_dict_rejects_unknown_key() {
+        // A typo in a camera override dict must not be silently ignored —
+        // same discipline `apply_contract_overrides` already enforces (F7).
+        Python::attach(|py| {
+            let dict = PyDict::new(py);
+            dict.set_item("ryy", 1.0).unwrap();
+            let dict_ref: &Bound<'_, PyDict> = &dict;
+            let err = camera_fields_from_dict(dict_ref).unwrap_err();
+            let msg = err.value(py).to_string();
+            assert!(
+                msg.contains("ryy"),
+                "expected the bad key `ryy` in the error message, got `{msg}`"
+            );
+        });
+    }
+
+    #[test]
+    fn camera_dict_accepts_only_known_keys() {
+        Python::attach(|py| {
+            let dict = PyDict::new(py);
+            dict.set_item("ry", 1.0).unwrap();
+            dict.set_item("dist", 5.0).unwrap();
+            let dict_ref: &Bound<'_, PyDict> = &dict;
+            let fields = camera_fields_from_dict(dict_ref).unwrap();
+            assert_eq!(fields.ry, Some(1.0));
+            assert_eq!(fields.rx, None);
+            assert_eq!(fields.dist, Some(5.0));
+            assert_eq!(fields.fov, None);
+        });
     }
 
     #[cfg(feature = "raster-png")]
