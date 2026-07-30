@@ -1419,7 +1419,7 @@ mise run py:gate is what CI runs, per the one-invocation-source-of-truth rule."
 - [ ] The ported suite is green under `PYTHONHASHSEED` 0, 1, 42, and random.
 - [ ] Zero `XPASS`, zero `FAILED` in the ported suite.
 - [ ] `compat/exclusions.toml` has no `UNCLASSIFIED` entries.
-- [ ] `compat-report.json` reports a denominator of **494** (394 collected + 100 invisible) and a pass count of **316**.
+- [ ] `compat-report.json` reports a denominator of **492** (394 collected + 98 invisible) and a pass count of **316**.
 - [ ] Tampering with `manifest.json` fails `tests/test_manifest_drift.py`.
 - [ ] Adding a bogus exclusion for a passing test fails the suite with `XPASS(strict)`.
 - [ ] No file under `tests/ported/` is modified except `test_scene_graph.py`.

@@ -80,13 +80,27 @@ are invisible to both the pass and skip counts:
 | `drawing/test_draw_utils.py` | 3 |
 | `convert/test_pandas.py`, `convert/test_hif_dict.py`, `convert/test_incidence.py`, `readwrite/test_xgi_data.py` | 2 each |
 | `convert/test_encapsulation_dag.py`, `convert/test_k_skeleton.py`, `test_import_time.py` | 1 each |
-| **Total** | **100** |
+| **Total** | **~~100~~ 98** |
+
+> **Correction, made during T0 Task 6.** This table originally totalled 100 and
+> credited `stats/test_core_stats_functions.py` with 52. That file defines
+> `test_hypergraph_stats_items` twice (lines 50 and 239) and
+> `test_dihypergraph_stats_items` twice (lines 62 and 246). Python is
+> last-definition-wins, so two of those four are unreachable and
+> `pytest --collect-only` on that path collects **50**, not 52.
+>
+> The count came from an inventory that counted `def test_` occurrences rather
+> than collectable identities — the same class of error as F6, and caught the
+> same way, by running the thing instead of reading it. Corrected figures:
+> **98 invisible**, honest denominator **492** (394 collected + 98), not 494.
 
 **F4 — The honest score.** Running the ported suite with conformance-exclusion
 markers stripped yields **315 passed / 78 failed / 1 skipped**. The 83 skips
 decompose as 78 genuine failures + 4 fictional (F1) + 1 upstream inline skip
 (`test_spectral.py:59`, macOS seeding). With the 100 invisible tests restored to
-the denominator, the honest figure is **311 / 494 ≈ 63%**, not 311 / 394 ≈ 79%.
+the denominator, the honest figure is **311 / 492 ≈ 63%**, not 311 / 394 ≈ 79%.
+(492, not 494 — see the correction above. T0 subsequently raised the numerator
+to 316 by deleting stale exclusions, giving **316 / 492 ≈ 64%**.)
 
 **F5 — 48 of 65 xgi submodules do not exist.**
 `hypergraph_rs` resolves 17 of xgi's 65 dotted paths: xgi's 12 top-level
