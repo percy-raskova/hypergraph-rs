@@ -13,10 +13,15 @@ def test_render_produces_valid_scene_graph():
     scene = H.render("hyperedge_aware")
     assert len(scene["nodes"]) == 3
     assert len(scene["hyperedges"]) == 1
-    # XGI's real Hypergraph.add_edge does `members = set(members)` before storing (hypergraph.py),
-    # so member order follows CPython's hash-set iteration order, not the caller's list order —
-    # verified against real xgi: `H.edges.members('e1')` yields `['c', 'a', 'b']` for this input.
-    assert scene["hyperedges"][0]["member_ids"] == ["c", "a", "b"]
+    # `add_edge` passes members through a Python `set` before storing, faithfully
+    # reproducing real XGI (`members = set(members)` in hypergraph.py; mirrored at
+    # crates/hypergraph-rs-python/src/hypergraph.rs:1291-1294). Member ORDER is
+    # therefore CPython hash-set iteration order, which varies per process with
+    # PYTHONHASHSEED. Asserting a specific order pins one sample of XGI's own
+    # nondeterminism and fails ~11 runs in 12 (spec F2). The membership SET is
+    # the actual contract.
+    assert set(scene["hyperedges"][0]["member_ids"]) == {"a", "b", "c"}
+    assert len(scene["hyperedges"][0]["member_ids"]) == 3  # no duplicates
     assert scene["bounding_box"][2] > scene["bounding_box"][0]  # max_x > min_x
 
 

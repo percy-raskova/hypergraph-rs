@@ -70,9 +70,17 @@ jobs:
   # in plans/phase-7-python-conformance.md). DORMANT alongside rust-gate/rust-msrv above until
   # this repo has a remote (plans/EXECUTION-STATE.md), but wired now so the gate is ready.
   xgi-conformance:
-    name: Python bindings — XGI conformance gate
+    name: "Python bindings — XGI conformance gate (hashseed ${{ matrix.hashseed }})"
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        # A test that pins CPython hash-set iteration order passes under one
+        # seed and fails under others (spec F2). Several fixed seeds plus one
+        # random draw catch that class of defect; `0` disables randomization
+        # entirely, which is the reproducible baseline.
+        hashseed: ["0", "1", "42", "random"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
@@ -81,7 +89,9 @@ jobs:
       - run: pip install "xgi==0.10.2"                 # test-only differential oracle
       - run: maturin develop
       - run: python tools/audit_symbols.py             # regenerate + assert the deferred ledger
-      - run: pytest tests/ported -q                    # the 51 ported files, adapted + excluded
+      - run: pytest tests/ported -q
+        env:
+          PYTHONHASHSEED: ${{ matrix.hashseed }}
 
   wheel-build:
     name: Python bindings — release wheel smoke (no publish)
