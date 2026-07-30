@@ -1333,11 +1333,53 @@ In `.github/workflows/ci.yml`, in the `xgi-conformance` job, insert between the 
         run: pytest tests/test_manifest_drift.py tests/test_registry_integrity.py tests/test_denominator.py -q
 ```
 
+- [ ] **Step 4b: Pin the class → marker mapping**
+
+Task 5's review found the skip half of `pytest_collection_modifyitems` is **dead at runtime and unpinned**: after Task 5 no *test* entry carries `env`, `upstream-bug`, or `out-of-scope` (the only skip-class entry is a file exclusion, whose class is never consulted). Inverting the branch condition would turn all 77 xfails into skips and nothing in the suite would fail. The reviewer verified the branch by hand — but hand-verification is exactly what this tier replaces with executable guards.
+
+Add to `tests/test_registry_integrity.py`:
+
+```python
+def test_skip_classes_are_exactly_the_unrunnable_ones() -> None:
+    """Pins which classes skip and which xfail.
+
+    The skip branch in conftest.py has no live coverage — no test entry
+    currently carries a skip class — so inverting the condition would silently
+    turn all 77 strict xfails into skips, restoring the hiding behaviour this
+    tier removed. This is the guard for that.
+    """
+    import conftest
+
+    assert conftest._SKIP_CLASSES == frozenset({"env", "upstream-bug", "out-of-scope"})
+
+    valid = {
+        "deferred-symbol", "core-gap", "binding-gap", "divergence",
+        "float-parity", "upstream-private", "env", "upstream-bug",
+        "out-of-scope",
+    }
+    xfail_classes = valid - conftest._SKIP_CLASSES
+    assert xfail_classes == {
+        "deferred-symbol", "core-gap", "binding-gap",
+        "divergence", "float-parity", "upstream-private",
+    }
+```
+
 - [ ] **Step 5: Run the whole gate locally**
 
 Run: `mise run py:gate`
 
-Expected: symbol audit clean, the three meta-test files pass, ported suite reports `315 passed, ~11 skipped, ~72 xfailed, 0 failed, 0 xpassed`.
+Expected: symbol audit clean, the three meta-test files pass, ported suite reports **`316 passed, 1 skipped, 77 xfailed, 0 failed, 0 xpassed`** (= 394 collected).
+
+> **These are measured actuals as of Task 5, not estimates.** An earlier draft of
+> this line said `315 passed, ~11 skipped, ~72 xfailed`; that predated Task 4's
+> reclassification of 8 `env` entries and the deletion of a stale entry. The
+> `~11 skipped` figure in particular is now wrong by an order of magnitude: after
+> Task 5 there is exactly **one** skip in the whole ported suite, and it is
+> upstream's own inline `@pytest.mark.skip` at `communities/test_spectral.py:57`,
+> not a registry entry. Every one of the 77 registry gaps executes.
+>
+> If your run disagrees with these numbers, report the difference — do not adjust
+> anything to reach them.
 
 - [ ] **Step 6: Verify the drift check actually bites**
 
@@ -1377,7 +1419,7 @@ mise run py:gate is what CI runs, per the one-invocation-source-of-truth rule."
 - [ ] The ported suite is green under `PYTHONHASHSEED` 0, 1, 42, and random.
 - [ ] Zero `XPASS`, zero `FAILED` in the ported suite.
 - [ ] `compat/exclusions.toml` has no `UNCLASSIFIED` entries.
-- [ ] `compat-report.json` reports a denominator of 494 and a pass count of 315.
+- [ ] `compat-report.json` reports a denominator of **494** (394 collected + 100 invisible) and a pass count of **316**.
 - [ ] Tampering with `manifest.json` fails `tests/test_manifest_drift.py`.
 - [ ] Adding a bogus exclusion for a passing test fails the suite with `XPASS(strict)`.
 - [ ] No file under `tests/ported/` is modified except `test_scene_graph.py`.
