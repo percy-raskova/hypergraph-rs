@@ -5,6 +5,14 @@
 - **Scope decision:** Honest drop-in with loud, legible gaps
 - **Supersedes:** nothing. **Extends:** `plans/C9-exclusion-crosscheck.md`
 
+**Revision, same day, after adversarial review (14 findings, 4 survived):**
+F6 was **retracted** — its claim of in-file test adaptations was false and is
+replaced by the measured opposite (§1.1 F6); the root-cause count in §1.2 drops
+from four to three. F1's entry count corrected 9 → 8. F5's "none of the leaf
+modules" corrected — 5 leaf modules already exist. C5 gained the
+`drawing.draw` module/function collision hazard, which would have made the fix
+itself a drop-in regression. C6 gained a measured blast radius.
+
 > This is a **design document**, not a description of shipped behavior. Every
 > component described under "Design" is proposed and does not exist yet. Every
 > claim under "Verified findings" was measured in-repo on 2026-07-30 and the
@@ -30,7 +38,7 @@ Each of the following was measured directly, not inferred.
 **F1 — The exclusion glue over-skips by prefix.**
 `tests/conftest.py:358` matches with `item.name.startswith(name)`. A registry
 entry therefore claims every test sharing its prefix. There are **13 collateral
-matches** across 9 registry entries. Nine of those collaterals happen to carry
+matches** across 8 registry entries. Nine of those collaterals happen to carry
 their own entries; **four do not** and are skipped under a borrowed, incorrect
 reason:
 
@@ -81,32 +89,50 @@ decompose as 78 genuine failures + 4 fictional (F1) + 1 upstream inline skip
 the denominator, the honest figure is **311 / 494 ≈ 63%**, not 311 / 394 ≈ 79%.
 
 **F5 — 48 of 65 xgi submodules do not exist.**
-`hypergraph_rs` provides the 17 package-level names and none of the leaf
-modules: `xgi.algorithms.centrality`, `xgi.core.hypergraph`,
+`hypergraph_rs` resolves 17 of xgi's 65 dotted paths: xgi's 12 top-level
+namespace entries (`algorithms`, `communities`, `convert`, `core`, `drawing`,
+`dynamics`, `exception`, `generators`, `linalg`, `readwrite`, `stats`, `utils`)
+plus 5 leaf modules that already exist — `algorithms.assortativity`,
+`core.globalviews`, `readwrite.json`, `utils.trie`, `utils.utilities`. The other
+48 leaf modules do not: `xgi.algorithms.centrality`, `xgi.core.hypergraph`,
 `xgi.convert.hyperedges`, `xgi.stats.nodestats`, and 44 more.
 `tools/audit_symbols.py` compares `__all__` only and passes clean, so the build
 gate is structurally blind to this category. `from xgi.core.hypergraph import
 Hypergraph` fails today and nothing measures it.
 
-**F6 — Some assertions were weakened in-file, off the registry's books.**
-`linalg/test_matrix.py::test_fix_647` changes upstream's `assert np.all(evals >= 0)`
-to `>= -1e-12`; `test_hypergraph.py` rewrites `xgi.utilities.dual_dict` to
-`xgi.dual_dict` (there is no `xgi.utilities` submodule here);
-`utils/test_utilities.py:122` calls `xgi.utils.utilities.min_where` with an
-inline note that the top-level alias "seems not to work";
-`drawing/test_draw.py` substitutes seaborn's palette with `crest_r`, itself a
-`make_deferred` stub. None of these are recorded in the exclusion registry.
+**F6 — No in-file adaptations exist. The ported tree is a verbatim copy.**
+
+An earlier draft of this document claimed four cases where the port had
+weakened assertions or rewritten call paths "off the registry's books"
+(`test_fix_647`'s eigenvalue tolerance, a `xgi.utilities.dual_dict` rewrite, a
+`min_where` workaround, a seaborn/`crest_r` substitution). **That claim was
+false and has been retracted.** It was taken from a subagent report and written
+into this section without being measured — the defect class this document
+exists to eliminate.
+
+Measured: every file under `tests/ported/` was diffed against XGI 0.10.2's own
+vendored suite at `.venv/lib/python3.13/site-packages/tests/`, whose integrity
+was confirmed by recomputing sha256 against `xgi-0.10.2.dist-info/RECORD`.
+**Zero non-import differences exist anywhere in the ported tree.** Each of the
+four cited lines is upstream XGI's own code, including the `-1e-12` tolerance
+and the "seems not to work" comment. The 16 files with no upstream counterpart
+are this repo's own tests, not ports.
+
+This is a *positive* finding and it strengthens the case: the ported oracle is
+uncontaminated, so every discrepancy in F1–F5 is an aggregation defect rather
+than a modified test. All reconciliation between the port and XGI happens in the
+exclusion registry, which is exactly where the manifest can capture it.
 
 ### 1.2 Root cause
 
-Four uncoordinated sources of truth, with nothing reconciling them:
+Three uncoordinated sources of truth, with nothing reconciling them:
 
 1. `tests/DEFERRED_SYMBOLS.md` — symbol-level, generated (71 deferred / 93 bound of 164)
 2. `tests/conftest_exclusions.py` — test-level, hand-maintained, prefix-matched
 3. `tests/conformance/main.rs` D1–D17 — behavior-level, Rust-only
-4. In-file adaptations (F6) — recorded nowhere
 
-The disagreements between them are exactly F1, F2, F3, and F6.
+The disagreements between them are exactly F1, F2, and F3. F5 is a fourth blind
+spot of a different kind: a category none of the three tracks at all.
 
 ### 1.3 What is *not* broken
 
@@ -241,12 +267,49 @@ COVERED / DEFERRED / DIVERGENT with the cited reason.
 and siblings, re-exporting from the top level, generated from real xgi's own
 module contents so the mapping is not guesswork.
 
+**Hazard: `drawing.draw` is both a module name and a bound function.**
+`hypergraph_rs.drawing.draw` is currently a callable function (verified). Real
+xgi survives the same collision only by import order — `xgi/drawing/__init__.py`
+imports `.draw` first, so `sys.modules['xgi.drawing.draw']` already exists and a
+later `import xgi.drawing.draw` does not re-`setattr` the parent; the
+star-imported function wins permanently.
+
+A generated shim that `__init__.py` does *not* import **inverts** that order.
+The first `import hypergraph_rs.drawing.draw` — including the
+`from ... import _CCW_sort` used as the motivating example in §4.1 and §6 E2 —
+makes the import machinery `setattr` the module onto the package, after which
+`xgi.drawing.draw(H, ...)` raises `TypeError: 'module' object is not callable`.
+That is a drop-in *regression introduced by the fix*, triggered by exactly the
+file this design names.
+
+**Resolution:** mirror xgi's own ordering — `python/hypergraph_rs/drawing/__init__.py`
+performs `from .draw import *` on the generated shim, so the function is bound
+after the module and the `setattr` can never invert. A regression test imports
+every shim and then asserts `callable(hypergraph_rs.drawing.draw)`. Any other
+generated shim whose leaf name collides with an already-bound callable gets the
+same treatment; the generator must detect the collision rather than assume
+`drawing.draw` is the only one.
+
+**Measurement basis, stated explicitly:** `pkgutil.walk_packages` reports 48
+missing, because it does not see `drawing.draw` (which resolves today via
+`getattr`). A `getattr`-based closure test would report 47. This design uses the
+`walk_packages` number throughout, and the §7.2 closure test must use the same
+basis or the two will disagree by one forever.
+
 **C6 — `AttrProxy` (new PyO3 type).** Read-through, raise-on-mutation for
 `_net_attr`, `_node_attr`, `_edge_attr`, `_node`, `_edge`. Reads
 (`__getitem__`, `__iter__`, `__len__`, `__contains__`, `__eq__`, `__repr__`)
 behave as today; mutations (`__setitem__`, `__delitem__`, `update`, `pop`,
 `clear`) raise. Reads are the common case in the ported suite, so the many tests
 that only read `_edge`/`_node` stay green.
+
+**Blast radius, measured:** 16 ported files touch the private attrs, but only
+**3 sites across 2 tests** mutate them — `utils/test_utilities.py:27,30`
+(`test_iddict`) and `algorithms/test_properties.py:19` (`test_equal`). No test
+mutates a *nested* value obtained from them (no `_edge[k].add(...)`, no
+`_node[k][j] = ...`), so a snapshot-returning `__getitem__` introduces no
+second-order silent loss. This bounds the cost of the refuse decision at two
+tests.
 
 **C7 — `tools/audit_symbols.py`, extended.** Gains a submodule-path assertion
 alongside the existing `__all__` check, closing the F5 blind spot.
