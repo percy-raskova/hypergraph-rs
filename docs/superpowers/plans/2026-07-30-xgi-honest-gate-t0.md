@@ -593,6 +593,11 @@ from conftest_exclusions import FILE_EXCLUSIONS, TEST_EXCLUSIONS  # noqa: E402
 
 # Ordered most-specific first; the first matching rule wins.
 RULES: list[tuple[str, str]] = [
+    # Task 2's four temporary entries open with "env:". Without this rule they
+    # migrate as UNCLASSIFIED, and a hand-resolution slip would flip them from
+    # `skip` to strict `xfail` under Task 5 — where they would XPASS, since
+    # those four tests actually pass. (Task 2 review, minor.)
+    ("env:", "env"),
     ("network:", "env"),
     ("network reader", "env"),
     ("pandas", "env"),
