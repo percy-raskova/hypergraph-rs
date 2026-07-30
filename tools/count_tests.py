@@ -8,27 +8,41 @@ account for. pytest cannot count them — some of these files cannot even import
 
 import ast
 import pathlib
+import sys
 
 PORTED = pathlib.Path(__file__).parent.parent / "tests" / "ported"
 
 
 def count_tests_in_file(path: pathlib.Path) -> int:
-    """Number of test functions/methods defined in `path`, via AST."""
-    tree = ast.parse(path.read_text())
-    n = 0
-    # Bounded: one pass over the module's AST nodes.
-    for node in ast.walk(tree):
+    """Number of tests pytest would collect from `path`, via AST.
+
+    Counts UNIQUE (class, name) identities rather than `FunctionDef` nodes.
+    Python is last-definition-wins, so a module that defines the same test name
+    twice exposes only one of them — `tests/ported/stats/test_core_stats_functions.py`
+    does exactly this twice over, and counting nodes overstated it by 2. Two
+    different classes may each define the same method name and pytest collects
+    both, hence the class-scoped key rather than a bare name set.
+    """
+    tree = ast.parse(path.read_bytes())
+    seen: set[tuple[str | None, str]] = set()
+    # Bounded: module body, then one class body per class.
+    for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             if node.name.startswith("test_"):
-                n += 1
-    return n
+                seen.add((None, node.name))
+        elif isinstance(node, ast.ClassDef):
+            for sub in node.body:
+                if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if sub.name.startswith("test_"):
+                        seen.add((node.name, sub.name))
+    return len(seen)
 
 
 def file_exclusion_test_counts() -> dict[str, int]:
     """`{relpath: test count}` for every whole-file exclusion."""
-    import sys
-
-    sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "tests"))
+    _tests_dir = str(pathlib.Path(__file__).parent.parent / "tests")
+    if _tests_dir not in sys.path:
+        sys.path.insert(0, _tests_dir)
     from conftest_exclusions import FILE_EXCLUSIONS
 
     out: dict[str, int] = {}
