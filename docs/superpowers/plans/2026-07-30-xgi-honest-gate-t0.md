@@ -225,33 +225,63 @@ Fixed in the next task."
 - Modify: `tests/conftest_exclusions.py` (add 4 entries, qualify the spectral entries)
 
 **Interfaces:**
-- Consumes: `_test_names`/`_qualified_test_names` semantics from Task 1.
-- Produces: `_entry_matches(item, entry) -> bool` in `conftest.py`, reused by Task 5.
+- Consumes: `_test_names`/`_qualified_test_names` from Task 1.
+- Produces: `entry_matches_name(name, entry) -> bool` in `conftest_exclusions.py` — the single matching implementation, imported by both `conftest.py` and `tests/test_registry_integrity.py`. And `_entry_matches(item, entry) -> bool` in `conftest.py`, a thin pytest-item adapter over it, reused by Task 5.
 
-- [ ] **Step 1: Replace the matcher in `tests/conftest.py`**
+> **Plan amendment (owner ruling, after Task 1 review).** Task 1's
+> `test_no_exclusion_entry_claims_a_test_it_does_not_name` asserts a property of
+> the registry's *text* — no test name may extend an entry's prefix. That is the
+> wrong target: F1 lives in the **matcher**, not the registry. Once exact matching
+> lands, a prefix relationship is harmless, but the textual test forbids it
+> forever — so Task 5's deletion of the four orphan entries would turn it red
+> again, invisibly (Task 5 runs only `pytest tests/ported`, which never collects
+> the integrity file). This task therefore **replaces** that test, and
+> `test_class_scoped_tests_are_qualified_in_the_registry`, with one test that
+> asserts the real property through the matcher. See Step 5.
+
+- [ ] **Step 1: Add the shared matcher to `tests/conftest_exclusions.py`**
+
+Append to `tests/conftest_exclusions.py`. This is the single implementation of "does this collected test match this registry entry" — `conftest.py` and the integrity tests both delegate to it, so the rule cannot drift between enforcement and verification.
+
+```python
+def entry_matches_name(name: str, entry: str) -> bool:
+    """Does collected-test `name` match registry `entry`?
+
+    Both are either `"test_func"` or `"ClassName::test_method"`. Matching is
+    EXACT, with one tolerance: pytest appends a parametrization suffix
+    (`test_foo[1-2]`), and `[` cannot occur in a Python identifier, so
+    `name.startswith(entry + "[")` cannot reach a sibling test the way a bare
+    `startswith` does. A bare entry never matches a class-scoped test and vice
+    versa, so an entry can never claim a test it does not name (spec F1).
+    """
+    if ("::" in entry) != ("::" in name):
+        return False
+    if "::" in entry:
+        entry_cls, entry_fn = entry.split("::", 1)
+        name_cls, name_fn = name.split("::", 1)
+        if entry_cls != name_cls:
+            return False
+    else:
+        entry_fn, name_fn = entry, name
+    return name_fn == entry_fn or name_fn.startswith(entry_fn + "[")
+```
+
+- [ ] **Step 2: Delegate from `tests/conftest.py`**
 
 Replace lines 354-359 (the `pytest_collection_modifyitems` body) with:
 
 ```python
 def _entry_matches(item, entry: str) -> bool:
-    """Exact match, tolerating parametrization and requiring class qualification.
+    """Pytest-item adapter over `entry_matches_name` (the single matcher).
 
-    `entry` is either `"test_name"` or `"ClassName::test_name"`. A bare entry
-    never matches a class-scoped test and vice versa, so an entry can never
-    claim a sibling it does not name (spec F1). The `name[` prefix allows
-    pytest's parametrization suffix without reopening prefix matching, because
-    `[` cannot appear in a Python identifier.
+    Derives the item's registry-shaped name — `Class::method` for a class-scoped
+    test, the bare name otherwise — then defers. All matching semantics live in
+    `conftest_exclusions.entry_matches_name` so enforcement here and verification
+    in tests/test_registry_integrity.py can never drift apart.
     """
     cls = getattr(item, "cls", None)
-    if "::" in entry:
-        want_cls, want = entry.split("::", 1)
-        if cls is None or cls.__name__ != want_cls:
-            return False
-    else:
-        want = entry
-        if cls is not None:
-            return False
-    return item.name == want or item.name.startswith(want + "[")
+    name = f"{cls.__name__}::{item.name}" if cls is not None else item.name
+    return entry_matches_name(name, entry)
 
 
 def pytest_collection_modifyitems(config, items):
@@ -264,7 +294,13 @@ def pytest_collection_modifyitems(config, items):
                 )
 ```
 
-- [ ] **Step 2: Discover the exact class-qualified names to write**
+Also update the import at `tests/conftest.py:346` so the delegate resolves:
+
+```python
+from conftest_exclusions import FILE_EXCLUSIONS, TEST_EXCLUSIONS, entry_matches_name
+```
+
+- [ ] **Step 3: Discover the exact class-qualified names to write**
 
 Run:
 
@@ -283,7 +319,7 @@ for n in t.body:
 
 Record the output. Every `communities/test_spectral.py` entry in `TEST_EXCLUSIONS` must be rewritten to the matching `Class::method` string from this list. The `_kmeans` reason applies **only** to the `TestKMeans` entries — the `TestSpectralClustering` method of the same name carries its own inline skip and must not be given the `_kmeans` reason (this is the reason-mismatch the review found).
 
-- [ ] **Step 3: Add the four orphan entries with their true reasons**
+- [ ] **Step 4: Add the four orphan entries with their true reasons**
 
 In `tests/conftest_exclusions.py`, add to the existing lists:
 
@@ -315,20 +351,70 @@ In `tests/conftest_exclusions.py`, add to the existing lists:
 
 These four entries are **deliberately temporary**. They keep the registry honest about what is currently skipped while Task 1's tests go green; Task 5 deletes them so the tests run and count as passes. This two-step exists so that exactly one behavior changes per task.
 
-- [ ] **Step 4: Run the integrity tests**
+- [ ] **Step 5: Retarget the integrity tests at the matcher**
+
+In `tests/test_registry_integrity.py`, **delete** both `test_no_exclusion_entry_claims_a_test_it_does_not_name` and `test_class_scoped_tests_are_qualified_in_the_registry`, and add the two below. Keep `test_every_exclusion_entry_names_a_real_test` and `test_every_file_exclusion_names_a_real_file` unchanged. Add `entry_matches_name` to the existing import from `conftest_exclusions`.
+
+The first is a direct unit test of the F1 defect — it is what fails if anyone reintroduces prefix matching. The second replaces both deleted tests: 0 hits catches an unqualified class-scoped entry (what the old test 3 caught), 2+ hits catches an entry claiming siblings (what the old test 1 caught).
+
+```python
+def test_entry_matches_name_rejects_prefix_siblings() -> None:
+    """The F1 regression guard. A bare `startswith` fails every `not` below."""
+    assert entry_matches_name("test_write_hif", "test_write_hif")
+    assert not entry_matches_name("test_write_hif_compressed", "test_write_hif")
+    assert not entry_matches_name("test_empty_order", "test_empty")
+    # pytest's parametrization suffix must still match; `[` cannot occur in an
+    # identifier, so this tolerance cannot reach a sibling test.
+    assert entry_matches_name("test_foo[1-2]", "test_foo")
+    # Class scoping is symmetric: neither shape matches the other.
+    assert entry_matches_name("TestA::test_x", "TestA::test_x")
+    assert not entry_matches_name("TestB::test_x", "TestA::test_x")
+    assert not entry_matches_name("TestA::test_x", "test_x")
+    assert not entry_matches_name("test_x", "TestA::test_x")
+
+
+def test_each_entry_matches_exactly_one_test() -> None:
+    """Every registry entry must claim exactly the one test it names.
+
+    Supersedes the earlier prefix-text assertions. Those asked whether the
+    registry's TEXT contained prefix relationships, which exact matching renders
+    harmless — and which Task 5 deliberately restores. This asks the real
+    question, through the matcher itself, so it survives Task 5 unchanged.
+    """
+    problems: list[str] = []
+    for rel, entries in TEST_EXCLUSIONS.items():
+        path = PORTED / rel
+        if not path.exists():
+            problems.append(f"{rel}  (file does not exist)")
+            continue
+        names = set(_qualified_test_names(path))
+        # Bounded: entries for this file, times names in this file.
+        for entry, _ in entries:
+            hits = sorted(n for n in names if entry_matches_name(n, entry))
+            if len(hits) != 1:
+                problems.append(f"{rel}::{entry} matches {len(hits)}: {hits}")
+    assert problems == [], (
+        "registry entries that do not claim exactly one test:\n  "
+        + "\n  ".join(problems)
+    )
+```
+
+- [ ] **Step 6: Run the integrity tests**
 
 Run: `.venv/bin/python -m pytest tests/test_registry_integrity.py -v`
-Expected: all four PASS.
+Expected: all four PASS (two carried over from Task 1, two new).
 
-- [ ] **Step 5: Run the ported suite and confirm the count is unchanged**
+If `test_each_entry_matches_exactly_one_test` reports an entry matching 0 tests, a class-scoped entry was not qualified in Step 3/4 — fix the entry, not the test.
+
+- [ ] **Step 7: Run the ported suite and confirm the count is unchanged**
 
 Run: `.venv/bin/python -m pytest tests/ported -q`
 Expected: `311 passed, 83 skipped` — identical to before. Exact matching plus four explicit entries reproduces the old prefix behavior exactly. Any other number means the matcher changed semantics and must be investigated before committing.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add tests/conftest.py tests/conftest_exclusions.py
+git add tests/conftest.py tests/conftest_exclusions.py tests/test_registry_integrity.py
 git commit --no-verify -m "fix(conformance): exact-match exclusion entries, close F1
 
 Replaces item.name.startswith(name) with exact matching that tolerates
@@ -633,6 +719,21 @@ for _e in _DATA.get("test_exclusion", []):
     ENTRY_CLASSES[(_e["path"], _e["test"])] = _e["class"]
 ```
 
+**Carry `entry_matches_name` across unchanged.** Task 2 added it to this file, and both `conftest.py` and `tests/test_registry_integrity.py` import it. Copy the function verbatim into the rewritten file — do not reimplement or alter it. Verify with `rg -n 'def entry_matches_name' tests/conftest_exclusions.py` after the rewrite.
+
+**Add the non-emptiness guard** (Task 1 review, deferred minor — due here). With the registry now parsed from TOML rather than a Python literal, an empty or mis-keyed parse becomes a realistic regression, and it would make three integrity tests pass vacuously. Append to `tests/test_registry_integrity.py`:
+
+```python
+def test_registry_is_not_empty() -> None:
+    """A TOML parse that silently yields nothing would make the integrity
+    tests above pass vacuously (Task 1 review, deferred minor)."""
+    assert FILE_EXCLUSIONS, "FILE_EXCLUSIONS parsed empty from compat/exclusions.toml"
+    assert TEST_EXCLUSIONS, "TEST_EXCLUSIONS parsed empty from compat/exclusions.toml"
+    assert ENTRY_CLASSES, "ENTRY_CLASSES parsed empty from compat/exclusions.toml"
+```
+
+Add `ENTRY_CLASSES` to that file's import from `conftest_exclusions`.
+
 - [ ] **Step 5: Verify nothing moved**
 
 Run: `.venv/bin/python -m pytest tests/ported tests/test_registry_integrity.py -q`
@@ -696,8 +797,15 @@ def pytest_collection_modifyitems(config, items):
 Update the import at `tests/conftest.py:346` to pull in the new name:
 
 ```python
-from conftest_exclusions import ENTRY_CLASSES, FILE_EXCLUSIONS, TEST_EXCLUSIONS
+from conftest_exclusions import (
+    ENTRY_CLASSES,
+    FILE_EXCLUSIONS,
+    TEST_EXCLUSIONS,
+    entry_matches_name,
+)
 ```
+
+`entry_matches_name` must stay in this import — `_entry_matches` delegates to it and dropping it raises `NameError` at collection.
 
 - [ ] **Step 3: Run and read the outcome carefully**
 
