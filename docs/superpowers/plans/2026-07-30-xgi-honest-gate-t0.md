@@ -20,7 +20,21 @@
 - **Determinism (III.7).** No `HashMap` in any public iteration path; insertion order via `IndexMap`.
 - **Power-of-10 rule 2.** Every loop needs a statically provable bound.
 - **Commits:** plain `git commit --no-verify`, conventional messages. Commit at each task end.
-- **Do not modify any file under `tests/ported/`** except `test_scene_graph.py` (Task 3). That tree is a verbatim copy of XGI 0.10.2's vendored suite modulo imports (spec F6) and its integrity is the oracle's value. All reconciliation happens in the registry.
+- **Do not modify any file under `tests/ported/` that has an upstream counterpart** in `.venv/lib/python3.13/site-packages/tests/`. Those are verbatim copies of XGI 0.10.2's vendored suite modulo imports (spec F6) and their integrity is the oracle's whole value. All reconciliation with them happens in the registry, never in the test text.
+
+  **Sixteen files under `tests/ported/` are repo-authored and ARE editable** — they have no upstream counterpart and are not part of the oracle:
+
+  ```
+  test_generators_smoke.py     test_algorithms_smoke.py    test_linalg_smoke.py
+  test_simplicial_smoke.py     test_dihypergraph_smoke.py  test_stubs_present.py
+  test_exception_hierarchy.py  test_views_smoke.py         test_stats_smoke.py
+  test_pyhypergraph_smoke.py   test_property_differential.py
+  test_package_imports.py      test_gate_summary.py        test_convert_utils_smoke.py
+  drawing/test_scene_graph.py  drawing/test_mpl_optional.py
+  ```
+
+  Verify membership before editing anything in that tree:
+  `ls .venv/lib/python3.13/site-packages/tests/<relpath>` — if it exists, the file is oracle and is off-limits.
 - **Python 3.13**, pytest invoked as `.venv/bin/python -m pytest`.
 
 ---
@@ -399,6 +413,23 @@ def test_each_entry_matches_exactly_one_test() -> None:
     )
 ```
 
+- [ ] **Step 5b: Extend the gate-summary whitelist**
+
+`tests/ported/test_gate_summary.py::test_no_unexcused_exclusions` (repo-authored, editable per Global Constraints) asserts every exclusion reason contains one of a hand-maintained keyword list. That list predates this plan and does not know the class taxonomy, so the four `env:` reasons added in Step 4 fail it.
+
+Add the eight taxonomy class names to its `sanctioned` tuple, leaving the existing keywords in place:
+
+```python
+    sanctioned = ("pandas", "network", "decorator", "image", "private", "deferred",
+                  "trajectory", "parity", "colormap", "Trie", "pickle", "scene-graph",
+                  "import-time", "fetch",   # "fetch" = OQ-2 disk-fixture reason (f)
+                  # Task 4's class taxonomy — this whitelist is superseded by
+                  # taxonomy validation in Task 4 Step 4b, which deletes it.
+                  "env", "core-gap", "binding-gap", "divergence",
+                  "float-parity", "upstream-private", "deferred-symbol",
+                  "upstream-bug")
+```
+
 - [ ] **Step 6: Run the integrity tests**
 
 Run: `.venv/bin/python -m pytest tests/test_registry_integrity.py -v`
@@ -414,7 +445,8 @@ Expected: `311 passed, 83 skipped` — identical to before. Exact matching plus 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add tests/conftest.py tests/conftest_exclusions.py tests/test_registry_integrity.py
+git add tests/conftest.py tests/conftest_exclusions.py tests/test_registry_integrity.py \
+        tests/ported/test_gate_summary.py
 git commit --no-verify -m "fix(conformance): exact-match exclusion entries, close F1
 
 Replaces item.name.startswith(name) with exact matching that tolerates
@@ -733,6 +765,41 @@ def test_registry_is_not_empty() -> None:
 ```
 
 Add `ENTRY_CLASSES` to that file's import from `conftest_exclusions`.
+
+- [ ] **Step 4b: Replace the gate-summary keyword whitelist with taxonomy validation**
+
+`tests/ported/test_gate_summary.py::test_no_unexcused_exclusions` is a *fourth* uncoordinated source of truth about the registry — a hand-maintained keyword list that has to be extended by hand every time a reason is worded differently (Task 2 Step 5b had to do exactly that). That is the DRY defect this whole tier exists to remove. Now that every entry carries a `class` from a closed taxonomy, the check becomes exact.
+
+Replace the body of `test_no_unexcused_exclusions` with:
+
+```python
+def test_no_unexcused_exclusions():
+    """Every exclusion must carry a class from the closed taxonomy.
+
+    Supersedes the previous hand-maintained keyword whitelist, which validated
+    reason PROSE by substring and needed editing whenever a reason was worded
+    differently. The taxonomy is exact and is the same field that drives the
+    skip-vs-xfail decision in conftest.py, so this check and the runtime
+    behaviour cannot disagree.
+    """
+    from conftest_exclusions import ENTRY_CLASSES, FILE_CLASSES
+
+    valid = {
+        "deferred-symbol", "core-gap", "binding-gap", "divergence",
+        "float-parity", "upstream-private", "env", "upstream-bug",
+    }
+    bad = []
+    # Bounded: one pass over each registry mapping.
+    for path, cls in FILE_CLASSES.items():
+        if cls not in valid:
+            bad.append(f"{path}: class `{cls}` not in taxonomy")
+    for (path, name), cls in ENTRY_CLASSES.items():
+        if cls not in valid:
+            bad.append(f"{path}::{name}: class `{cls}` not in taxonomy")
+    assert bad == [], "exclusions with an invalid class:\n  " + "\n  ".join(bad)
+```
+
+This is where `FILE_CLASSES` — exported in Step 4 and unused until now — earns its place.
 
 - [ ] **Step 5: Verify nothing moved**
 
