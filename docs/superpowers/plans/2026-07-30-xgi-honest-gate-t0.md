@@ -1210,7 +1210,7 @@ git commit --no-verify -m "feat(compat): manifest generator — one artifact, fo
 Introspects the built extension for bound-vs-deferred, walks real xgi for
 expected dotted paths, reads the authored TOMLs, and emits manifest.json.
 Verified against the existing ledger: 93 bound / 71 deferred / 48 missing
-namespaces / 100 invisible tests.
+namespaces / 98 invisible tests.
 
 Carries no score: a static capability claim belongs in the wheel, a run
 outcome belongs in CI. Placed under the package so T1's xgi.compat needs
