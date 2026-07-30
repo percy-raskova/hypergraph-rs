@@ -10,7 +10,7 @@
 
 [[file_exclusion]]
 path = "convert/test_pandas.py"
-class = "env"
+class = "deferred-symbol"
 reason = "pandas integration not ported (spec §4.4)."
 
 [[file_exclusion]]
@@ -25,7 +25,7 @@ reason = "deferred: to_hif_dict/from_hif_dict CONVERT dispatchers (xgi.convert.t
 
 [[file_exclusion]]
 path = "convert/test_higher_order_network.py"
-class = "env"
+class = "deferred-symbol"
 reason = "deferred: to_hypergraph/to_dihypergraph/to_simplicial_complex dispatchers not ported (§A ledger); also exercises pandas (spec §4.4)."
 
 [[file_exclusion]]
@@ -45,12 +45,12 @@ reason = "deferred: to_line_graph (convert, §A ledger)."
 
 [[file_exclusion]]
 path = "readwrite/test_xgi_data.py"
-class = "env"
+class = "deferred-symbol"
 reason = "network reader load_xgi_data/download_xgi_data gated off (spec §4.3)."
 
 [[file_exclusion]]
 path = "readwrite/test_bigg_data.py"
-class = "env"
+class = "deferred-symbol"
 reason = "network: load_bigg_data is @pytest.mark.webtest/@slow and hits the BiGG server; its skipif (sys.version_info != (3,12) and not Linux) does NOT skip on the target Linux/py3.13 box (D7)."
 
 [[file_exclusion]]
@@ -60,7 +60,7 @@ reason = "tests the nodestat_func/dispatch decorator machinery, replaced by idio
 
 [[file_exclusion]]
 path = "drawing/test_draw.py"
-class = "env"
+class = "deferred-symbol"
 reason = "matplotlib @mpl_image_compare pixel tests; replaced by scene-graph tests (spec §9.3)."
 
 [[file_exclusion]]
@@ -76,7 +76,7 @@ reason = "asserts xgi package import-time budget; not a semantic conformance tes
 [[test_exclusion]]
 path = "algorithms/test_properties.py"
 test = "test_equal"
-class = "core-gap"
+class = "binding-gap"
 reason = "binding gap: `H._net_attr` (and `_node_attr`/`_edge_attr`) return a snapshot PyDict copy, not a live reference into the binding's Rust-side attr store — real XGI's `_net_attr` IS the live dict, so `del H1._net_attr['test']` mutates it in place; here the deletion is silently lost. `xgi.equal` itself is correctly implemented (verified: the assertions up to and including `H1['test'] = ...` all pass). A live-reference fix needs a custom mutable-mapping proxy type wired to the core attr store — out of scope for this binding pass; not a core gap (Task 15 triage bucket 1, deferred as a documented binding limitation rather than fixed here)."
 
 [[test_exclusion]]
@@ -184,7 +184,7 @@ reason = "deferred: write_hif_collection/read_hif_collection are not bound (no p
 [[test_exclusion]]
 path = "readwrite/test_hif.py"
 test = "test_write_hif"
-class = "deferred-symbol"
+class = "core-gap"
 reason = "deferred: to_hif_dict only exists for (undirected) Hypergraph (hif.rs module doc); SimplicialComplex ('asc' network-type) and DiHypergraph ('directed') HIF export are genuinely unbuilt, not a binding-level fix — not pre-approved this pass (Task 15 triage bucket 2). The Hypergraph portion of this test (verified separately) is green; the SC/DiHypergraph portions in the same test function are not."
 
 [[test_exclusion]]
@@ -208,7 +208,7 @@ reason = "env: gzip-compressed HIF write/read of a plain Hypergraph is IMPLEMENT
 [[test_exclusion]]
 path = "linalg/test_matrix.py"
 test = "test_fix_649"
-class = "env"
+class = "deferred-symbol"
 reason = "network: calls load_xgi_data(dataset='email-enron'), gated off (spec §4.3)."
 
 [[test_exclusion]]
@@ -238,7 +238,7 @@ reason = "env: passes; previously swept up by the `test_empty` prefix entry (spe
 [[test_exclusion]]
 path = "core/test_hypergraph.py"
 test = "test_constructor"
-class = "env"
+class = "deferred-symbol"
 reason = "deferred: numpy incidence-matrix (from_incidence_matrix) and pandas-dataframe constructors — convert dispatchers not ported (§A ledger, spec §4.4)."
 
 [[test_exclusion]]
@@ -250,13 +250,13 @@ reason = "deferred: merge_rule='union' stores each attr as a Python `set`; the c
 [[test_exclusion]]
 path = "core/test_simplicialcomplex.py"
 test = "test_constructor"
-class = "env"
+class = "deferred-symbol"
 reason = "pandas-dataframe constructor path (SimplicialComplex(dataframe5)) — pandas integration not ported (spec §4.4), same deferral as Hypergraph's constructor."
 
 [[test_exclusion]]
 path = "core/test_simplicialcomplex.py"
 test = "test_add_simplices_from_format2"
-class = "deferred-symbol"
+class = "core-gap"
 reason = "deferred: auto-assigned FACE ids (from add_simplex's closure-under-faces) are minted in a different enumeration order than real XGI's `_faces`/`add_simplex` subface iteration, so `H._edge == simplices1` (which pins exact face ids like `H._edge[3] == frozenset({2,4})`) diverges even though the SET of simplices is identical. Fixing requires matching the core's face-closure generation order to XGI's exactly — not a binding-level fix."
 
 [[test_exclusion]]
@@ -292,7 +292,7 @@ reason = "deferred: exercises SC.remove_node, which has no core primitive (see t
 [[test_exclusion]]
 path = "core/test_simplicialcomplex.py"
 test = "test_cleanup"
-class = "deferred-symbol"
+class = "core-gap"
 reason = "deferred: SimplicialComplex has no isolate_node_ids/node-removal primitive in the core (unlike Hypergraph/DiHypergraph); cleanup(isolates=...) cannot be implemented at the binding level without one."
 
 [[test_exclusion]]
@@ -324,12 +324,6 @@ path = "core/test_views.py"
 test = "test_maximal"
 class = "deferred-symbol"
 reason = "deferred: SCEdgeView.maximal()/scoped-call not yet ported for SimplicialComplex (Task 7 rebuild still open in this pass); tracked for the simplicial-complex tier, not a P0-tier gap."
-
-[[test_exclusion]]
-path = "core/test_views.py"
-test = "test_stat_discoverability"
-class = "binding-gap"
-reason = "decorator machinery: asserts algorithm-derived stats (e.g. clustering_coefficient) appear in dir(); the nodestat/edgestat dispatch-registry machinery is replaced by idiomatic Rust getters (spec §4.4), same category as stats/test_core_stats_functions.py."
 
 [[test_exclusion]]
 path = "core/test_views.py"
@@ -394,7 +388,7 @@ reason = "imports private _choose_degrees; helper not part of the port."
 [[test_exclusion]]
 path = "algorithms/test_assortativity.py"
 test = "test_degree_assortativity"
-class = "divergence"
+class = "deferred-symbol"
 reason = "deferred (documented deviation, algorithms.rs module doc): degree_assortativity(exact=False) (random-sampling path) awaits the Phase-4 rand_pcg pin; raises NotImplementedError."
 
 [[test_exclusion]]
@@ -442,7 +436,7 @@ reason = "imports private algorithms.simpliciality._max_number_of_subfaces helpe
 [[test_exclusion]]
 path = "utils/test_utilities.py"
 test = "test_iddict"
-class = "deferred-symbol"
+class = "binding-gap"
 reason = "deferred: `H._edge`/`H._node` return snapshot copies, not a live mutable reference into the binding's Rust-side store — `H._edge[None] = {1,2,3}` (expected to raise XGIError) and `del H._node[\"test\"]` (expected IDNotFound) mutate a throwaway dict instead. Same category as algorithms/test_properties.py::test_equal's `_net_attr` gap (Task 17 execution note) — a live-reference fix needs a custom mutable-mapping proxy type, out of scope for this pass."
 
 [[test_exclusion]]
@@ -472,7 +466,7 @@ reason = "deferred: geometric (utils, §A ledger)."
 [[test_exclusion]]
 path = "utils/test_utilities.py"
 test = "test_convert_labels_to_integers"
-class = "deferred-symbol"
+class = "core-gap"
 reason = "deferred: `convert_labels_to_integers` only exists for (undirected) Hypergraph (utils/mod.rs) — the Hypergraph portion of this test (verified separately, including the label-type binding fix in Task 17 execution notes) is green; the SimplicialComplex/DiHypergraph portions in the same test function need an equivalent core relabeling function that was never built — not pre-approved this pass (Task 15 triage bucket 2)."
 
 [[test_exclusion]]

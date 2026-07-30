@@ -56,6 +56,13 @@ def esc(s: str) -> str:
 
 
 def main() -> int:
+    dest = pathlib.Path("compat/exclusions.toml")
+    if dest.exists():
+        print(f"refusing to overwrite {dest}: it is the source of truth now, and "
+              "this tool's substring rules are known to misclassify (e.g. 'core gap' "
+              "matches inside 'not a core gap'). Edit the TOML by hand.")
+        return 2
+
     out: list[str] = [
         "# Conformance exclusion registry (spec §4 C2).",
         "# Keys are EXACT test names: `test_name` or `ClassName::test_name`.",
@@ -93,7 +100,6 @@ def main() -> int:
                 "",
             ]
 
-    dest = pathlib.Path("compat/exclusions.toml")
     dest.parent.mkdir(exist_ok=True)
     dest.write_text("\n".join(out))
     print(f"wrote {dest}")
