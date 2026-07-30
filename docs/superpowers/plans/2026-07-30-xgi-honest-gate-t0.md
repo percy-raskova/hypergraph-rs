@@ -1191,7 +1191,15 @@ print('invisible :', sum(m['exclusions']['invisible_test_counts'].values()))
 "
 ```
 
-Expected: `bound: 93`, `deferred: 71`, `ns missing: 48`, `invisible: 100`. Any deviation means introspection disagrees with `tests/DEFERRED_SYMBOLS.md` — investigate before continuing; that disagreement is itself the class of defect this plan exists to eliminate.
+Expected: `bound: 93`, `deferred: 71`, `ns missing: 48`, `invisible: 98`.
+
+> `invisible` is **98**, not the 100 an earlier draft of this line said. Task 6's
+> review found that counting `def test_` occurrences overstated
+> `stats/test_core_stats_functions.py` by 2 — it defines two test names twice
+> each, and Python is last-definition-wins, so `pytest --collect-only` collects
+> 50 there, not 52.
+
+Any deviation means introspection disagrees with `tests/DEFERRED_SYMBOLS.md` — investigate before continuing; that disagreement is itself the class of defect this plan exists to eliminate.
 
 - [ ] **Step 3: Commit**
 
