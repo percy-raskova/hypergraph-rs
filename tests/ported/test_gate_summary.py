@@ -1,17 +1,25 @@
 def test_no_unexcused_exclusions():
-    """Every exclusion must carry one of the sanctioned reasons (triage protocol)."""
-    from conftest_exclusions import FILE_EXCLUSIONS, TEST_EXCLUSIONS
-    sanctioned = ("pandas", "network", "decorator", "image", "private", "deferred",
-                  "trajectory", "parity", "colormap", "Trie", "pickle", "scene-graph",
-                  "import-time", "fetch",   # "fetch" = OQ-2 disk-fixture reason (f)
-                  # Task 4's class taxonomy — this whitelist is superseded by
-                  # taxonomy validation in Task 4 Step 4b, which deletes it.
-                  "env", "core-gap", "binding-gap", "divergence",
-                  "float-parity", "upstream-private", "deferred-symbol",
-                  "upstream-bug")
-    def ok(r): return any(s in r for s in sanctioned)
-    for path, reason in FILE_EXCLUSIONS.items():
-        assert ok(reason), f"{path}: unexcused exclusion `{reason}`"
-    for path, entries in TEST_EXCLUSIONS.items():
-        for name, reason in entries:
-            assert ok(reason), f"{path}::{name}: unexcused exclusion `{reason}`"
+    """Every exclusion must carry a class from the closed taxonomy.
+
+    Supersedes the previous hand-maintained keyword whitelist, which validated
+    reason PROSE by substring and needed editing whenever a reason was worded
+    differently. The taxonomy is exact and is the same field that drives the
+    skip-vs-xfail decision in conftest.py, so this check and the runtime
+    behaviour cannot disagree.
+    """
+    from conftest_exclusions import ENTRY_CLASSES, FILE_CLASSES
+
+    valid = {
+        "deferred-symbol", "core-gap", "binding-gap", "divergence",
+        "float-parity", "upstream-private", "env", "upstream-bug",
+        "out-of-scope",
+    }
+    bad = []
+    # Bounded: one pass over each registry mapping.
+    for path, cls in FILE_CLASSES.items():
+        if cls not in valid:
+            bad.append(f"{path}: class `{cls}` not in taxonomy")
+    for (path, name), cls in ENTRY_CLASSES.items():
+        if cls not in valid:
+            bad.append(f"{path}::{name}: class `{cls}` not in taxonomy")
+    assert bad == [], "exclusions with an invalid class:\n  " + "\n  ".join(bad)

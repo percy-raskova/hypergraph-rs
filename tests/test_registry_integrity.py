@@ -11,6 +11,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
 from conftest_exclusions import (  # noqa: E402
+    ENTRY_CLASSES,
     FILE_EXCLUSIONS,
     TEST_EXCLUSIONS,
     entry_matches_name,
@@ -109,3 +110,11 @@ def test_each_entry_matches_exactly_one_test() -> None:
 def test_every_file_exclusion_names_a_real_file():
     missing = [rel for rel in FILE_EXCLUSIONS if not (PORTED / rel).exists()]
     assert missing == [], f"FILE_EXCLUSIONS names files that do not exist: {missing}"
+
+
+def test_registry_is_not_empty() -> None:
+    """A TOML parse that silently yields nothing would make the integrity
+    tests above pass vacuously (Task 1 review, deferred minor)."""
+    assert FILE_EXCLUSIONS, "FILE_EXCLUSIONS parsed empty from compat/exclusions.toml"
+    assert TEST_EXCLUSIONS, "TEST_EXCLUSIONS parsed empty from compat/exclusions.toml"
+    assert ENTRY_CLASSES, "ENTRY_CLASSES parsed empty from compat/exclusions.toml"

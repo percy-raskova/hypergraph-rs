@@ -1,0 +1,19 @@
+# compat/divergences.toml
+#
+# The D-register (D1-D17), promoted from tests/conformance/main.rs so it can be
+# shipped and queried rather than living only in Rust test code (spec §4 C1).
+#
+# T0 creates this file with its schema fixed so `manifest.json` never changes
+# shape later. T1 populates it and wires DivergenceWarning to these entries.
+#
+# Schema, one table per divergence:
+#
+#   [[divergence]]
+#   id     = "D3"                       # the register number
+#   api    = "Hypergraph.add_edge"      # the affected public surface
+#   ours   = "..."                      # what hypergraph-rs does
+#   xgi    = "..."                      # what XGI 0.10.2 does
+#   class  = "divergence"               # taxonomy class
+#   reason = "..."                      # why the difference exists
+#
+# Intentionally empty in T0.
