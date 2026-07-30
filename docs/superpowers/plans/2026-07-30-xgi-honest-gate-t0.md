@@ -78,8 +78,25 @@ Every exclusion entry carries exactly one `class`. This drives the skip-vs-xfail
 | `upstream-private` | Test touches XGI internals not part of the port | `xfail(strict=True)` |
 | `env` | Cannot run here: network, pandas, matplotlib, import error | `skip` |
 | `upstream-bug` | Upstream's own inline skip | `skip` |
+| `out-of-scope` | Runs, but its result says nothing about the port | `skip` |
 
-**Rule:** `env` and `upstream-bug` skip. Everything else xfails strictly.
+**Rule:** `env`, `upstream-bug`, and `out-of-scope` skip. Everything else xfails strictly.
+
+> **`out-of-scope` added during Task 4 adjudication.** `test_import_time.py` calls
+> `subprocess.run([sys.executable, "-X", "importtime", "-c", "import xgi"])`. The
+> import target sits inside a *string literal*, so the port's mechanical
+> `import xgi` → `import hypergraph_rs as xgi` swap never reached it, and the file
+> has an upstream counterpart (it is a verbatim XGI port). The test therefore
+> measures **real xgi's** import time — and real xgi is installed as the
+> differential oracle, so it would likely pass while measuring the wrong library
+> entirely.
+>
+> That is neither `env` (nothing blocks it from running) nor `upstream-bug`
+> (upstream's test is fine; the porting swap simply cannot reach into a string).
+> It must not be `xfail(strict)`: it would XPASS and break the build. Forcing it
+> into `env` would overstate environmental blockage and bury the more interesting
+> fact. Disposition is `skip` because running it is meaningless, not because it
+> is impossible.
 
 ---
 
@@ -792,6 +809,7 @@ def test_no_unexcused_exclusions():
     valid = {
         "deferred-symbol", "core-gap", "binding-gap", "divergence",
         "float-parity", "upstream-private", "env", "upstream-bug",
+        "out-of-scope",
     }
     bad = []
     # Bounded: one pass over each registry mapping.
@@ -849,7 +867,7 @@ Replace `pytest_collection_modifyitems` in `tests/conftest.py` with:
 # test XPASSes and the build breaks, forcing the registry to be updated. That
 # is what makes the register self-correcting rather than a document that rots
 # into over-reporting (spec §5.1).
-_SKIP_CLASSES = frozenset({"env", "upstream-bug"})
+_SKIP_CLASSES = frozenset({"env", "upstream-bug", "out-of-scope"})
 
 
 def pytest_collection_modifyitems(config, items):
