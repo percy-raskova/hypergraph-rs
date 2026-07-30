@@ -1,0 +1,858 @@
+{
+  "divergences": [],
+  "exclusions": {
+    "files": [
+      {
+        "class": "deferred-symbol",
+        "path": "convert/test_pandas.py",
+        "reason": "pandas integration not ported (spec \u00a74.4)."
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "convert/test_encapsulation_dag.py",
+        "reason": "deferred: to_encapsulation_dag (convert, \u00a7A ledger)."
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "convert/test_hif_dict.py",
+        "reason": "deferred: to_hif_dict/from_hif_dict CONVERT dispatchers (xgi.convert.to_hif_dict, distinct from the bound xgi.write_hif/read_hif) not ported (\u00a7A ledger)."
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "convert/test_higher_order_network.py",
+        "reason": "deferred: to_hypergraph/to_dihypergraph/to_simplicial_complex dispatchers not ported (\u00a7A ledger); also exercises pandas (spec \u00a74.4)."
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "convert/test_incidence.py",
+        "reason": "deferred: to_incidence_matrix/from_incidence_matrix CONVERT dispatchers not ported (\u00a7A ledger)."
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "convert/test_k_skeleton.py",
+        "reason": "deferred: k_skeleton (convert, \u00a7A ledger)."
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "convert/test_line_graph.py",
+        "reason": "deferred: to_line_graph (convert, \u00a7A ledger)."
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "readwrite/test_xgi_data.py",
+        "reason": "network reader load_xgi_data/download_xgi_data gated off (spec \u00a74.3)."
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "readwrite/test_bigg_data.py",
+        "reason": "network: load_bigg_data is @pytest.mark.webtest/@slow and hits the BiGG server; its skipif (sys.version_info != (3,12) and not Linux) does NOT skip on the target Linux/py3.13 box (D7)."
+      },
+      {
+        "class": "binding-gap",
+        "path": "stats/test_core_stats_functions.py",
+        "reason": "tests the nodestat_func/dispatch decorator machinery, replaced by idiomatic Rust (spec \u00a74.4)."
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_draw.py",
+        "reason": "matplotlib @mpl_image_compare pixel tests; replaced by scene-graph tests (spec \u00a79.3)."
+      },
+      {
+        "class": "upstream-private",
+        "path": "drawing/test_draw_utils.py",
+        "reason": "imports private _CCW_sort/_draw_arg_to_arr/_interp_draw_arg (no phase built them); replaced by scene-graph tests (spec \u00a79.3)."
+      },
+      {
+        "class": "out-of-scope",
+        "path": "test_import_time.py",
+        "reason": "asserts xgi package import-time budget; not a semantic conformance test."
+      }
+    ],
+    "invisible_test_counts": {
+      "convert/test_encapsulation_dag.py": 1,
+      "convert/test_hif_dict.py": 2,
+      "convert/test_higher_order_network.py": 11,
+      "convert/test_incidence.py": 2,
+      "convert/test_k_skeleton.py": 1,
+      "convert/test_line_graph.py": 4,
+      "convert/test_pandas.py": 2,
+      "drawing/test_draw.py": 16,
+      "drawing/test_draw_utils.py": 3,
+      "readwrite/test_bigg_data.py": 3,
+      "readwrite/test_xgi_data.py": 2,
+      "stats/test_core_stats_functions.py": 50,
+      "test_import_time.py": 1
+    },
+    "tests": [
+      {
+        "class": "binding-gap",
+        "path": "algorithms/test_properties.py",
+        "reason": "binding gap: `H._net_attr` (and `_node_attr`/`_edge_attr`) return a snapshot PyDict copy, not a live reference into the binding's Rust-side attr store \u2014 real XGI's `_net_attr` IS the live dict, so `del H1._net_attr['test']` mutates it in place; here the deletion is silently lost. `xgi.equal` itself is correctly implemented (verified: the assertions up to and including `H1['test'] = ...` all pass). A live-reference fix needs a custom mutable-mapping proxy type wired to the core attr store \u2014 out of scope for this binding pass; not a core gap (Task 15 triage bucket 1, deferred as a documented binding limitation rather than fixed here).",
+        "test": "test_equal"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_classic.py",
+        "reason": "deferred: empty_dihypergraph (generators, \u00a7A ledger).",
+        "test": "test_empty_dihypergraph"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_classic.py",
+        "reason": "deferred: empty_simplicial_complex (generators, \u00a7A ledger).",
+        "test": "test_empty_simplicial_complex"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_random.py",
+        "reason": "deferred: dcsbm_hypergraph (generators, \u00a7A ledger).",
+        "test": "test_dcsbm_hypergraph"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_randomizing.py",
+        "reason": "deferred: shuffle_hyperedges (generators, \u00a7A ledger).",
+        "test": "test_shuffle_hyperedges"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_randomizing.py",
+        "reason": "deferred: node_swap (generators, \u00a7A ledger).",
+        "test": "test_node_swap"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_simplicial_complexes.py",
+        "reason": "deferred: flag_complex (generators, \u00a7A ledger).",
+        "test": "test_flag_complex"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_simplicial_complexes.py",
+        "reason": "deferred: flag_complex_d2 (generators, \u00a7A ledger).",
+        "test": "test_flag_complex_d2"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_simplicial_complexes.py",
+        "reason": "deferred: random_flag_complex (generators, \u00a7A ledger).",
+        "test": "test_random_flag_complex"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_simplicial_complexes.py",
+        "reason": "deferred: random_flag_complex_d2 (generators, \u00a7A ledger).",
+        "test": "test_random_flag_complex_d2"
+      },
+      {
+        "class": "divergence",
+        "path": "generators/test_uniform.py",
+        "reason": "core deviation, degree-sequence PARITY gap (documented in `uniform.rs::uniform_hypergraph_configuration_model`): remainder stubs are dropped and within-edge stub picks are deduplicated so the loop terminates deterministically (Power-of-10 rule 2) \u2014 the resulting degree sequence is close to but not always bit-exact with the requested `k`, so `dict(H.degree()) == k` does not hold in general. Documented core-level deviation from an earlier phase; not reopened here (Task 15 triage bucket 2 \u2014 not pre-approved for this pass; reviewed again at Task 19 and left as-is, exact parity with XGI's configuration model is unattainable under the bounded-loop policy, not a fixable binding bug).",
+        "test": "test_uniform_configuration_model_hypergraph"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_uniform.py",
+        "reason": "deferred: uniform_HSBM (generators, \u00a7A ledger).",
+        "test": "test_uniform_HSBM"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "generators/test_uniform.py",
+        "reason": "deferred: uniform_HPPM (generators, \u00a7A ledger).",
+        "test": "test_uniform_HPPM"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "readwrite/test_edgelist.py",
+        "reason": "deferred: gzip/xz compression (write_edgelist(**kwargs) -> xopen) not implemented \u2014 would require adding flate2 (pure-Rust, fine) AND a system-liblzma-linked xz crate; the latter is a risky new native dependency to introduce mid-binding-fix, out of scope for this pass (Task 15 triage bucket 3).",
+        "test": "test_write_edgelist_compressed"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "readwrite/test_edgelist.py",
+        "reason": "deferred: same compression gap as test_write_edgelist_compressed.",
+        "test": "test_write_edgelist_compressed_format"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "readwrite/test_bipartite_edgelist.py",
+        "reason": "deferred: same compression gap as test_edgelist.py::test_write_edgelist_compressed.",
+        "test": "test_write_bipartite_edgelist_compressed"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "readwrite/test_bipartite_edgelist.py",
+        "reason": "deferred: same compression gap as test_edgelist.py::test_write_edgelist_compressed.",
+        "test": "test_write_bipartite_edgelist_compressed_format"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "readwrite/test_hif.py",
+        "reason": "deferred: write_hif_collection/read_hif_collection are not bound (no phase built core to_hif_dict/from_hif_dict for SimplicialComplex or DiHypergraph \u2014 only the Hypergraph/undirected branch exists, per hif.rs's own module doc: 'Undirected only; directed HIF requires DiHypergraph (deferred)'); compounded by the compression gap.",
+        "test": "test_write_hif_collection_compressed"
+      },
+      {
+        "class": "core-gap",
+        "path": "readwrite/test_hif.py",
+        "reason": "deferred: to_hif_dict only exists for (undirected) Hypergraph (hif.rs module doc); SimplicialComplex ('asc' network-type) and DiHypergraph ('directed') HIF export are genuinely unbuilt, not a binding-level fix \u2014 not pre-approved this pass (Task 15 triage bucket 2). The Hypergraph portion of this test (verified separately) is green; the SC/DiHypergraph portions in the same test function are not.",
+        "test": "test_write_hif"
+      },
+      {
+        "class": "core-gap",
+        "path": "readwrite/test_hif.py",
+        "reason": "deferred: same core gap as test_write_hif \u2014 exercises write_hif on SimplicialComplex/DiHypergraph.",
+        "test": "test_read_hif"
+      },
+      {
+        "class": "core-gap",
+        "path": "readwrite/test_hif.py",
+        "reason": "same core gap as test_write_hif (needs DiHypergraph HIF export), plus write_hif_collection/read_hif_collection are unbound deferred symbols.",
+        "test": "test_read_hif_collection"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "linalg/test_matrix.py",
+        "reason": "network: calls load_xgi_data(dataset='email-enron'), gated off (spec \u00a74.3).",
+        "test": "test_fix_649"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "linalg/test_matrix.py",
+        "reason": "deferred: boundary_matrix (Phase 3 'Deferred', \u00a7A ledger).",
+        "test": "test_boundary_matrix"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "linalg/test_matrix.py",
+        "reason": "deferred: exercises boundary_matrix (Phase 3 'Deferred', \u00a7A ledger).",
+        "test": "test_empty"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "linalg/test_matrix.py",
+        "reason": "deferred: adjacency_tensor (Phase 3 'Deferred', \u00a7A ledger).",
+        "test": "test_adjacency_tensor"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "core/test_hypergraph.py",
+        "reason": "deferred: numpy incidence-matrix (from_incidence_matrix) and pandas-dataframe constructors \u2014 convert dispatchers not ported (\u00a7A ledger, spec \u00a74.4).",
+        "test": "test_constructor"
+      },
+      {
+        "class": "divergence",
+        "path": "core/test_hypergraph.py",
+        "reason": "deferred: merge_rule='union' stores each attr as a Python `set`; the core/binding edge-attr channel is JSON-typed (serde_json::Value has no Set variant), so a deduplicated JSON array stands in instead \u2014 documented representational deviation (Task 16 execution note, hypergraph.rs merge_duplicate_edges_impl). rename='first'/'tuple'/'new' and merge_rule='first'/'intersection' are fully implemented and exercised by the earlier assertions in this same test function; only the union-attrs assertion is unattainable.",
+        "test": "test_merge_duplicate_edges"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "pandas-dataframe constructor path (SimplicialComplex(dataframe5)) \u2014 pandas integration not ported (spec \u00a74.4), same deferral as Hypergraph's constructor.",
+        "test": "test_constructor"
+      },
+      {
+        "class": "core-gap",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "deferred: auto-assigned FACE ids (from add_simplex's closure-under-faces) are minted in a different enumeration order than real XGI's `_faces`/`add_simplex` subface iteration, so `H._edge == simplices1` (which pins exact face ids like `H._edge[3] == frozenset({2,4})`) diverges even though the SET of simplices is identical. Fixing requires matching the core's face-closure generation order to XGI's exactly \u2014 not a binding-level fix.",
+        "test": "test_add_simplices_from_format2"
+      },
+      {
+        "class": "core-gap",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "deferred: same face-id-ordering core gap as test_add_simplices_from_format2.",
+        "test": "test_add_simplices_from_format3"
+      },
+      {
+        "class": "core-gap",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "deferred: same face-id-ordering core gap as test_add_simplices_from_format2.",
+        "test": "test_add_simplices_from_format4"
+      },
+      {
+        "class": "core-gap",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "deferred: same face-id-ordering core gap as test_add_simplices_from_format2.",
+        "test": "test_add_edges_from_dict"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "deferred: uses add_simplices_from(..., max_order=...) \u2014 XGI's max_order truncation kwarg is not built (no phase implemented it; not in the Task 7 scope any binding wired).",
+        "test": "test_add_simplices_from"
+      },
+      {
+        "class": "core-gap",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "deferred: exercises SC.remove_node, which has no core primitive (see test_remove_node).",
+        "test": "test_freeze"
+      },
+      {
+        "class": "core-gap",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "deferred: SimplicialComplex has no isolate_node_ids/node-removal primitive in the core (unlike Hypergraph/DiHypergraph); cleanup(isolates=...) cannot be implemented at the binding level without one.",
+        "test": "test_cleanup"
+      },
+      {
+        "class": "core-gap",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "deferred: hypergraph_rs::SimplicialComplex has no method to physically remove a node from the underlying bipartite graph (no `memberships`/node-delete primitive exists, unlike Hypergraph::remove_node) \u2014 real XGI implements it via direct `_node`/`_edge` dict surgery the Rust core has no equivalent internal access path for. Genuine core gap per the Task 15 triage protocol category 2 \u2014 not a binding fix; escalate for a future phase.",
+        "test": "test_remove_node"
+      },
+      {
+        "class": "core-gap",
+        "path": "core/test_simplicialcomplex.py",
+        "reason": "deferred: same core-gap as test_remove_node (also calls SC.remove_node).",
+        "test": "test_issue_445"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "core/test_views.py",
+        "reason": "deferred: SCEdgeView.maximal()/scoped-call not yet ported for SimplicialComplex (Task 7 rebuild still open in this pass); tracked for the simplicial-complex tier, not a P0-tier gap.",
+        "test": "test_maximal"
+      },
+      {
+        "class": "binding-gap",
+        "path": "core/test_views.py",
+        "reason": "decorator machinery: asserts H.nodes.degree returns the SAME cached Stat object on repeated access; the binding recomputes a fresh Stat per getter call (no caching layer) \u2014 dispatch-machinery category, same as stats/test_core_stats_functions.py.",
+        "test": "test_stat_caching"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "core/test_views.py",
+        "reason": "exercises @xgi.nodestat_func, a DEFERRED symbol (dispatch-registry decorator; \u00a7A ledger 'stats' deferred set).",
+        "test": "test_custom_stat_still_works"
+      },
+      {
+        "class": "binding-gap",
+        "path": "core/test_views.py",
+        "reason": "decorator machinery: asserts Stat.__doc__ forwards the underlying Python function's docstring; the binding's Stat objects are native PyO3 classes with no XGI Python function to forward from \u2014 dispatch-machinery category, same as stats/test_core_stats_functions.py.",
+        "test": "test_stat_docstring_forwarding"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_centrality.py",
+        "reason": "deferred: tensor centrality (Phase 3).",
+        "test": "test_h_eigenvector_centrality"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_centrality.py",
+        "reason": "deferred: tensor centrality (Phase 3).",
+        "test": "test_z_eigenvector_centrality"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_centrality.py",
+        "reason": "deferred: tensor centrality (Phase 3).",
+        "test": "test_uniform_h_eigenvector_centrality"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_centrality.py",
+        "reason": "deferred: tensor centrality (Phase 3).",
+        "test": "test_node_edge_centrality"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_centrality.py",
+        "reason": "deferred: tensor centrality (Phase 3).",
+        "test": "test_line_vector_centrality"
+      },
+      {
+        "class": "float-parity",
+        "path": "algorithms/test_centrality.py",
+        "reason": "float non-determinism (\u00a79.4): the hand-rolled power-iteration core (deviation #5, centrality.rs) converges to a value that agrees with XGI's scipy/networkx katz_centrality to ~15 significant digits but not bit-for-bit (last-ULP divergence from a different floating-point operation order); the oracle test asserts exact dict `==`, not `pytest.approx`.",
+        "test": "test_katz_centrality"
+      },
+      {
+        "class": "upstream-private",
+        "path": "algorithms/test_assortativity.py",
+        "reason": "imports private _choose_degrees; helper not part of the port.",
+        "test": "test_choose_degrees"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_assortativity.py",
+        "reason": "deferred (documented deviation, algorithms.rs module doc): degree_assortativity(exact=False) (random-sampling path) awaits the Phase-4 rand_pcg pin; raises NotImplementedError.",
+        "test": "test_degree_assortativity"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_connected.py",
+        "reason": "deferred: largest_connected_hypergraph (Phase 3 'Deferred', \u00a7A ledger).",
+        "test": "test_largest_connected_hypergraph"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_simpliciality.py",
+        "reason": "deferred: utils.trie.Trie not ported (Phase 6).",
+        "test": "test_is_simplex"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_simpliciality.py",
+        "reason": "deferred: utils.trie.Trie not ported (Phase 6).",
+        "test": "test_count_simplices"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_simpliciality.py",
+        "reason": "deferred: utils.trie.Trie not ported (Phase 6).",
+        "test": "test_potential_simplices"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "algorithms/test_simpliciality.py",
+        "reason": "deferred: utils.trie.Trie not ported (Phase 6).",
+        "test": "test_count_missing_subfaces"
+      },
+      {
+        "class": "upstream-private",
+        "path": "algorithms/test_simpliciality.py",
+        "reason": "imports private algorithms.simpliciality._powerset helper; not part of the port (same category as test_is_simplex/Trie \u2014 private XGI internal, Task 15 triage bucket 3).",
+        "test": "test_powerset"
+      },
+      {
+        "class": "upstream-private",
+        "path": "algorithms/test_simpliciality.py",
+        "reason": "imports private algorithms.simpliciality._max_number_of_subfaces helper; not part of the port (same category as test_powerset).",
+        "test": "test_max_number_of_subfaces"
+      },
+      {
+        "class": "binding-gap",
+        "path": "utils/test_utilities.py",
+        "reason": "deferred: `H._edge`/`H._node` return snapshot copies, not a live mutable reference into the binding's Rust-side store \u2014 `H._edge[None] = {1,2,3}` (expected to raise XGIError) and `del H._node[\"test\"]` (expected IDNotFound) mutate a throwaway dict instead. Same category as algorithms/test_properties.py::test_equal's `_net_attr` gap (Task 17 execution note) \u2014 a live-reference fix needs a custom mutable-mapping proxy type, out of scope for this pass.",
+        "test": "test_iddict"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "utils/test_utilities.py",
+        "reason": "deferred: find_triangles (utils, \u00a7A ledger).",
+        "test": "test_find_triangles"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "utils/test_utilities.py",
+        "reason": "deferred: hist (utils, \u00a7A ledger).",
+        "test": "test_hist"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "utils/test_utilities.py",
+        "reason": "deferred: binomial_sequence (utils, \u00a7A ledger).",
+        "test": "test_binomial_sequence"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "utils/test_utilities.py",
+        "reason": "deferred: geometric (utils, \u00a7A ledger).",
+        "test": "test_geometric"
+      },
+      {
+        "class": "core-gap",
+        "path": "utils/test_utilities.py",
+        "reason": "deferred: `convert_labels_to_integers` only exists for (undirected) Hypergraph (utils/mod.rs) \u2014 the Hypergraph portion of this test (verified separately, including the label-type binding fix in Task 17 execution notes) is green; the SimplicialComplex/DiHypergraph portions in the same test function need an equivalent core relabeling function that was never built \u2014 not pre-approved this pass (Task 15 triage bucket 2).",
+        "test": "test_convert_labels_to_integers"
+      },
+      {
+        "class": "upstream-private",
+        "path": "communities/test_spectral.py",
+        "reason": "imports private communities.spectral._kmeans helper; not part of the port.",
+        "test": "TestKMeans::test_k_is_1"
+      },
+      {
+        "class": "upstream-private",
+        "path": "communities/test_spectral.py",
+        "reason": "imports private communities.spectral._kmeans helper; not part of the port.",
+        "test": "TestKMeans::test_perfectly_separable_low_dimensions"
+      },
+      {
+        "class": "upstream-private",
+        "path": "communities/test_spectral.py",
+        "reason": "imports private communities.spectral._kmeans helper; not part of the port.",
+        "test": "TestKMeans::test_perfectly_separable_high_dimensions"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "communities/test_spectral.py",
+        "reason": "deferred: uniform_HSBM (generators, \u00a7A ledger).",
+        "test": "TestSpectralClustering::test_strongly_separable_sbm"
+      },
+      {
+        "class": "float-parity",
+        "path": "dynamics/test_synchronization.py",
+        "reason": "exact numpy float-trajectory parity not achievable (\u00a79.4); structural shape asserts kept.",
+        "test": "test_simulate_kuramoto"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "dynamics/test_synchronization.py",
+        "reason": "deferred: simplicial Kuramoto (Phase 6).",
+        "test": "test_simulate_simplicial_kuramoto"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_layout.py",
+        "reason": "the random_layout seed-reproducibility assertions (the point of this test) pass; the test then also calls xgi.random_flag_complex_d2 (deferred generator, \u00a7A ledger) to build a SimplicialComplex fixture, which is unreachable \u2014 whole test excluded per protocol.",
+        "test": "test_random_layout"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_layout.py",
+        "reason": "deferred: random_flag_complex_d2 (generators, \u00a7A ledger); the equivalent Hypergraph coverage (test_pairwise_spring_layout_hypergraph) stays green.",
+        "test": "test_pairwise_spring_layout_simplicial_complex"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_layout.py",
+        "reason": "deferred: barycenter_spring_layout (drawing/layout, no Phase-5 analogue, Task 13 note).",
+        "test": "test_barycenter_spring_layout"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_layout.py",
+        "reason": "deferred: weighted_barycenter_spring_layout (drawing/layout, no Phase-5 analogue, Task 13 note).",
+        "test": "test_weighted_barycenter_spring_layout"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_layout.py",
+        "reason": "deferred: pca_transform (drawing/layout, no Phase-5 analogue, Task 13 note).",
+        "test": "test_pca_transform"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_layout.py",
+        "reason": "circular_layout itself (center/radius kwargs, empty/single-node cases) is fixed and green (verified directly); this test's final assertion calls xgi.random_flag_complex_d2 (deferred generator, \u00a7A ledger), which is unreachable.",
+        "test": "test_circular_layout"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_layout.py",
+        "reason": "deferred: spiral_layout (drawing/layout, no Phase-5 analogue, Task 13 note).",
+        "test": "test_spiral_layout"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_layout.py",
+        "reason": "deferred: barycenter_kamada_kawai_layout (drawing/layout, no Phase-5 analogue, Task 13 note).",
+        "test": "test_barycenter_kamada_kawai_layout"
+      },
+      {
+        "class": "deferred-symbol",
+        "path": "drawing/test_layout.py",
+        "reason": "deferred: edge_positions_from_barycenters (drawing/layout, no Phase-5 analogue, Task 13 note).",
+        "test": "test_edge_positions_from_barycenters"
+      }
+    ]
+  },
+  "hypergraph_rs_version": "0.10.2-xgi-parity",
+  "namespaces": {
+    "expected": [
+      "algorithms",
+      "algorithms.assortativity",
+      "algorithms.centrality",
+      "algorithms.clustering",
+      "algorithms.connected",
+      "algorithms.properties",
+      "algorithms.shortest_path",
+      "algorithms.simpliciality",
+      "communities",
+      "communities.spectral",
+      "convert",
+      "convert.bipartite_edges",
+      "convert.bipartite_graph",
+      "convert.encapsulation_dag",
+      "convert.graph",
+      "convert.hif_dict",
+      "convert.higher_order_network",
+      "convert.hyperedges",
+      "convert.hypergraph_dict",
+      "convert.incidence",
+      "convert.line_graph",
+      "convert.pandas",
+      "convert.simplex",
+      "core",
+      "core.dihypergraph",
+      "core.globalviews",
+      "core.hypergraph",
+      "core.simplicialcomplex",
+      "core.views",
+      "drawing",
+      "drawing.draw",
+      "drawing.draw_utils",
+      "drawing.layout",
+      "dynamics",
+      "dynamics.synchronization",
+      "exception",
+      "generators",
+      "generators.classic",
+      "generators.lattice",
+      "generators.random",
+      "generators.randomizing",
+      "generators.simple",
+      "generators.simplicial_complexes",
+      "generators.uniform",
+      "linalg",
+      "linalg.hodge_matrix",
+      "linalg.hypergraph_matrix",
+      "linalg.laplacian_matrix",
+      "readwrite",
+      "readwrite.bigg_data",
+      "readwrite.bipartite",
+      "readwrite.edgelist",
+      "readwrite.hif",
+      "readwrite.incidence",
+      "readwrite.json",
+      "readwrite.xgi_data",
+      "stats",
+      "stats.diedgestats",
+      "stats.dinodestats",
+      "stats.edgestats",
+      "stats.nodestats",
+      "utils",
+      "utils.tensor",
+      "utils.trie",
+      "utils.utilities"
+    ],
+    "missing": [
+      "algorithms.centrality",
+      "algorithms.clustering",
+      "algorithms.connected",
+      "algorithms.properties",
+      "algorithms.shortest_path",
+      "algorithms.simpliciality",
+      "communities.spectral",
+      "convert.bipartite_edges",
+      "convert.bipartite_graph",
+      "convert.encapsulation_dag",
+      "convert.graph",
+      "convert.hif_dict",
+      "convert.higher_order_network",
+      "convert.hyperedges",
+      "convert.hypergraph_dict",
+      "convert.incidence",
+      "convert.line_graph",
+      "convert.pandas",
+      "convert.simplex",
+      "core.dihypergraph",
+      "core.hypergraph",
+      "core.simplicialcomplex",
+      "core.views",
+      "drawing.draw",
+      "drawing.draw_utils",
+      "drawing.layout",
+      "dynamics.synchronization",
+      "generators.classic",
+      "generators.lattice",
+      "generators.random",
+      "generators.randomizing",
+      "generators.simple",
+      "generators.simplicial_complexes",
+      "generators.uniform",
+      "linalg.hodge_matrix",
+      "linalg.hypergraph_matrix",
+      "linalg.laplacian_matrix",
+      "readwrite.bigg_data",
+      "readwrite.bipartite",
+      "readwrite.edgelist",
+      "readwrite.hif",
+      "readwrite.incidence",
+      "readwrite.xgi_data",
+      "stats.diedgestats",
+      "stats.dinodestats",
+      "stats.edgestats",
+      "stats.nodestats",
+      "utils.tensor"
+    ],
+    "resolved": [
+      "algorithms",
+      "algorithms.assortativity",
+      "communities",
+      "convert",
+      "core",
+      "core.globalviews",
+      "drawing",
+      "dynamics",
+      "exception",
+      "generators",
+      "linalg",
+      "readwrite",
+      "readwrite.json",
+      "stats",
+      "utils",
+      "utils.trie",
+      "utils.utilities"
+    ]
+  },
+  "schema_version": 1,
+  "symbols": {
+    "DiHypergraph": "bound",
+    "Hypergraph": "bound",
+    "SimplicialComplex": "bound",
+    "adjacency_matrix": "bound",
+    "adjacency_tensor": "deferred",
+    "barycenter_kamada_kawai_layout": "deferred",
+    "barycenter_spring_layout": "deferred",
+    "binomial_sequence": "deferred",
+    "bipartite_spring_layout": "bound",
+    "boundary_matrix": "deferred",
+    "chung_lu_hypergraph": "bound",
+    "circular_layout": "bound",
+    "clique_eigenvector_centrality": "bound",
+    "clique_motif_matrix": "bound",
+    "clustering_coefficient": "bound",
+    "complement": "bound",
+    "complete_hypergraph": "bound",
+    "compute_kuramoto_order_parameter": "bound",
+    "compute_simplicial_order_parameter": "deferred",
+    "connected_components": "bound",
+    "convert_labels_to_integers": "bound",
+    "cut_to_order": "bound",
+    "dcsbm_hypergraph": "deferred",
+    "degree_assortativity": "bound",
+    "degree_counts": "bound",
+    "degree_histogram": "bound",
+    "degree_matrix": "bound",
+    "density": "bound",
+    "diedgestat_func": "deferred",
+    "dinodestat_func": "deferred",
+    "dispatch_many_stats": "deferred",
+    "dispatch_stat": "deferred",
+    "download_xgi_data": "deferred",
+    "draw": "bound",
+    "draw_bipartite": "deferred",
+    "draw_directed_dyads": "deferred",
+    "draw_hyperedge_labels": "deferred",
+    "draw_hyperedges": "bound",
+    "draw_multilayer": "deferred",
+    "draw_node_labels": "deferred",
+    "draw_nodes": "bound",
+    "draw_simplices": "deferred",
+    "draw_undirected_dyads": "deferred",
+    "dual_dict": "bound",
+    "dynamical_assortativity": "bound",
+    "edge_neighborhood": "bound",
+    "edge_positions_from_barycenters": "deferred",
+    "edgestat_func": "deferred",
+    "edit_simpliciality": "bound",
+    "empirical_subsets_filter": "deferred",
+    "empty_dihypergraph": "deferred",
+    "empty_hypergraph": "bound",
+    "empty_simplicial_complex": "deferred",
+    "equal": "bound",
+    "face_edit_simpliciality": "bound",
+    "fast_random_hypergraph": "bound",
+    "find_triangles": "deferred",
+    "flag_complex": "deferred",
+    "flag_complex_d2": "deferred",
+    "from_bipartite_edgelist": "bound",
+    "from_bipartite_graph": "bound",
+    "from_bipartite_pandas_dataframe": "deferred",
+    "from_hif_dict": "deferred",
+    "from_hyperedge_dict": "bound",
+    "from_hyperedge_list": "bound",
+    "from_hypergraph_dict": "bound",
+    "from_incidence_matrix": "deferred",
+    "from_max_simplices": "deferred",
+    "from_simplex_dict": "deferred",
+    "geometric": "deferred",
+    "get_network_type": "bound",
+    "h_eigenvector_centrality": "deferred",
+    "hist": "deferred",
+    "hodge_laplacian": "deferred",
+    "incidence_density": "bound",
+    "incidence_matrix": "bound",
+    "intersection_profile": "bound",
+    "is_connected": "bound",
+    "is_possible_order": "bound",
+    "is_uniform": "bound",
+    "k_skeleton": "deferred",
+    "katz_centrality": "bound",
+    "laplacian": "bound",
+    "largest_connected_component": "bound",
+    "largest_connected_hypergraph": "deferred",
+    "line_vector_centrality": "deferred",
+    "load_bigg_data": "deferred",
+    "load_xgi_data": "deferred",
+    "local_clustering_coefficient": "bound",
+    "max_edge_order": "bound",
+    "mean_face_edit_distance": "bound",
+    "multiorder_laplacian": "bound",
+    "node_connected_component": "bound",
+    "node_edge_centrality": "deferred",
+    "node_swap": "deferred",
+    "nodestat_func": "deferred",
+    "normalized_hypergraph_laplacian": "bound",
+    "num_edges_order": "bound",
+    "number_connected_components": "bound",
+    "pairwise_incidence": "deferred",
+    "pairwise_spring_layout": "bound",
+    "parse_bipartite_edgelist": "bound",
+    "parse_edgelist": "bound",
+    "pca_transform": "deferred",
+    "powerset": "bound",
+    "random_flag_complex": "deferred",
+    "random_flag_complex_d2": "deferred",
+    "random_hypergraph": "bound",
+    "random_layout": "bound",
+    "random_simplicial_complex": "bound",
+    "read_bipartite_edgelist": "bound",
+    "read_edgelist": "bound",
+    "read_hif": "bound",
+    "read_hif_collection": "deferred",
+    "read_incidence_matrix": "bound",
+    "request_json_from_url": "deferred",
+    "request_json_from_url_cached": "deferred",
+    "ring_lattice": "bound",
+    "shortest_path_length": "bound",
+    "shuffle_hyperedges": "deferred",
+    "simplicial_edit_distance": "bound",
+    "simplicial_fraction": "bound",
+    "simulate_kuramoto": "bound",
+    "simulate_simplicial_kuramoto": "deferred",
+    "single_source_shortest_path_length": "bound",
+    "spectral_clustering": "bound",
+    "spiral_layout": "deferred",
+    "star_clique": "bound",
+    "subfaces": "bound",
+    "subhypergraph": "bound",
+    "sunflower": "bound",
+    "to_bipartite_edgelist": "bound",
+    "to_bipartite_graph": "bound",
+    "to_bipartite_pandas_dataframe": "deferred",
+    "to_dihypergraph": "deferred",
+    "to_encapsulation_dag": "deferred",
+    "to_graph": "bound",
+    "to_hif_dict": "deferred",
+    "to_hyperedge_dict": "bound",
+    "to_hyperedge_list": "bound",
+    "to_hypergraph": "deferred",
+    "to_hypergraph_dict": "bound",
+    "to_incidence_matrix": "deferred",
+    "to_line_graph": "deferred",
+    "to_simplicial_complex": "deferred",
+    "trivial_hypergraph": "bound",
+    "ttsv1": "deferred",
+    "ttsv2": "deferred",
+    "two_node_clustering_coefficient": "bound",
+    "uniform_HPPM": "deferred",
+    "uniform_HSBM": "deferred",
+    "uniform_erdos_renyi_hypergraph": "bound",
+    "uniform_h_eigenvector_centrality": "deferred",
+    "uniform_hypergraph_configuration_model": "bound",
+    "unique_edge_sizes": "bound",
+    "update_uid_counter": "deferred",
+    "watts_strogatz_hypergraph": "bound",
+    "weighted_barycenter_spring_layout": "deferred",
+    "write_bipartite_edgelist": "bound",
+    "write_edgelist": "bound",
+    "write_hif": "bound",
+    "write_hif_collection": "deferred",
+    "write_incidence_matrix": "bound",
+    "z_eigenvector_centrality": "deferred"
+  },
+  "xgi_target": "0.10.2"
+}
