@@ -343,7 +343,7 @@ def h1():
 
 # --- Task 15: conformance exclusion glue (spec §9.1) ---
 import pytest
-from conftest_exclusions import FILE_EXCLUSIONS, TEST_EXCLUSIONS
+from conftest_exclusions import FILE_EXCLUSIONS, TEST_EXCLUSIONS, entry_matches_name
 
 
 def pytest_ignore_collect(collection_path, config):
@@ -351,9 +351,24 @@ def pytest_ignore_collect(collection_path, config):
     return rel in FILE_EXCLUSIONS
 
 
+def _entry_matches(item, entry: str) -> bool:
+    """Pytest-item adapter over `entry_matches_name` (the single matcher).
+
+    Derives the item's registry-shaped name — `Class::method` for a class-scoped
+    test, the bare name otherwise — then defers. All matching semantics live in
+    `conftest_exclusions.entry_matches_name` so enforcement here and verification
+    in tests/test_registry_integrity.py can never drift apart.
+    """
+    cls = getattr(item, "cls", None)
+    name = f"{cls.__name__}::{item.name}" if cls is not None else item.name
+    return entry_matches_name(name, entry)
+
+
 def pytest_collection_modifyitems(config, items):
     for item in items:
         rel = str(item.fspath).split("/ported/", 1)[-1]
         for name, reason in TEST_EXCLUSIONS.get(rel, []):
-            if item.name.startswith(name):
-                item.add_marker(pytest.mark.skip(reason=f"[conformance-exclusion] {reason}"))
+            if _entry_matches(item, name):
+                item.add_marker(
+                    pytest.mark.skip(reason=f"[conformance-exclusion] {reason}")
+                )

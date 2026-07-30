@@ -97,12 +97,20 @@ TEST_EXCLUSIONS = {
         ("test_read_hif_collection",
          "same core gap as test_write_hif (needs DiHypergraph HIF export), plus write_hif_collection/"
          "read_hif_collection are unbound deferred symbols."),
+        ("test_write_hif_compressed",
+         "env: gzip-compressed HIF write/read of a plain Hypergraph is IMPLEMENTED and passes; "
+         "this entry exists only to record that it was previously skipped by the prefix-match "
+         "bug (spec F1). REMOVE this entry in Task 5 — it must become a passing test, not an "
+         "xfail."),
     ],
     "linalg/test_matrix.py": [
         ("test_fix_649", "network: calls load_xgi_data(dataset='email-enron'), gated off (spec §4.3)."),
         ("test_boundary_matrix", "deferred: boundary_matrix (Phase 3 'Deferred', §A ledger)."),
         ("test_empty", "deferred: exercises boundary_matrix (Phase 3 'Deferred', §A ledger)."),
         ("test_adjacency_tensor", "deferred: adjacency_tensor (Phase 3 'Deferred', §A ledger)."),
+        ("test_empty_order",
+         "env: passes; previously swept up by the `test_empty` prefix entry (spec F1). "
+         "REMOVE in Task 5."),
     ],
     "core/test_hypergraph.py": [
         ("test_constructor",
@@ -146,6 +154,12 @@ TEST_EXCLUSIONS = {
          "surgery the Rust core has no equivalent internal access path for. Genuine core gap per "
          "the Task 15 triage protocol category 2 — not a binding fix; escalate for a future phase."),
         ("test_issue_445", "deferred: same core-gap as test_remove_node (also calls SC.remove_node)."),
+        ("test_add_simplices_from_iterable_of_members",
+         "env: passes; previously swept up by the `test_add_simplices_from` prefix entry "
+         "(spec F1). REMOVE in Task 5."),
+        ("test_add_simplices_from_wrong_format",
+         "env: passes; previously swept up by the `test_add_simplices_from` prefix entry "
+         "(spec F1). REMOVE in Task 5."),
     ],
     "core/test_views.py": [
         ("test_maximal",
@@ -234,10 +248,10 @@ TEST_EXCLUSIONS = {
          "function that was never built — not pre-approved this pass (Task 15 triage bucket 2)."),
     ],
     "communities/test_spectral.py": [
-        ("test_k_is_1", "imports private communities.spectral._kmeans helper; not part of the port."),
-        ("test_perfectly_separable_low_dimensions", "imports private communities.spectral._kmeans helper; not part of the port."),
-        ("test_perfectly_separable_high_dimensions", "imports private communities.spectral._kmeans helper; not part of the port."),
-        ("test_strongly_separable_sbm", "deferred: uniform_HSBM (generators, §A ledger)."),
+        ("TestKMeans::test_k_is_1", "imports private communities.spectral._kmeans helper; not part of the port."),
+        ("TestKMeans::test_perfectly_separable_low_dimensions", "imports private communities.spectral._kmeans helper; not part of the port."),
+        ("TestKMeans::test_perfectly_separable_high_dimensions", "imports private communities.spectral._kmeans helper; not part of the port."),
+        ("TestSpectralClustering::test_strongly_separable_sbm", "deferred: uniform_HSBM (generators, §A ledger)."),
     ],
     "dynamics/test_synchronization.py": [
         ("test_simulate_kuramoto",
@@ -264,3 +278,25 @@ TEST_EXCLUSIONS = {
         ("test_edge_positions_from_barycenters", "deferred: edge_positions_from_barycenters (drawing/layout, no Phase-5 analogue, Task 13 note)."),
     ],
 }
+
+
+def entry_matches_name(name: str, entry: str) -> bool:
+    """Does collected-test `name` match registry `entry`?
+
+    Both are either `"test_func"` or `"ClassName::test_method"`. Matching is
+    EXACT, with one tolerance: pytest appends a parametrization suffix
+    (`test_foo[1-2]`), and `[` cannot occur in a Python identifier, so
+    `name.startswith(entry + "[")` cannot reach a sibling test the way a bare
+    `startswith` does. A bare entry never matches a class-scoped test and vice
+    versa, so an entry can never claim a test it does not name (spec F1).
+    """
+    if ("::" in entry) != ("::" in name):
+        return False
+    if "::" in entry:
+        entry_cls, entry_fn = entry.split("::", 1)
+        name_cls, name_fn = name.split("::", 1)
+        if entry_cls != name_cls:
+            return False
+    else:
+        entry_fn, name_fn = entry, name
+    return name_fn == entry_fn or name_fn.startswith(entry_fn + "[")

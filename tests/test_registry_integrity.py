@@ -10,7 +10,11 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
-from conftest_exclusions import FILE_EXCLUSIONS, TEST_EXCLUSIONS  # noqa: E402
+from conftest_exclusions import (  # noqa: E402
+    FILE_EXCLUSIONS,
+    TEST_EXCLUSIONS,
+    entry_matches_name,
+)
 
 PORTED = pathlib.Path(__file__).parent / "ported"
 
@@ -44,24 +48,6 @@ def _qualified_test_names(path: pathlib.Path) -> list[str]:
     return out
 
 
-def test_no_exclusion_entry_claims_a_test_it_does_not_name():
-    """F1: `startswith` matching lets one entry sweep up its prefix-siblings."""
-    offenders: list[str] = []
-    for rel, entries in TEST_EXCLUSIONS.items():
-        path = PORTED / rel
-        if not path.exists():
-            continue
-        names = _test_names(path)
-        owned = {entry for entry, _ in entries}
-        for entry, _ in entries:
-            for name in names:
-                if name != entry and name.startswith(entry) and name not in owned:
-                    offenders.append(f"{rel}::{name}  <- swept up by entry {entry!r}")
-    assert offenders == [], (
-        "registry entries claim tests they do not name:\n  " + "\n  ".join(offenders)
-    )
-
-
 def test_every_exclusion_entry_names_a_real_test():
     """A phantom entry is a silent no-op; the D5 note records a past instance."""
     phantom: list[str] = []
@@ -79,22 +65,44 @@ def test_every_exclusion_entry_names_a_real_test():
     )
 
 
-def test_class_scoped_tests_are_qualified_in_the_registry():
-    """A bare entry matching a method in 2+ classes is ambiguous (test_spectral.py)."""
-    ambiguous: list[str] = []
+def test_entry_matches_name_rejects_prefix_siblings() -> None:
+    """The F1 regression guard. A bare `startswith` fails every `not` below."""
+    assert entry_matches_name("test_write_hif", "test_write_hif")
+    assert not entry_matches_name("test_write_hif_compressed", "test_write_hif")
+    assert not entry_matches_name("test_empty_order", "test_empty")
+    # pytest's parametrization suffix must still match; `[` cannot occur in an
+    # identifier, so this tolerance cannot reach a sibling test.
+    assert entry_matches_name("test_foo[1-2]", "test_foo")
+    # Class scoping is symmetric: neither shape matches the other.
+    assert entry_matches_name("TestA::test_x", "TestA::test_x")
+    assert not entry_matches_name("TestB::test_x", "TestA::test_x")
+    assert not entry_matches_name("TestA::test_x", "test_x")
+    assert not entry_matches_name("test_x", "TestA::test_x")
+
+
+def test_each_entry_matches_exactly_one_test() -> None:
+    """Every registry entry must claim exactly the one test it names.
+
+    Supersedes the earlier prefix-text assertions. Those asked whether the
+    registry's TEXT contained prefix relationships, which exact matching renders
+    harmless — and which Task 5 deliberately restores. This asks the real
+    question, through the matcher itself, so it survives Task 5 unchanged.
+    """
+    problems: list[str] = []
     for rel, entries in TEST_EXCLUSIONS.items():
         path = PORTED / rel
         if not path.exists():
+            problems.append(f"{rel}  (file does not exist)")
             continue
-        qualified = _qualified_test_names(path)
+        names = set(_qualified_test_names(path))
+        # Bounded: entries for this file, times names in this file.
         for entry, _ in entries:
-            if "::" in entry:
-                continue
-            hits = [q for q in qualified if q.endswith(f"::{entry}")]
-            if hits:
-                ambiguous.append(f"{rel}::{entry} is class-scoped; matches {hits}")
-    assert ambiguous == [], (
-        "bare registry entries target class-scoped tests:\n  " + "\n  ".join(ambiguous)
+            hits = sorted(n for n in names if entry_matches_name(n, entry))
+            if len(hits) != 1:
+                problems.append(f"{rel}::{entry} matches {len(hits)}: {hits}")
+    assert problems == [], (
+        "registry entries that do not claim exactly one test:\n  "
+        + "\n  ".join(problems)
     )
 
 

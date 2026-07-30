@@ -3,7 +3,12 @@ def test_no_unexcused_exclusions():
     from conftest_exclusions import FILE_EXCLUSIONS, TEST_EXCLUSIONS
     sanctioned = ("pandas", "network", "decorator", "image", "private", "deferred",
                   "trajectory", "parity", "colormap", "Trie", "pickle", "scene-graph",
-                  "import-time", "fetch")   # "fetch" = OQ-2 disk-fixture reason (f)
+                  "import-time", "fetch",   # "fetch" = OQ-2 disk-fixture reason (f)
+                  # Task 4's class taxonomy — this whitelist is superseded by
+                  # taxonomy validation in Task 4 Step 4b, which deletes it.
+                  "env", "core-gap", "binding-gap", "divergence",
+                  "float-parity", "upstream-private", "deferred-symbol",
+                  "upstream-bug")
     def ok(r): return any(s in r for s in sanctioned)
     for path, reason in FILE_EXCLUSIONS.items():
         assert ok(reason), f"{path}: unexcused exclusion `{reason}`"
