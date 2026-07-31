@@ -1387,17 +1387,39 @@ In `build()`, replace `"symbols": _symbol_status(),` with:
         "partial_symbols": partials,
 ```
 
-and extend `symbols_status` to name the third value:
+and extend `symbols_status` to name the third value, then add a
+`partial_symbols_status` disclaimer beside it:
 
 ```python
         "symbols_status": (
             "`bound` means 'not routed through the _deferred stub factory', NOT "
-            "'fully implemented'. `bound-partial` means the symbol is bound and "
-            "still raises NotImplementedError for the argument shapes recorded "
-            "in `partial_symbols`. Read `symbols` together with `exclusions`, "
-            "`partial_symbols` and `divergences`."
+            "'fully implemented'. Some bound symbols raise from Rust for "
+            "particular arguments; only those MEASURED so far are marked "
+            "`bound-partial` and recorded in `partial_symbols`. Read `symbols` "
+            "together with `exclusions`, `partial_symbols` and `divergences`."
+        ),
+        "partial_symbols_status": (
+            "A measured, INCOMPLETE record. Absence from this list is NOT "
+            "evidence a symbol is free of raising paths — it may simply be "
+            "unmeasured. Known-unmeasured: the drawing.* ImportError family."
         ),
 ```
+
+> **Amendment, 2026-07-31 (owner ruling).** This block replaces an earlier
+> draft that defined `bound-partial` alone and, in doing so, deleted the base
+> revision's blanket sentence "Some bound symbols raise NotImplementedError
+> from Rust for particular arguments". Defining only the narrow value invites
+> the inverse inference — that a plain `bound` symbol does not raise — which
+> contradicts this plan's own **Silence is not evidence** constraint and would
+> make Plan C's resolver report `xgi.draw` usable to a consumer with no `mpl`
+> extra installed (`resolver-design.md:192` emits the safe verdict for anything
+> `bound` carrying no divergence ids). The owner ruled the Global Constraint
+> governs the brief. Two further consequences of the ruling: the phrase "raises
+> **NotImplementedError**" is dropped, because the known-unmeasured drawing
+> family raises `ImportError`; and the clause must not claim the symbol itself
+> raises "for the argument shapes recorded", which is false for the
+> class-keyed entries (`Hypergraph`, `DiHypergraph`) where no constructor
+> argument raises — the raising site is a method reached through the class.
 
 - [ ] **Step 5: Regenerate and run**
 
