@@ -48,6 +48,26 @@ def test_no_symbol_is_both_partial_and_deferred() -> None:
     assert partial.isdisjoint(deferred)
 
 
+def test_promote_partials_rejects_a_deferred_symbol() -> None:
+    """Direct on the guard, not on its output: `manifest["symbols"]` has
+    already been overwritten by the time `test_no_symbol_is_both_partial_and_
+    deferred` reads it, so that test cannot fail if this guard is deleted.
+    """
+    from gen_manifest import ManifestError, _promote_partials
+
+    entry = {"symbol": "x", "site": "s", "trigger": "t", "reason": "r"}
+    with pytest.raises(ManifestError, match="deferred stub"):
+        _promote_partials({"x": "deferred"}, [entry])
+
+
+def test_promote_partials_rejects_a_name_not_in_all() -> None:
+    from gen_manifest import ManifestError, _promote_partials
+
+    entry = {"symbol": "ghost", "site": "s", "trigger": "t", "reason": "r"}
+    with pytest.raises(ManifestError, match="not in"):
+        _promote_partials({"x": "bound"}, [entry])
+
+
 def test_manifest_exposes_the_detail() -> None:
     assert _manifest()["partial_symbols"] == _authored()
 
@@ -60,3 +80,26 @@ def test_degree_assortativity_exact_false_still_raises() -> None:
     H.add_edges_from([["a", "b"], ["b", "c"], ["a", "c"]])
     with pytest.raises(NotImplementedError):
         hrs.degree_assortativity(H, exact=False)
+
+
+def test_di_stat_call_still_raises() -> None:
+    """A direct pin for entries B and C: when this stops raising, both
+    entries must be deleted."""
+    import hypergraph_rs as hrs
+
+    D = hrs.DiHypergraph()
+    D.add_edges_from([({0, 1}, {2}), ({1, 2}, {4}), ({2, 3, 4}, {4, 5})])
+    for stat in (D.nodes.in_degree, D.nodes.out_degree):
+        with pytest.raises(NotImplementedError):
+            stat()
+
+
+def test_edge_attrs_stat_recall_still_raises() -> None:
+    """A direct pin for entry D: when this stops raising, the entry must be
+    deleted."""
+    import hypergraph_rs as hrs
+
+    H = hrs.Hypergraph()
+    H.add_edges_from([({1, 2}, {"color": "blue"}), ({3, 4, 5}, {"color": "purple"})])
+    with pytest.raises(NotImplementedError):
+        H.edges.attrs("color")()

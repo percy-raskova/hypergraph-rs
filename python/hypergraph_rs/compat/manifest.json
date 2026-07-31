@@ -281,7 +281,7 @@
       "xgi": "Subclasses normally; Py_TPFLAGS_BASETYPE is True."
     }
   ],
-  "divergences_status": "unpopulated-T0: the D1-D17 register is live in crates/hypergraph-rs/tests/conformance/main.rs but has not yet been transcribed here. An empty `divergences` list does NOT mean zero known divergences. Populated in T1.",
+  "divergences_status": "populated: the measured, Python-visible D-register (35 entries) is transcribed from docs/superpowers/specs/evidence/2026-07-30-divergence-register-measurement.md into compat/divergences.toml. Completeness, taxonomy membership and text-fidelity against that source are enforced by tests/test_divergence_register.py, not by this string.",
   "exclusions": {
     "files": [
       {
@@ -995,6 +995,7 @@
       "trigger": "Re-invoking the EdgeStat returned by H.edges.attrs(key) as a function \u2014 H.edges.attrs('color')() or with a new key. Only the Attr kind raises; Size/Order re-parametrize fine on the same __call__."
     }
   ],
+  "partial_symbols_status": "A measured, INCOMPLETE record. Absence from this list is NOT evidence a symbol is free of raising paths \u2014 it may simply be unmeasured. Known-unmeasured: the drawing.* ImportError family.",
   "schema_version": 1,
   "symbols": {
     "DiHypergraph": "bound-partial",
@@ -1162,6 +1163,6 @@
     "write_incidence_matrix": "bound",
     "z_eigenvector_centrality": "deferred"
   },
-  "symbols_status": "`bound` means 'not routed through the _deferred stub factory', NOT 'fully implemented'. `bound-partial` means the symbol is bound and still raises NotImplementedError for the argument shapes recorded in `partial_symbols`. Read `symbols` together with `exclusions`, `partial_symbols` and `divergences`.",
+  "symbols_status": "`bound` means 'not routed through the _deferred stub factory', NOT 'fully implemented'. Some bound symbols raise from Rust for particular arguments; only those MEASURED so far are marked `bound-partial` and recorded in `partial_symbols`. Read `symbols` together with `exclusions`, `partial_symbols` and `divergences`.",
   "xgi_target": "0.10.2"
 }

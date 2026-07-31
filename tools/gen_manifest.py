@@ -133,17 +133,24 @@ def build() -> dict:
         },
         "divergences": divergences.get("divergence", []),
         "divergences_status": (
-            "unpopulated-T0: the D1-D17 register is live in "
-            "crates/hypergraph-rs/tests/conformance/main.rs but has not yet been "
-            "transcribed here. An empty `divergences` list does NOT mean zero known "
-            "divergences. Populated in T1."
+            "populated: the measured, Python-visible D-register (35 entries) is "
+            "transcribed from docs/superpowers/specs/evidence/"
+            "2026-07-30-divergence-register-measurement.md into "
+            "compat/divergences.toml. Completeness, taxonomy membership and "
+            "text-fidelity against that source are enforced by "
+            "tests/test_divergence_register.py, not by this string."
         ),
         "symbols_status": (
             "`bound` means 'not routed through the _deferred stub factory', NOT "
-            "'fully implemented'. `bound-partial` means the symbol is bound and "
-            "still raises NotImplementedError for the argument shapes recorded "
-            "in `partial_symbols`. Read `symbols` together with `exclusions`, "
-            "`partial_symbols` and `divergences`."
+            "'fully implemented'. Some bound symbols raise from Rust for "
+            "particular arguments; only those MEASURED so far are marked "
+            "`bound-partial` and recorded in `partial_symbols`. Read `symbols` "
+            "together with `exclusions`, `partial_symbols` and `divergences`."
+        ),
+        "partial_symbols_status": (
+            "A measured, INCOMPLETE record. Absence from this list is NOT "
+            "evidence a symbol is free of raising paths — it may simply be "
+            "unmeasured. Known-unmeasured: the drawing.* ImportError family."
         ),
         "exclusions": {
             "files": exclusions.get("file_exclusion", []),
