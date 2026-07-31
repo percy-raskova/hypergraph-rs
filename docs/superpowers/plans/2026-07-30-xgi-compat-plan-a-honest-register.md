@@ -38,6 +38,14 @@ This plan adds no runtime code — it corrects generators, guards, and data. The
   test fail, then revert. A guard not proven by mutation is not done.
 - **Gate command:** `mise run py:gate` (Python), `mise run rust:check` (Rust). Both must be
   green before any commit.
+- **The gate discovers tests; it does not list them.** Owner ruling, 2026-07-31, after
+  Task 1's review found that every test file this plan creates would otherwise run in no
+  gate at all: `py:gate`'s meta-test invocation is
+  `pytest tests/ --ignore=tests/ported -q`, never an explicit file list. A hand-maintained
+  list is itself a proxy — forgetting an entry is silent, and that is exactly the failure
+  this constraint exists to prevent. **Do not pin the meta-suite's pass count anywhere**;
+  it rises as tasks add guards. The count that must stay fixed is the ported suite's
+  `316 passed / 1 skipped / 77 xfailed`.
 
 ---
 
@@ -244,13 +252,34 @@ Expected: `test_declared_but_unbound_name_raises` FAILS. Then revert.
 
 Record both results in your report. A guard not proven by mutation is not done.
 
+- [ ] **Step 7b: Wire the gate to discover tests**
+
+A guard no gate runs protects nothing. `.mise.toml`'s `py:gate` currently names four test
+files explicitly, so `tests/test_symbol_status.py` — and every test file later tasks add —
+would never execute in CI. Replace the explicit list in the `py:gate` `run` block:
+
+```
+$PY -m pytest tests/ --ignore=tests/ported -q
+```
+
+leaving the `tools/audit_symbols.py` line before it and the `tests/ported` line after it
+unchanged. Confirm the new invocation collects strictly more than the old one:
+
+```bash
+.venv/bin/python -m pytest tests/ --ignore=tests/ported -q --collect-only 2>&1 | tail -3
+```
+
+Note the collected count in your report. Do not pin it in any test — it rises as later tasks
+add guards.
+
 - [ ] **Step 8: Run the full gate and commit**
 
 Run: `mise run py:gate`
-Expected: EXIT=0, `329 passed, 1 skipped, 77 xfailed`.
+Expected: EXIT=0. The ported suite must still report `316 passed, 1 skipped, 77 xfailed`;
+the meta-suite count is now higher than before and must not be pinned.
 
 ```bash
-git add tools/symbol_status.py tools/audit_symbols.py tools/gen_manifest.py tests/test_symbol_status.py
+git add tools/symbol_status.py tools/audit_symbols.py tools/gen_manifest.py tests/test_symbol_status.py .mise.toml
 git commit --no-verify -m "fix(compat): one symbol-status predicate, fail-closed
 
 audit_symbols.py classified stubs with __module__.endswith('_deferred') against
@@ -838,7 +867,24 @@ def test_gate_still_runs_the_ported_suite_last() -> None:
     assert run.index("tests/ported") < run.index("tools/gate_report.py"), (
         "the report must be produced from the ported run, so it comes after it"
     )
+
+
+def test_gate_discovers_meta_tests_rather_than_listing_them() -> None:
+    """Task 1's review found six guards that would have run in no gate at all,
+    because py:gate enumerated four test files by hand. A list is a proxy for
+    'the tests run' — forgetting an entry is silent."""
+    run = _gate_run()
+    assert "tests/ --ignore=tests/ported" in run, (
+        "py:gate must DISCOVER tests/, not enumerate files"
+    )
+    listed = re.findall(r"tests/test_\w+\.py", run)
+    assert listed == [], (
+        f"py:gate names individual test files ({listed}); any guard not on that "
+        "list runs nowhere, which is how test_symbol_status.py was orphaned at birth"
+    )
 ```
+
+Add `import re` to that file's imports.
 
 - [ ] **Step 2: Run it to confirm it fails**
 
@@ -1457,9 +1503,11 @@ Record the output in your report.
 - [ ] **Step 5: Run both full gates**
 
 Run: `mise run py:gate`
-Expected: EXIT=0. The ported-suite counts must be **unchanged** from T0
+Expected: EXIT=0. The **ported-suite** counts must be unchanged from T0
 (`316 passed, 1 skipped, 77 xfailed`) — this plan touches no ported test. If they moved,
-stop and explain why before continuing.
+stop and explain why before continuing. The meta-suite count is higher than T0's, because
+Task 1 wired `py:gate` to discover `tests/` and every task since has added guards; report
+the number you observe but do not treat any particular value as expected.
 
 Run: `mise run rust:check`
 Expected: EXIT=0, 501 tests. Nothing here touches Rust; this is a regression check.
