@@ -731,8 +731,12 @@ Expected: `ImportError: cannot import name 'SENTINEL'`.
 
 - [ ] **Step 4: Add the sentinel to `tests/conftest.py`**
 
-Immediately before the existing line `# --- Task 15: conformance exclusion glue ---`
-(currently line 344), insert exactly:
+Insert the sentinel **immediately after the last line of upstream content** — the `return`
+line ending the `h1()` fixture — not merely before the `# --- Task 15: conformance exclusion
+glue ---` marker. Upstream's `conftest.py` is 341 lines ending in a single `\n` after that
+`return`; the blank lines between it and the Task-15 marker are repo-authored spacing, so a
+sentinel placed below them leaves those bytes inside the "verbatim" prefix and the guard
+false-fails on trailing whitespace with no fixture actually differing. Insert exactly:
 
 ```python
 # === END VERBATIM XGI 0.10.2 conftest — repo-authored code below this line ===
@@ -745,8 +749,15 @@ Immediately before the existing line `# --- Task 15: conformance exclusion glue 
 
 Add to `tests/test_oracle_integrity.py`:
 
+Note the escape: a Python `bytes` literal cannot contain a literal em-dash, so the marker's
+`—` must be written as its UTF-8 encoding `\xe2\x80\x94`. The resulting bytes are identical
+to the comment line in `conftest.py`.
+
 ```python
-SENTINEL = b"# === END VERBATIM XGI 0.10.2 conftest — repo-authored code below this line ==="
+SENTINEL = (
+    b"# === END VERBATIM XGI 0.10.2 conftest \xe2\x80\x94 "
+    b"repo-authored code below this line ==="
+)
 
 
 def _upstream_prefix(raw: bytes) -> bytes:
