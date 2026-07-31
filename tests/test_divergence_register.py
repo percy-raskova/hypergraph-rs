@@ -11,10 +11,40 @@ from taxonomy import CLASSES
 ROOT = pathlib.Path(__file__).parent.parent
 FIELDS = {"id", "api", "ours", "xgi", "class", "reason"}
 
+EVIDENCE_DOC = (
+    ROOT
+    / "docs"
+    / "superpowers"
+    / "specs"
+    / "evidence"
+    / "2026-07-30-divergence-register-measurement.md"
+)
+
+# D38 (F7, subclassability) was found during the method-layer sweep AFTER the
+# evidence document froze, so it has no counterpart there by design — it is
+# not a paraphrase gap, it is a genuinely later addition.
+NO_EVIDENCE_COUNTERPART = {"D38"}
+
 
 def _register() -> list[dict]:
     with (ROOT / "compat" / "divergences.toml").open("rb") as fh:
         return tomllib.load(fh).get("divergence", [])
+
+
+def _evidence_entries() -> list[dict]:
+    """Independently re-parse the 'Ready-to-paste TOML' block Step 4 copied
+    into compat/divergences.toml, straight out of the evidence document.
+
+    Re-deriving this from the source (rather than trusting the copy) is what
+    lets a future silent paraphrase of a shipped entry be caught.
+    """
+    text = EVIDENCE_DOC.read_text()
+    heading = "### Ready-to-paste TOML"
+    start = text.index(heading)
+    fence_start = text.index("```toml", start) + len("```toml")
+    fence_end = text.index("```", fence_start)
+    block = text[fence_start:fence_end]
+    return tomllib.loads(block).get("divergence", [])
 
 
 def test_register_is_populated() -> None:
@@ -58,3 +88,31 @@ def test_dead_register_entries_are_absent() -> None:
     entries. Shipping them would claim differences that do not exist."""
     ids = {e["id"] for e in _register()}
     assert ids.isdisjoint({"D1", "D6", "D8", "D10", "D15", "D16"})
+
+
+def test_evidence_document_yields_34_entries() -> None:
+    """Guards against a truncated or unparseable extraction passing
+    vacuously: an empty or short block would make the text-fidelity test
+    below trivially pass by having nothing to compare."""
+    assert len(_evidence_entries()) == 34
+
+
+def test_register_text_matches_the_evidence_document_verbatim() -> None:
+    """The register's whole value is that it is measured, not recalled.
+    Every other test here pins SHAPE (count, taxonomy, uniqueness, fields);
+    this one pins TEXT, so a future silent paraphrase of a shipped entry's
+    api/ours/xgi/reason prose is caught. Matched by id, not position, so a
+    reordering of either file does not false-fail."""
+    evidence_by_id = {e["id"]: e for e in _evidence_entries()}
+    shipped_by_id = {
+        e["id"]: e for e in _register() if e["id"] not in NO_EVIDENCE_COUNTERPART
+    }
+    mismatches = []
+    # Bounded: one pass over the evidence document's fixed 34 entries.
+    for eid, evidence_entry in evidence_by_id.items():
+        shipped_entry = shipped_by_id.get(eid)
+        if shipped_entry is None:
+            mismatches.append(f"{eid}: missing from the shipped register")
+        elif shipped_entry != evidence_entry:
+            mismatches.append(f"{eid}: fields differ from the evidence document")
+    assert mismatches == [], "\n".join(mismatches)

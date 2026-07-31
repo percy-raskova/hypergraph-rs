@@ -1,10 +1,16 @@
 # compat/divergences.toml
 #
-# The D-register (D1-D17), promoted from tests/conformance/main.rs so it can be
-# shipped and queried rather than living only in Rust test code (spec §4 C1).
+# A measured register of deliberate, observable differences between
+# hypergraph-rs and real xgi 0.10.2, verified by direct execution against
+# both libraries (docs/superpowers/specs/evidence/
+# 2026-07-30-divergence-register-measurement.md). 35 entries: D1-D17 (the
+# register originally promoted from tests/conformance/main.rs, spec §4 C1)
+# supplies 12 of them; the remaining 23 carry REV- and higher D-numbers found
+# by measuring the PyO3 surface directly, which the Rust conformance harness
+# structurally cannot observe.
 #
-# T0 creates this file with its schema fixed so `manifest.json` never changes
-# shape later. T1 populates it and wires DivergenceWarning to these entries.
+# A symbol's ABSENCE from this file is NOT a statement that it is verified
+# equivalent to xgi — it may simply be unmeasured.
 #
 # Schema, one table per divergence:
 #
