@@ -12,8 +12,14 @@ own tests, not ports.
 import pathlib
 import re
 
+import xgi
+
 PORTED = pathlib.Path(__file__).parent / "ported"
-UPSTREAM = pathlib.Path(__file__).parent.parent / ".venv" / "lib" / "python3.13" / "site-packages" / "tests"
+# Derive the oracle path from the INSTALLED xgi rather than hardcoding a venv
+# layout: CI has no `.venv` (it pip-installs xgi into a setup-python env), and a
+# hardcoded `python3.13` breaks on any interpreter bump. xgi 0.10.2 vendors its
+# own test suite as a sibling of the package directory.
+UPSTREAM = pathlib.Path(xgi.__file__).resolve().parent.parent / "tests"
 
 # The port aliases its import (`import hypergraph_rs as xgi`) rather than
 # rewriting every `xgi.Foo(...)` call site, so everywhere BELOW the import
