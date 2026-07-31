@@ -72,6 +72,6 @@ run = """
 set -e
 PY="${PY:-.venv/bin/python}"
 $PY tools/audit_symbols.py
-$PY -m pytest tests/test_manifest_drift.py tests/test_registry_integrity.py tests/test_denominator.py tests/test_oracle_integrity.py -q
+$PY -m pytest tests/ --ignore=tests/ported -q
 $PY -m pytest tests/ported -q
 """

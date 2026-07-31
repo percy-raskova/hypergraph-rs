@@ -2,7 +2,7 @@
 """Compare hypergraph_rs's public surface against XGI 0.10.2's 164 symbols; emit the ledger.
 
 Fails if __all__ != XGI's 164. Classifies each symbol as bound or deferred (a stub whose
-__module__ endswith '_deferred'). Writes tests/DEFERRED_SYMBOLS.md.
+__module__ is exactly the `_deferred` stub factory module). Writes tests/DEFERRED_SYMBOLS.md.
 """
 import importlib
 import pathlib

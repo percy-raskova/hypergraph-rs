@@ -352,8 +352,15 @@ from conftest_exclusions import (
 
 
 def pytest_ignore_collect(collection_path, config):
+    """Ignore file-excluded oracle modules; stay silent about everything else.
+
+    Returning a bare bool is wrong here: pytest_ignore_collect is
+    firstresult=True, so a `False` return short-circuits the hook chain and
+    silently disables pytest's own --ignore / --ignore-glob handling for every
+    path in the repo. `None` means "no opinion, ask the next implementation".
+    """
     rel = str(collection_path).split("/ported/", 1)[-1]
-    return rel in FILE_EXCLUSIONS
+    return True if rel in FILE_EXCLUSIONS else None
 
 
 def _entry_matches(item, entry: str) -> bool:

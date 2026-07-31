@@ -10,14 +10,14 @@ check cannot catch either: regeneration reproduces the same wrong answer.
 
 NOTE ON THE AXIS: `bound` means "not routed through the `_deferred` stub
 factory" — NOT "fully implemented". Some bound symbols raise
-`NotImplementedError` from Rust for particular arguments; those are recorded
-separately in `compat/partial_symbols.toml`.
+`NotImplementedError` from Rust for particular arguments; those will be
+recorded separately in `compat/partial_symbols.toml` (Task 7).
 """
 
 from collections.abc import Sequence
 from types import ModuleType
 
-DEFERRED_MODULE = "hypergraph_rs._deferred"
+DEFERRED_MODULE: str = "hypergraph_rs._deferred"
 
 
 class SymbolStatusError(RuntimeError):
