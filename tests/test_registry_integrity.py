@@ -120,25 +120,48 @@ def test_registry_is_not_empty() -> None:
     assert ENTRY_CLASSES, "ENTRY_CLASSES parsed empty from compat/exclusions.toml"
 
 
-def test_skip_classes_are_exactly_the_unrunnable_ones() -> None:
-    """Pins which classes skip and which xfail.
+def test_skip_and_xfail_markers_land_on_the_right_classes(monkeypatch) -> None:
+    """Pins BEHAVIOUR: which marker the hook actually applies per class.
 
-    The skip branch in conftest.py has no live coverage — no test entry
-    currently carries a skip class — so inverting the condition would silently
-    turn all 77 strict xfails into skips, restoring the hiding behaviour this
-    tier removed. This is the guard for that.
+    The previous version asserted the contents of `_SKIP_CLASSES`, which an
+    inversion of the branch that consumes it does not change — flipping
+    `if cls in _SKIP_CLASSES` to `not in` turns all 77 strict xfails into skips
+    and every test in this repo still passes. Verified by mutation. No live test
+    entry carries a skip class any more, so the skip path is exercised here with
+    synthetic registry entries rather than real ones.
     """
     import conftest
 
-    assert conftest._SKIP_CLASSES == frozenset({"env", "upstream-bug", "out-of-scope"})
+    class _FakeItem:
+        def __init__(self, name: str) -> None:
+            self.fspath = "/repo/tests/ported/fake/test_x.py"
+            self.name = name
+            self.cls = None
+            self.own_markers: list = []
 
-    valid = {
-        "deferred-symbol", "core-gap", "binding-gap", "divergence",
-        "float-parity", "upstream-private", "env", "upstream-bug",
-        "out-of-scope",
-    }
-    xfail_classes = valid - conftest._SKIP_CLASSES
-    assert xfail_classes == {
-        "deferred-symbol", "core-gap", "binding-gap",
-        "divergence", "float-parity", "upstream-private",
-    }
+        def add_marker(self, marker: object) -> None:
+            self.own_markers.append(marker)
+
+    rel = "fake/test_x.py"
+    monkeypatch.setitem(
+        conftest.TEST_EXCLUSIONS,
+        rel,
+        [("test_skipme", "synthetic"), ("test_xfailme", "synthetic")],
+    )
+    monkeypatch.setitem(conftest.ENTRY_CLASSES, (rel, "test_skipme"), "env")
+    monkeypatch.setitem(conftest.ENTRY_CLASSES, (rel, "test_xfailme"), "core-gap")
+
+    skip_item = _FakeItem("test_skipme")
+    xfail_item = _FakeItem("test_xfailme")
+    conftest.pytest_collection_modifyitems(None, [skip_item, xfail_item])
+
+    assert [m.name for m in skip_item.own_markers] == ["skip"]
+    assert [m.name for m in xfail_item.own_markers] == ["xfail"]
+    assert xfail_item.own_markers[0].kwargs["strict"] is True
+
+
+def test_skip_classes_are_exactly_the_unrunnable_ones() -> None:
+    """Pins the constant itself — catches a class added, removed, or renamed."""
+    import conftest
+
+    assert conftest._SKIP_CLASSES == frozenset({"env", "upstream-bug", "out-of-scope"})

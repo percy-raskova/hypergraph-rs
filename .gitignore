@@ -8,3 +8,6 @@ __pycache__/
 /.venv/
 python/hypergraph_rs/*.so
 python/hypergraph_rs/*.pyd
+
+# generated at repo root by tools/gate_report.py — a CI artifact, never shipped
+/compat-report.json

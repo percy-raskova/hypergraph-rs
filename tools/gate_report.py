@@ -3,7 +3,9 @@
 
 Reads a pytest JSON-free summary by re-deriving counts from the manifest and a
 pytest run's exit summary passed on argv. Kept deliberately simple: the score
-is a CI artifact, never shipped.
+is a CI artifact, never shipped. Nothing invokes this automatically — run it
+by hand with the passed/skipped/xfailed counts from a `mise run py:gate` (or
+CI) run.
 
 Usage:  python tools/gate_report.py <passed> <skipped> <xfailed>
 """
@@ -27,6 +29,15 @@ def main(passed: int, skipped: int, xfailed: int) -> int:
     # Bounded: one pass over the registry's test entries.
     for entry in manifest["exclusions"]["tests"]:
         by_class[entry["class"]] += 1
+
+    if passed < 0 or skipped < 0 or xfailed < 0:
+        raise SystemExit("counts must be non-negative")
+    if xfailed != sum(by_class.values()):
+        raise SystemExit(
+            f"inconsistent inputs: {xfailed} xfailed reported, but the manifest "
+            f"lists {sum(by_class.values())} test-level gaps. Either the counts "
+            "are from a different run, or the registry and the suite disagree."
+        )
 
     denominator = passed + skipped + xfailed + invisible
     report = {
