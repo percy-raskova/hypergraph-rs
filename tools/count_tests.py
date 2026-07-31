@@ -49,7 +49,12 @@ def file_exclusion_test_counts() -> dict[str, int]:
     # Bounded: one pass over the registry's file entries.
     for rel in FILE_EXCLUSIONS:
         path = PORTED / rel
-        out[rel] = count_tests_in_file(path) if path.exists() else 0
+        if not path.exists():
+            raise FileNotFoundError(
+                f"registry names {rel!r} but it does not exist under {PORTED}; "
+                "the invisible count would silently shrink"
+            )
+        out[rel] = count_tests_in_file(path)
     return out
 
 

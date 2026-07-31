@@ -22,6 +22,11 @@ from count_tests import file_exclusion_test_counts  # noqa: E402
 
 DEST = ROOT / "python" / "hypergraph_rs" / "compat" / "manifest.json"
 XGI_TARGET = "0.10.2"
+_DEFERRED_MODULE = "hypergraph_rs._deferred"
+
+
+class ManifestError(RuntimeError):
+    """The tree is in a state where an honest manifest cannot be produced."""
 
 
 def _load_toml(name: str) -> dict:
@@ -41,15 +46,32 @@ def _dotted_paths(pkg_name: str) -> set[str]:
 
 
 def _symbol_status() -> dict[str, str]:
-    """`bound` vs `deferred` for every name in the package's __all__."""
+    """`bound` vs `deferred` for every name in the package's `__all__`.
+
+    NOTE ON THE AXIS: `bound` means "not routed through the `_deferred` stub
+    factory" — NOT "fully implemented". Some bound symbols raise
+    `NotImplementedError` from Rust for particular argument combinations (e.g.
+    `degree_assortativity(exact=False)`). Read `symbols` together with
+    `exclusions` for the whole picture.
+
+    Fails loudly rather than defaulting: an unbound name would otherwise be
+    classed `bound`, over-claiming capability in an artifact whose purpose is an
+    honest claim — and the drift check cannot catch it, since regeneration
+    reproduces the same wrong answer.
+    """
     import hypergraph_rs
 
     out: dict[str, str] = {}
     # Bounded: one pass over __all__.
     for name in hypergraph_rs.__all__:
-        obj = getattr(hypergraph_rs, name, None)
+        if not hasattr(hypergraph_rs, name):
+            raise ManifestError(
+                f"__all__ declares {name!r} but the package does not bind it; "
+                "the manifest would over-claim capability"
+            )
+        obj = getattr(hypergraph_rs, name)
         mod = getattr(obj, "__module__", "") or ""
-        out[name] = "deferred" if mod.endswith("_deferred") else "bound"
+        out[name] = "deferred" if mod == _DEFERRED_MODULE else "bound"
     return out
 
 
@@ -63,7 +85,7 @@ def build() -> dict:
     try:
         theirs = _dotted_paths("xgi")
     except ModuleNotFoundError as exc:  # explicit: xgi is a hard requirement here
-        raise SystemExit(
+        raise ManifestError(
             "real xgi must be installed to generate the manifest "
             f"(pip install xgi=={XGI_TARGET}): {exc}"
         ) from exc
@@ -88,8 +110,12 @@ def build() -> dict:
 
 
 def main() -> int:
+    try:
+        data = build()
+    except ManifestError as exc:
+        raise SystemExit(str(exc)) from exc
     DEST.parent.mkdir(parents=True, exist_ok=True)
-    DEST.write_text(json.dumps(build(), indent=2, sort_keys=True) + "\n")
+    DEST.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
     print(f"wrote {DEST}")
     return 0
 
