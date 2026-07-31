@@ -55,7 +55,29 @@ def main(passed: int, skipped: int, xfailed: int) -> int:
     return 0
 
 
+def _from_stats(path: pathlib.Path) -> tuple[int, int, int]:
+    """Exact counts from the ported run, written by pytest_sessionfinish."""
+    if not path.exists():
+        raise SystemExit(
+            f"{path} not found — run the ported suite first; the report is "
+            "derived from a real run, never from assumed counts"
+        )
+    stats = json.loads(path.read_text())
+    return (
+        int(stats.get("passed", 0)),
+        int(stats.get("skipped", 0)),
+        int(stats.get("xfailed", 0)),
+    )
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        raise SystemExit("usage: gate_report.py <passed> <skipped> <xfailed>")
-    raise SystemExit(main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])))
+    if len(sys.argv) == 3 and sys.argv[1] == "--from-stats":
+        raise SystemExit(main(*_from_stats(pathlib.Path(sys.argv[2]))))
+    if len(sys.argv) == 4:
+        raise SystemExit(
+            main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
+        )
+    raise SystemExit(
+        "usage: gate_report.py <passed> <skipped> <xfailed>\n"
+        "   or: gate_report.py --from-stats <path>"
+    )

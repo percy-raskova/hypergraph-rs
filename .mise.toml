@@ -74,4 +74,5 @@ PY="${PY:-.venv/bin/python}"
 $PY tools/audit_symbols.py
 $PY -m pytest tests/ --ignore=tests/ported -q
 $PY -m pytest tests/ported -q
+$PY tools/gate_report.py --from-stats .gate-stats.json
 """

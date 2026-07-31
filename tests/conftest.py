@@ -346,6 +346,9 @@ def h1():
 
 
 # --- Task 15: conformance exclusion glue (spec §9.1) ---
+import json
+import pathlib
+
 import pytest
 from conftest_exclusions import (
     ENTRY_CLASSES,
@@ -400,3 +403,18 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(pytest.mark.skip(reason=tag))
             else:
                 item.add_marker(pytest.mark.xfail(reason=tag, strict=True))
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Write the run's exact outcome counts for tools/gate_report.py.
+
+    Read from the terminal reporter's own stats rather than scraping the
+    printed summary line: that line's wording and order are presentation, and
+    pinning it would be one more guard on a proxy.
+    """
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is None:  # -p no:terminal, or a non-terminal runner
+        return
+    counts = {key: len(value) for key, value in reporter.stats.items() if key}
+    target = pathlib.Path(session.config.rootpath) / ".gate-stats.json"
+    target.write_text(json.dumps(counts, indent=2, sort_keys=True) + "\n")
