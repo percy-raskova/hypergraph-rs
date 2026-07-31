@@ -36,6 +36,24 @@ def test_gate_still_runs_the_ported_suite_last() -> None:
     )
 
 
+def test_gate_clears_stale_stats_before_the_first_test_run() -> None:
+    """The pytest_sessionfinish hook is registered under tests/, so it fires
+    on every pytest invocation there, not just py:gate's own two — and
+    _from_stats only checks that .gate-stats.json exists, never that this
+    run produced it. Without deleting it up front, a stale file from an
+    unrelated or interrupted run would be silently accepted as 'a real
+    run'."""
+    run = _gate_run()
+    assert "rm -f .gate-stats.json" in run, (
+        "py:gate must delete .gate-stats.json before running any tests, so a "
+        "stale file can never be silently accepted as this run's counts"
+    )
+    assert run.index("rm -f .gate-stats.json") < run.index("pytest"), (
+        "the removal must happen before the first pytest invocation, "
+        "otherwise a leftover file from a prior run could still be read"
+    )
+
+
 def test_gate_discovers_meta_tests_rather_than_listing_them() -> None:
     """Task 1's review found six guards that would have run in no gate at all,
     because py:gate enumerated four test files by hand. A list is a proxy for

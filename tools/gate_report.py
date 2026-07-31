@@ -1,13 +1,14 @@
 # tools/gate_report.py
 """Emit compat-report.json: the honest score with its class breakdown.
 
-Reads a pytest JSON-free summary by re-deriving counts from the manifest and a
-pytest run's exit summary passed on argv. Kept deliberately simple: the score
-is a CI artifact, never shipped. Nothing invokes this automatically — run it
-by hand with the passed/skipped/xfailed counts from a `mise run py:gate` (or
-CI) run.
+Re-derives counts from the manifest and a pytest run's outcome counts. Kept
+deliberately simple: the score is a CI artifact, never shipped. Invoked
+automatically as the last step of `mise run py:gate`, which writes exact
+counts to `.gate-stats.json` via `tests/conftest.py`'s `pytest_sessionfinish`
+hook and passes that file with `--from-stats`.
 
-Usage:  python tools/gate_report.py <passed> <skipped> <xfailed>
+Usage:  python tools/gate_report.py --from-stats <path>
+   or:  python tools/gate_report.py <passed> <skipped> <xfailed>  (manual fallback)
 """
 
 import collections
