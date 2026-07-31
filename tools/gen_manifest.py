@@ -121,7 +121,7 @@ def build() -> dict:
     theirs = _dotted_paths("xgi")
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "hypergraph_rs_version": getattr(hypergraph_rs, "__version__", "unknown"),
         "xgi_target": XGI_TARGET,
         "symbols": _promote_partials(_symbol_status(), partials),
@@ -133,12 +133,12 @@ def build() -> dict:
         },
         "divergences": divergences.get("divergence", []),
         "divergences_status": (
-            "populated: the measured, Python-visible D-register (35 entries) is "
-            "transcribed from docs/superpowers/specs/evidence/"
-            "2026-07-30-divergence-register-measurement.md into "
-            "compat/divergences.toml. Completeness, taxonomy membership and "
-            "text-fidelity against that source are enforced by "
-            "tests/test_divergence_register.py, not by this string."
+            "Populated from compat/divergences.toml, measured against real xgi "
+            f"{XGI_TARGET} rather than transcribed from the D1-D17 register, "
+            "which covers under half of the live Python-visible surface. Each "
+            "entry is a difference that is DELIBERATE and OBSERVABLE; deferred "
+            "symbols and missing namespaces are gaps, recorded separately. "
+            "A symbol absent from this list is NOT thereby verified equivalent."
         ),
         "symbols_status": (
             "`bound` means 'not routed through the _deferred stub factory', NOT "

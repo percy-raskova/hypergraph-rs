@@ -281,7 +281,7 @@
       "xgi": "Subclasses normally; Py_TPFLAGS_BASETYPE is True."
     }
   ],
-  "divergences_status": "populated: the measured, Python-visible D-register (35 entries) is transcribed from docs/superpowers/specs/evidence/2026-07-30-divergence-register-measurement.md into compat/divergences.toml. Completeness, taxonomy membership and text-fidelity against that source are enforced by tests/test_divergence_register.py, not by this string.",
+  "divergences_status": "Populated from compat/divergences.toml, measured against real xgi 0.10.2 rather than transcribed from the D1-D17 register, which covers under half of the live Python-visible surface. Each entry is a difference that is DELIBERATE and OBSERVABLE; deferred symbols and missing namespaces are gaps, recorded separately. A symbol absent from this list is NOT thereby verified equivalent.",
   "exclusions": {
     "files": [
       {
@@ -996,7 +996,7 @@
     }
   ],
   "partial_symbols_status": "A measured, INCOMPLETE record. Absence from this list is NOT evidence a symbol is free of raising paths \u2014 it may simply be unmeasured. Known-unmeasured: the drawing.* ImportError family.",
-  "schema_version": 1,
+  "schema_version": 2,
   "symbols": {
     "DiHypergraph": "bound-partial",
     "Hypergraph": "bound-partial",
