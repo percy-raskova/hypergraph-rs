@@ -1,3 +1,11 @@
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent.parent / "tools"))
+
+from taxonomy import CLASSES
+
+
 def test_no_unexcused_exclusions():
     """Every exclusion must carry a class from the closed taxonomy.
 
@@ -9,11 +17,7 @@ def test_no_unexcused_exclusions():
     """
     from conftest_exclusions import ENTRY_CLASSES, FILE_CLASSES
 
-    valid = {
-        "deferred-symbol", "core-gap", "binding-gap", "divergence",
-        "float-parity", "upstream-private", "env", "upstream-bug",
-        "out-of-scope",
-    }
+    valid = CLASSES
     bad = []
     # Bounded: one pass over each registry mapping.
     for path, cls in FILE_CLASSES.items():

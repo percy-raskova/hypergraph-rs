@@ -1,5 +1,286 @@
 {
-  "divergences": [],
+  "divergences": [
+    {
+      "api": "normalized_hypergraph_laplacian(H, sparse=False)",
+      "class": "upstream-bug",
+      "id": "D1-ripple",
+      "ours": "Edge-axis zero-guard yields a finite matrix when a size-0 edge is present.",
+      "reason": "Deliberate zero-guard (laplacian.rs). Only the default sparse=True path agrees; sparse=False diverges NaN-vs-finite.",
+      "xgi": "np.diag(1/De) with De=0 gives inf, then 0*inf=nan: an all-NaN matrix. With an ONLY-empty-edge graph xgi raises ValueError instead."
+    },
+    {
+      "api": "Hypergraph.remove_node_from_edge / DiHypergraph.remove_node_from_edge / remove_edges_from / remove_nodes_from",
+      "class": "divergence",
+      "id": "D2",
+      "ours": "Missing-id messages quote str ids via repr(): \"Edge 'x' not in the hypergraph\", \"'x' is not in the network\".",
+      "reason": "The PyO3 binding builds the message from edge.repr() before the core call, so MembershipError's XGI-matching arms are unreachable. str ids only; ints/floats/tuples/bytes match. State machinery is conformant.",
+      "xgi": "Plain f-string interpolation: \"Edge x not in the hypergraph\", \"ID x not found\"."
+    },
+    {
+      "api": "Hypergraph.add_edge(members, idx=<numeric string>)",
+      "class": "divergence",
+      "id": "D3",
+      "ours": "Auto-id counter bumps whenever the canonicalized key parses as u64, so idx='5' or '007' bumps.",
+      "reason": "PyIdMap canonicalizes str and int to the same core String key, so the core cannot make XGI's isinstance(idx, int) distinction.",
+      "xgi": "Bumps only for a real Python int; idx='5' leaves the counter at 0."
+    },
+    {
+      "api": "Hypergraph.add_edge(members, idx=<float or bool>)",
+      "class": "divergence",
+      "id": "D4",
+      "ours": "No bump for idx=5.0 or idx=True; the next auto id is 0.",
+      "reason": "Same mechanism as D3 in the opposite direction: canonical(5.0)/canonical(True) never produce a u64-parsable key.",
+      "xgi": "Bumps when float.is_integer(), and for bool (an int subclass): next auto id 6 / 2."
+    },
+    {
+      "api": "to_bipartite_edgelist(DiHypergraph)",
+      "class": "divergence",
+      "id": "D5",
+      "ours": "Exact insertion order, byte-stable across every PYTHONHASHSEED.",
+      "reason": "Task 2's owner-upgrade gave the Di core insertion order; it leaks into a Python list here. Directed only \u2014 the undirected control is identical at every seed. tail/head/dimembers/memberships are sets on both and must NOT be reported.",
+      "xgi": "Python set-iteration order, varying with the hash seed."
+    },
+    {
+      "api": "Hypergraph/DiHypergraph/SimplicialComplex add_node, add_nodes_from, add_edge, add_edges_from, add_simplex \u2014 a None id",
+      "class": "divergence",
+      "id": "D7",
+      "ours": "None is stringified to the core key \"None\" and silently accepted as a node.",
+      "reason": "Missing shape validation at the binding boundary (the Phase-7 obligation D7 assigns to the binding). Reproduces on 6 entry points across all three classes. idx=None correctly means auto-assign on both.",
+      "xgi": "IDDict.__setitem__ raises XGIError('None cannot be a node or edge'); SC.add_simplex raises ValueError."
+    },
+    {
+      "api": "DiHypergraph.remove_node(n, strong=True) / remove_nodes_from(..., strong=True)",
+      "class": "upstream-bug",
+      "id": "D9",
+      "ours": "Deletes incident edges AND cleans surviving nodes' reverse index: degree 0, isolates reported, a second removal succeeds.",
+      "reason": "Undirected remove_node is fully conformant across the 2x2 flag matrix; only the directed strong path diverges.",
+      "xgi": "dihypergraph.py:417-420 deletes _edge without reverse-index cleanup: surviving nodes keep dangling refs, degree/memberships/dimemberships/isolates disagree, and a second removal raises IDNotFound."
+    },
+    {
+      "api": "Hypergraph.add_node_to_edge / DiHypergraph.add_node_to_edge with a numeric edge id",
+      "class": "divergence",
+      "id": "D11",
+      "ours": "Bumps the auto-id counter, so a following auto add_edge gets id 6 (edges ['5','6']).",
+      "reason": "Deliberate extension of the D3/D4 bump rule to close XGI's collision class. Non-numeric ids agree; the gap widens with larger ids (['0','1','100'] vs ['100','101','102']).",
+      "xgi": "Never touches the counter (edges ['0','5']); a later auto id can silently overwrite the edge."
+    },
+    {
+      "api": "frozen Hypergraph.clear_edges; frozen DiHypergraph.add_node_to_edge / remove_node_from_edge",
+      "class": "upstream-bug",
+      "id": "D12",
+      "ours": "Raises XGIError(\"Frozen higher-order network can't be modified\").",
+      "reason": "XGI's freeze monkey-patches a fixed method list with omissions; ours is real state checked uniformly. Exactly these three ops, no more: a 21-op frozen-mutator sweep agrees everywhere else.",
+      "xgi": "Succeeds silently and mutates the frozen network."
+    },
+    {
+      "api": "Hypergraph.copy / DiHypergraph.copy of a frozen graph",
+      "class": "upstream-bug",
+      "id": "D13",
+      "ours": "The copy is frozen (is_frozen True) and refuses add_edge.",
+      "reason": "XGI's freeze is per-instance method swizzling that a fresh copy never inherits; ours is struct data carried by copy(). is_frozen is a property (not a method) on both.",
+      "xgi": "The copy is mutable (is_frozen False) and accepts add_edge."
+    },
+    {
+      "api": "DiHypergraph.add_edge(<str of length >= 2>)",
+      "class": "divergence",
+      "id": "D14",
+      "ours": "No exception: creates edge 0 with tail={'a'}, head={'b'}, dropping the rest.",
+      "reason": "The binding's shape check is get_item(0)/get_item(1), which any str satisfies; XGI uses isinstance(members,(tuple,list)). Length-conditional: 'a' and '' do raise. Same shape-check also gives bytes -> TypeError (xgi XGIError) and [[1]] -> XGIError (xgi IndexError).",
+      "xgi": "XGIError('Directed edge must be a list or tuple!')."
+    },
+    {
+      "api": "SimplicialComplex.add_simplex(members, idx=<Python-falsy>)",
+      "class": "divergence",
+      "id": "D17",
+      "ours": "Honours idx=0, '', False, 0.0 literally, creating an edge with that id and type.",
+      "reason": "The binding branches on whether the kwarg was supplied, never on truthiness. On a FRESH complex idx=0 agrees coincidentally; the counter must be advanced first to see it.",
+      "xgi": "`next(_edge_uid) if not idx else idx` \u2014 falsy idx is ignored and the next uid is auto-assigned."
+    },
+    {
+      "api": "is_uniform(H) when a size-0 edge is present",
+      "class": "divergence",
+      "id": "REV-1",
+      "ours": "Returns False (falsy) \u2014 usize cannot represent -1.",
+      "reason": "Oracle-verified deviation (properties.rs). Also fires for empty+size-1 and two-empty-edges, slightly wider than the ledger's wording. Non-degenerate cases match exactly.",
+      "xgi": "Returns int -1, which is TRUTHY: `if is_uniform(H):` takes the branch under xgi and not under us."
+    },
+    {
+      "api": "max_edge_order(H) when at least one edge exists and the largest is size 0",
+      "class": "divergence",
+      "id": "REV-2",
+      "ours": "Returns None, so `max_edge_order(H) + 1` raises TypeError.",
+      "reason": "Same usize/-1 unrepresentability as REV-1. Tightly bounded: the true no-edges-with-nodes case is 0 on both, and empty+size-3 is 2 on both.",
+      "xgi": "Returns int -1, so the same expression yields 0."
+    },
+    {
+      "api": "sunflower(l, c, m) with m == c",
+      "class": "upstream-bug",
+      "id": "D18",
+      "ours": "Bounded `for p in 0..l`: returns c nodes and l parallel edges in milliseconds.",
+      "reason": "Deliberate Power-of-10 rule 2 bounded-loop port. Verified: `timeout 5` on xgi exits 124; ours exits 0.",
+      "xgi": "simple.py:114 `while start_label + (m-c) <= c + (m-c)*l` becomes `while c <= c`: infinite loop, process must be killed."
+    },
+    {
+      "api": "complete_hypergraph(n, max_order=0, include_singletons=False)",
+      "class": "divergence",
+      "id": "D19",
+      "ours": "Empty `start..=(max_order+1)` range: returns 4 nodes, 0 edges, no exception.",
+      "reason": "The Rust port has no equivalent assertion. A caller relying on the call to validate max_order sees success-with-wrong-result instead of a raise.",
+      "xgi": "classic.py:264 asserts end >= start unconditionally: bare AssertionError."
+    },
+    {
+      "api": "Hypergraph.cleanup(relabel=True) / DiHypergraph.cleanup(relabel=True)",
+      "class": "divergence",
+      "id": "D20",
+      "ours": "Relabeled nodes and edges carry no provenance attribute (all attrs {}).",
+      "reason": "hypergraph.rs:1625-1628 relabel_to_integers is a private duplicate of the standalone convert_labels_to_integers minus the label attribute. The standalone free function is unaffected.",
+      "xgi": "convert_labels_to_integers(label_attribute='label') stamps {'label': <pre-relabel id>} on every node and edge."
+    },
+    {
+      "api": "bipartite_spring_layout(H, seed=...)",
+      "class": "divergence",
+      "id": "D21",
+      "ours": "Deterministic two-column bipartite_layout; seed accepted for signature parity and ignored (seed 0 and seed 1 give identical positions).",
+      "reason": "Declared deviation (layout.rs:11-12, 75-78). The ported test only asserts same-seed self-consistency, which a constant function satisfies trivially \u2014 no test catches this.",
+      "xgi": "Seeded force-directed layout: node 1 at (-0.059, 1.0) for seed=0 vs (-0.822, 0.560) for seed=1."
+    },
+    {
+      "api": "DiHypergraph.set_edge_attributes / DH.edges[e][k] = v",
+      "class": "divergence",
+      "id": "D22",
+      "ours": "The mutated edge moves to the END of edge iteration order (['e1','e2','e0']).",
+      "reason": "The core has no edge_attrs_mut, so assign_attr (dihypergraph.rs:1092-1118) removes and re-adds the edge; composing that with D5's insertion-order upgrade made it observable. Node-attr mutation is unaffected.",
+      "xgi": "Order is unchanged (['e0','e1','e2'])."
+    },
+    {
+      "api": "attribute VALUE and KEY channel on add_node / add_edge / set_node_attributes / set_edge_attributes (all classes)",
+      "class": "divergence",
+      "id": "D23",
+      "ours": "serde_json-typed: a set or custom object raises TypeError('... is not JSON-serializable'); a tuple round-trips as a list; a non-str key is coerced to str (1 -> '1'); keys come back sorted (BTreeMap).",
+      "reason": "Declared deviation (pyid.rs:171-213). Root cause shared with D31; reachable from every ordinary attribute entry point, not just merge_duplicate_edges.",
+      "xgi": "Stores arbitrary Python objects verbatim; tuple stays tuple; int keys stay int; insertion order preserved."
+    },
+    {
+      "api": "powerset(iterable, ...)",
+      "class": "divergence",
+      "id": "D24",
+      "ours": "Materialized list: len() works, re-iterable.",
+      "reason": "Documented deviation (utils.rs:59-61). No ported test checks the return type or re-iteration.",
+      "xgi": "itertools.chain: len() raises TypeError, single-use (second list() is empty)."
+    },
+    {
+      "api": "connected_components(H)",
+      "class": "divergence",
+      "id": "D25",
+      "ours": "Materialized list[set]; len() works; next() raises TypeError ('list' is not an iterator).",
+      "reason": "Stated plainly in algorithms.rs:21. Component order matched in the case tested; only the container and its laziness differ.",
+      "xgi": "Generator of sets; len() raises."
+    },
+    {
+      "api": "H.nodes.degree / H.edges.order and other Stat views \u2014 .asdict() / .aslist()",
+      "class": "divergence",
+      "id": "D26",
+      "ours": "The id SET is captured once at getter-invocation time. Values for those ids recompute live, but any node or edge added afterwards never appears.",
+      "reason": "PyNodeStat/PyEdgeStat store ids: Vec<String> in the constructor (stats.rs). Distinct from D28 (object identity) and not covered by the exclusions.toml file-level sweep of stats/test_core_stats_functions.py, which is labelled for the nodestat_func decorator machinery.",
+      "xgi": "Lazy view over the live node/edge set: a node added after the getter call shows up in asdict()."
+    },
+    {
+      "api": "Hypergraph._net_attr / _node / _edge",
+      "class": "binding-gap",
+      "id": "D27",
+      "ours": "Return snapshot PyDict copies: writes and deletes hit a throwaway dict; `del H._node['test']` leaves the node in place and num_nodes unchanged; a later `del H._net_attr['test']` raises KeyError.",
+      "reason": "Already recorded in exclusions.toml (algorithms/test_properties.py::test_equal, utils/test_utilities.py::test_iddict) but with no symbol-keyed entry a compat lookup can reach. Fixing needs a mutable-mapping proxy.",
+      "xgi": "These ARE the live dicts; mutation takes effect."
+    },
+    {
+      "api": "H.nodes.degree object identity",
+      "class": "binding-gap",
+      "id": "D28",
+      "ours": "`H.nodes.degree is H.nodes.degree` -> False; a fresh Stat per getter call.",
+      "reason": "Already in exclusions.toml (core/test_views.py::test_stat_caching). Also: dict(H.nodes.degree) raises IDNotFound in ours where xgi yields the mapping \u2014 the same Stat-protocol gap, worth pinning.",
+      "xgi": "-> True; the dispatch machinery caches the Stat object."
+    },
+    {
+      "api": "NodeStat.__doc__ / EdgeStat.__doc__",
+      "class": "binding-gap",
+      "id": "D29",
+      "ours": "None.",
+      "reason": "Already in exclusions.toml (core/test_views.py::test_stat_docstring_forwarding). Native PyO3 classes have no Python function to forward from.",
+      "xgi": "Forwards the underlying stat function's docstring."
+    },
+    {
+      "api": "uniform_hypergraph_configuration_model(k, m, seed)",
+      "class": "divergence",
+      "id": "D30",
+      "ours": "Remainder stubs dropped and within-edge picks deduplicated for bounded termination, so both the EDGE COUNT and the realised degree sequence differ: k={i:3 for i in range(12)}, seed 42 gives 11 edges with degrees [1,2,3x10].",
+      "reason": "Documented core deviation (uniform.rs); exact parity is unattainable under the bounded-loop policy. Re-verified 2026-07-30 against xgi 0.10.2 \u2014 the original wording ('close to but not bit-exact') understated it by omitting the edge-count difference.",
+      "xgi": "Stub-matching that warns when k is unrealizable; the same input gives 12 edges with degrees [3]x12, hitting k exactly and emitting no warning."
+    },
+    {
+      "api": "Hypergraph.merge_duplicate_edges(merge_rule='union')",
+      "class": "divergence",
+      "id": "D31",
+      "ours": "Merged attr is a deduplicated JSON array: {'color': ['red','blue']}, type list.",
+      "reason": "Same JSON-typed channel as D23. rename='first'/'tuple'/'new' and merge_rule='first'/'intersection' are conformant.",
+      "xgi": "Merged attr is a Python set: {'color': {'red','blue'}}."
+    },
+    {
+      "api": "Hypergraph.add_edges_from with an empty edge in FIRST position",
+      "class": "upstream-bug",
+      "id": "D32",
+      "ours": "Succeeds: ids [0,1], members {0:set(), 1:{'a','b'}}.",
+      "reason": "Position-dependent: with the empty edge SECOND both libraries agree. Outside D1's stated add_edge/add_simplex scope, which is why D1 is still RESOLVED.",
+      "xgi": "IndexError from format-sniffing (first_edge[-1] on an empty list)."
+    },
+    {
+      "api": "H.edges[e][key] = value / H.nodes[n][key] = value",
+      "class": "divergence",
+      "id": "D33",
+      "ours": "Silently discarded: no exception, no warning, and the attribute is absent on the next read.",
+      "reason": "Same snapshot-copy root cause as D27 but on the PUBLIC view surface, so it corrupts ordinary user code with no signal. The single most dangerous entry in this file.",
+      "xgi": "Persists; downstream merge_duplicate_edges(merge_rule='union') then sees the attributes."
+    },
+    {
+      "api": "Hypergraph.cleanup() and Hypergraph.cleanup(in_place=True) \u2014 the DEFAULT path",
+      "class": "divergence",
+      "id": "D34",
+      "ours": "Returns None on the default and in_place=True paths. in_place=False returns a Hypergraph and AGREES with xgi.",
+      "reason": "Opposite direction from D8 (where dropping the return value is the conformant choice). `x = H.cleanup()` binds None and the next attribute access raises. ARITY CORRECTED 2026-07-30: the first draft named in_place=False, which is the one path that agrees; the divergence is on the default path everyone calls.",
+      "xgi": "Returns the cleaned Hypergraph on all three paths (hypergraph.py:1518 `return _H`)."
+    },
+    {
+      "api": "hypergraph_rs.exception.XGIError",
+      "class": "divergence",
+      "id": "D35",
+      "ours": "A distinct class: `xgi.exception.XGIError is hypergraph_rs.exception.XGIError` is False and it is not a subclass.",
+      "reason": "Cross-cutting: every `except xgi.exception.XGIError:` written against real xgi lets ours escape uncaught. Harmless for a full import-swap, fatal for a partial one. Means 'raises XGIError' is nowhere in this register a parity statement by itself.",
+      "xgi": "Its own XGIError."
+    },
+    {
+      "api": "adjacency_matrix / degree_matrix / incidence_matrix / clique_motif_matrix",
+      "class": "divergence",
+      "id": "D36",
+      "ours": "dtype float64.",
+      "reason": "Silent: values agree, dtype does not. Breaks integer-indexing and exact-equality downstream.",
+      "xgi": "dtype int64."
+    },
+    {
+      "api": "circular_layout / katz_centrality / intersection_profile return containers",
+      "class": "divergence",
+      "id": "D37",
+      "ours": "positions are tuples; centralities are Python float; intersection_profile is csr_array.",
+      "reason": "Same family as D24/D25 \u2014 the value is right, the container or scalar type is not. Enumerated sites verified individually; other members of this family may exist and should be swept before T1 closes.",
+      "xgi": "numpy ndarray positions; numpy.float64 centralities; csc_array."
+    },
+    {
+      "api": "class MyGraph(hypergraph_rs.Hypergraph) \u2014 subclassing any core class",
+      "class": "binding-gap",
+      "id": "D38",
+      "ours": "TypeError: type 'hypergraph_rs.Hypergraph' is not an acceptable base type; Py_TPFLAGS_BASETYPE is False.",
+      "reason": "PyO3 classes are not subclassable unless declared #[pyclass(subclass)]. Import-fatal at class-definition time, so a consumer that subclasses cannot even load. Found during the method-layer sweep, absent from the 34-entry register.",
+      "xgi": "Subclasses normally; Py_TPFLAGS_BASETYPE is True."
+    }
+  ],
   "divergences_status": "unpopulated-T0: the D1-D17 register is live in crates/hypergraph-rs/tests/conformance/main.rs but has not yet been transcribed here. An empty `divergences` list does NOT mean zero known divergences. Populated in T1.",
   "exclusions": {
     "files": [
