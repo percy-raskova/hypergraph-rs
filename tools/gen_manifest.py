@@ -19,10 +19,10 @@ ROOT = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
 from count_tests import file_exclusion_test_counts  # noqa: E402
+from symbol_status import SymbolStatusError, symbol_status  # noqa: E402
 
 DEST = ROOT / "python" / "hypergraph_rs" / "compat" / "manifest.json"
 XGI_TARGET = "0.10.2"
-_DEFERRED_MODULE = "hypergraph_rs._deferred"
 
 
 class ManifestError(RuntimeError):
@@ -48,31 +48,14 @@ def _dotted_paths(pkg_name: str) -> set[str]:
 def _symbol_status() -> dict[str, str]:
     """`bound` vs `deferred` for every name in the package's `__all__`.
 
-    NOTE ON THE AXIS: `bound` means "not routed through the `_deferred` stub
-    factory" — NOT "fully implemented". Some bound symbols raise
-    `NotImplementedError` from Rust for particular argument combinations (e.g.
-    `degree_assortativity(exact=False)`). Read `symbols` together with
-    `exclusions` for the whole picture.
-
-    Fails loudly rather than defaulting: an unbound name would otherwise be
-    classed `bound`, over-claiming capability in an artifact whose purpose is an
-    honest claim — and the drift check cannot catch it, since regeneration
-    reproduces the same wrong answer.
+    See tools/symbol_status.py for the axis definition and why this fails loudly.
     """
     import hypergraph_rs
 
-    out: dict[str, str] = {}
-    # Bounded: one pass over __all__.
-    for name in hypergraph_rs.__all__:
-        if not hasattr(hypergraph_rs, name):
-            raise ManifestError(
-                f"__all__ declares {name!r} but the package does not bind it; "
-                "the manifest would over-claim capability"
-            )
-        obj = getattr(hypergraph_rs, name)
-        mod = getattr(obj, "__module__", "") or ""
-        out[name] = "deferred" if mod == _DEFERRED_MODULE else "bound"
-    return out
+    try:
+        return symbol_status(hypergraph_rs, hypergraph_rs.__all__)
+    except SymbolStatusError as exc:
+        raise ManifestError(str(exc)) from exc
 
 
 def build() -> dict:

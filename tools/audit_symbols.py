@@ -5,6 +5,10 @@ Fails if __all__ != XGI's 164. Classifies each symbol as bound or deferred (a st
 __module__ endswith '_deferred'). Writes tests/DEFERRED_SYMBOLS.md.
 """
 import importlib
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
 
 def main():
@@ -13,11 +17,12 @@ def main():
     hr = importlib.import_module("hypergraph_rs")
     want, have = set(xgi.__all__), set(hr.__all__)
     assert have == want, f"surface mismatch: missing={want-have} extra={have-want}"
-    deferred, bound = [], []
-    for name in sorted(want):
-        obj = getattr(hr, name, None)
-        is_stub = getattr(obj, "__module__", "").endswith("_deferred")
-        (deferred if is_stub else bound).append(name)
+
+    from symbol_status import symbol_status
+
+    status = symbol_status(hr, sorted(want))
+    deferred = [n for n, s in status.items() if s == "deferred"]
+    bound = [n for n, s in status.items() if s == "bound"]
     with open("tests/DEFERRED_SYMBOLS.md", "w") as f:
         f.write(f"# Deferred symbols ({len(deferred)}/164 not built by any phase)\n\n")
         for n in deferred:
