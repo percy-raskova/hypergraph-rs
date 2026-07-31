@@ -118,3 +118,27 @@ def test_registry_is_not_empty() -> None:
     assert FILE_EXCLUSIONS, "FILE_EXCLUSIONS parsed empty from compat/exclusions.toml"
     assert TEST_EXCLUSIONS, "TEST_EXCLUSIONS parsed empty from compat/exclusions.toml"
     assert ENTRY_CLASSES, "ENTRY_CLASSES parsed empty from compat/exclusions.toml"
+
+
+def test_skip_classes_are_exactly_the_unrunnable_ones() -> None:
+    """Pins which classes skip and which xfail.
+
+    The skip branch in conftest.py has no live coverage — no test entry
+    currently carries a skip class — so inverting the condition would silently
+    turn all 77 strict xfails into skips, restoring the hiding behaviour this
+    tier removed. This is the guard for that.
+    """
+    import conftest
+
+    assert conftest._SKIP_CLASSES == frozenset({"env", "upstream-bug", "out-of-scope"})
+
+    valid = {
+        "deferred-symbol", "core-gap", "binding-gap", "divergence",
+        "float-parity", "upstream-private", "env", "upstream-bug",
+        "out-of-scope",
+    }
+    xfail_classes = valid - conftest._SKIP_CLASSES
+    assert xfail_classes == {
+        "deferred-symbol", "core-gap", "binding-gap",
+        "divergence", "float-parity", "upstream-private",
+    }

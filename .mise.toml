@@ -61,3 +61,16 @@ cargo +"$MSRV" check --workspace --locked
 [tasks."py:build"]
 description = "Build the PyO3 wheel via maturin (crates/hypergraph-rs-python -> hypergraph_rs._hypergraph_rs_core). Consumers normally never run this: babylon's uv resolves the path dependency and builds the wheel itself"
 run = "uvx maturin build --manifest-path crates/hypergraph-rs-python/Cargo.toml"
+
+[tasks."py:manifest"]
+description = "Regenerate python/hypergraph_rs/compat/manifest.json from the built extension + authored TOMLs. Requires real xgi 0.10.2 installed (differential oracle)."
+run = ".venv/bin/python tools/gen_manifest.py"
+
+[tasks."py:gate"]
+description = "The XGI conformance gate as CI runs it: symbol audit, manifest drift, registry integrity, then the ported suite. Sequential — heavy builds single-flight."
+run = """
+set -e
+.venv/bin/python tools/audit_symbols.py
+.venv/bin/python -m pytest tests/test_manifest_drift.py tests/test_registry_integrity.py tests/test_denominator.py -q
+.venv/bin/python -m pytest tests/ported -q
+"""

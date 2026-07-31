@@ -89,6 +89,8 @@ jobs:
       - run: pip install "xgi==0.10.2"                 # test-only differential oracle
       - run: maturin develop
       - run: python tools/audit_symbols.py             # regenerate + assert the deferred ledger
+      - name: "Manifest drift + registry integrity (identical to local — mise run py:gate)"
+        run: pytest tests/test_manifest_drift.py tests/test_registry_integrity.py tests/test_denominator.py -q
       - run: pytest tests/ported -q
         env:
           PYTHONHASHSEED: ${{ matrix.hashseed }}
