@@ -45,22 +45,61 @@ def _normalise(raw: bytes) -> bytes:
     return raw
 
 
+# Upstream test files with no ported counterpart, each with the reason it was
+# never ported. Measured in Task 3 Step 1 — do NOT add an entry to silence a
+# failure. A file appearing here that you cannot justify from
+# compat/exclusions.toml or tests/EXCLUSIONS.md is a deleted oracle, not an
+# exemption.
+#
+# Task 3 Step 1 measured this set as EMPTY: every one of upstream xgi 0.10.2's
+# 51 test_*.py files has a byte-present counterpart under tests/ported/ (which
+# holds 67, the extra 16 being this repo's own tests, not ports). There is
+# nothing to allowlist.
+UNPORTED: dict[str, str] = {}
+
+
+def _compare_tree(
+    upstream: pathlib.Path, ported: pathlib.Path
+) -> tuple[list[str], list[str]]:
+    """Return (missing, drifted) relative paths, comparing UPSTREAM's file list.
+
+    Iterating upstream rather than our own tree is the whole point: a deleted
+    ported file must be a failure, and it cannot be one if the loop never
+    visits it.
+    """
+    missing: list[str] = []
+    drifted: list[str] = []
+    # Bounded: one pass over upstream's finite file list.
+    for path in sorted(upstream.rglob("test_*.py")):
+        rel = str(path.relative_to(upstream))
+        ours = ported / rel
+        if not ours.exists():
+            missing.append(rel)
+            continue
+        if _normalise(ours.read_bytes()) != _normalise(path.read_bytes()):
+            drifted.append(rel)
+    return missing, drifted
+
+
 def test_ported_oracle_files_are_verbatim_upstream() -> None:
     if not UPSTREAM.exists():
         raise AssertionError(
             f"upstream oracle not found at {UPSTREAM}; install xgi==0.10.2"
         )
-    drifted: list[str] = []
-    # Bounded: one pass over the ported tree.
-    for path in sorted(PORTED.rglob("test_*.py")):
-        rel = path.relative_to(PORTED)
-        upstream = UPSTREAM / rel
-        if not upstream.exists():
-            continue  # repo-authored, not a port
-        if _normalise(path.read_bytes()) != _normalise(upstream.read_bytes()):
-            drifted.append(str(rel))
+    missing, drifted = _compare_tree(UPSTREAM, PORTED)
+    unexplained = [m for m in missing if m not in UNPORTED]
+    assert unexplained == [], (
+        "upstream oracle files have no ported counterpart and no recorded "
+        "reason — a deleted oracle silently removes the evidence behind every "
+        "conformance claim that rested on it:\n  " + "\n  ".join(unexplained)
+    )
     assert drifted == [], (
         "ported oracle files differ from upstream XGI 0.10.2 beyond the import "
         "swap — every conformance claim rests on these being verbatim:\n  "
         + "\n  ".join(drifted)
+    )
+    stale = sorted(set(UNPORTED) - set(missing))
+    assert stale == [], (
+        "UNPORTED lists files that ARE now ported; remove them so the "
+        "allowlist cannot hide a future deletion:\n  " + "\n  ".join(stale)
     )
