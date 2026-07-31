@@ -35,6 +35,28 @@ def _load_toml(name: str) -> dict:
         return tomllib.load(fh)
 
 
+def require_xgi_target() -> None:
+    """Refuse to proceed against an xgi that is not the pinned target.
+
+    Without this the whole gate keeps producing a score, and that score
+    silently stops meaning "conformance to 0.10.2" — the failure mode is a
+    number that still looks authoritative.
+    """
+    try:
+        import xgi
+    except ModuleNotFoundError as exc:
+        raise ManifestError(
+            f"real xgi must be installed (pip install xgi=={XGI_TARGET}): {exc}"
+        ) from exc
+    actual = getattr(xgi, "__version__", "unknown")
+    if actual != XGI_TARGET:
+        raise ManifestError(
+            f"installed xgi is {actual}, but this port targets {XGI_TARGET}; "
+            "a conformance score measured against a different xgi is not a "
+            "conformance score. Install the target or update XGI_TARGET."
+        )
+
+
 def _dotted_paths(pkg_name: str) -> set[str]:
     """Every dotted submodule path under `pkg_name`, relative to it."""
     mod = importlib.import_module(pkg_name)
@@ -59,19 +81,14 @@ def _symbol_status() -> dict[str, str]:
 
 
 def build() -> dict:
+    require_xgi_target()
     import hypergraph_rs
 
     exclusions = _load_toml("exclusions.toml")
     divergences = _load_toml("divergences.toml")
 
     ours = _dotted_paths("hypergraph_rs")
-    try:
-        theirs = _dotted_paths("xgi")
-    except ModuleNotFoundError as exc:  # explicit: xgi is a hard requirement here
-        raise ManifestError(
-            "real xgi must be installed to generate the manifest "
-            f"(pip install xgi=={XGI_TARGET}): {exc}"
-        ) from exc
+    theirs = _dotted_paths("xgi")
 
     return {
         "schema_version": 1,

@@ -14,6 +14,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 def main():
     xgi = importlib.import_module(
         "xgi", package=None)  # the installed oracle; used only to read the canonical 164 names
+
+    from gen_manifest import require_xgi_target
+
+    require_xgi_target()
+
     hr = importlib.import_module("hypergraph_rs")
     want, have = set(xgi.__all__), set(hr.__all__)
     assert have == want, f"surface mismatch: missing={want-have} extra={have-want}"
