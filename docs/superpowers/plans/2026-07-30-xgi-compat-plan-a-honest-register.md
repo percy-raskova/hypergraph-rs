@@ -1478,6 +1478,10 @@ def test_divergences_status_no_longer_claims_unpopulated() -> None:
         "the placeholder status outlived the placeholder — a shipped artifact "
         "describing itself as empty when it is not is worse than an empty one"
     )
+    assert "NOT thereby verified equivalent" in manifest["divergences_status"], (
+        "the load-bearing sentence: absence from the register is not evidence "
+        "of equivalence. Plan C's COVERED rule depends on this distinction"
+    )
 
 
 def test_manifest_divergences_match_the_authored_register() -> None:
@@ -1494,7 +1498,20 @@ there — if it is not, derive it as `pathlib.Path(__file__).parent.parent`.
 - [ ] **Step 2: Run it to confirm it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_manifest_drift.py -q`
-Expected: FAIL on `unpopulated-T0`.
+Expected: FAIL — but on the load-bearing-sentence assertion, **not** on
+`unpopulated-T0`.
+
+> **Amendment, 2026-07-31.** Task 7's fix round overstepped into this task and
+> already replaced `divergences_status`, so the `unpopulated-T0` assertion now
+> passes on arrival and its red phase is gone. Do not delete that assertion —
+> it still guards against the placeholder returning. The text Task 7 improvised
+> reads "populated: the measured, Python-visible D-register (35 entries) is
+> transcribed from …" and **omits the load-bearing final sentence**, which is
+> why the second assertion above was added and why it is the one that must go
+> red here. If it does not fail, stop and report: something has already written
+> the sentence and the red phase cannot be established. Step 3 still replaces
+> the whole string with the mandated text below — do not preserve Task 7's
+> wording.
 
 - [ ] **Step 3: Update the generator**
 
