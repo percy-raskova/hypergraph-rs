@@ -81,13 +81,28 @@ def _compare_tree(
     return missing, drifted
 
 
+def _allowlist_verdict(
+    missing: list[str], unported: dict[str, str]
+) -> tuple[list[str], list[str]]:
+    """Split measured `missing` against the allowlist.
+
+    Returns (unexplained, stale): files missing with no recorded reason, and
+    allowlist entries naming files that are in fact present. Extracted so both
+    arms can be proven by mutation — with the tree currently complete, the
+    live assertions only ever see the empty case.
+    """
+    unexplained = [m for m in missing if m not in unported]
+    stale = sorted(set(unported) - set(missing))
+    return unexplained, stale
+
+
 def test_ported_oracle_files_are_verbatim_upstream() -> None:
     if not UPSTREAM.exists():
         raise AssertionError(
             f"upstream oracle not found at {UPSTREAM}; install xgi==0.10.2"
         )
     missing, drifted = _compare_tree(UPSTREAM, PORTED)
-    unexplained = [m for m in missing if m not in UNPORTED]
+    unexplained, stale = _allowlist_verdict(missing, UNPORTED)
     assert unexplained == [], (
         "upstream oracle files have no ported counterpart and no recorded "
         "reason — a deleted oracle silently removes the evidence behind every "
@@ -98,7 +113,6 @@ def test_ported_oracle_files_are_verbatim_upstream() -> None:
         "swap — every conformance claim rests on these being verbatim:\n  "
         + "\n  ".join(drifted)
     )
-    stale = sorted(set(UNPORTED) - set(missing))
     assert stale == [], (
         "UNPORTED lists files that ARE now ported; remove them so the "
         "allowlist cannot hide a future deletion:\n  " + "\n  ".join(stale)

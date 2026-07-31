@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
-from test_oracle_integrity import _compare_tree
+from test_oracle_integrity import _allowlist_verdict, _compare_tree
 
 
 def test_missing_ported_file_is_reported(tmp_path: pathlib.Path) -> None:
@@ -48,3 +48,37 @@ def test_import_swap_alone_is_not_drift(tmp_path: pathlib.Path) -> None:
     missing, drifted = _compare_tree(upstream, ported)
 
     assert (missing, drifted) == ([], [])
+
+
+def test_allowlisted_missing_file_is_suppressed() -> None:
+    """A legitimate UNPORTED entry must actually suppress its would-be failure."""
+    unexplained, stale = _allowlist_verdict(
+        ["sub/test_x.py"], {"sub/test_x.py": "some recorded reason"}
+    )
+
+    assert unexplained == []
+    assert stale == []
+
+
+def test_unallowlisted_missing_file_is_not_suppressed() -> None:
+    """Suppression must not be blanket: a missing file with no allowlist entry
+    at all still surfaces in `unexplained`."""
+    unexplained, stale = _allowlist_verdict(["sub/test_x.py"], {})
+
+    assert unexplained == ["sub/test_x.py"]
+    assert stale == []
+
+
+def test_stale_allowlist_entry_is_reported() -> None:
+    """An UNPORTED entry naming a file that IS present must trip staleness."""
+    unexplained, stale = _allowlist_verdict([], {"sub/test_x.py": "no longer missing"})
+
+    assert unexplained == []
+    assert stale == ["sub/test_x.py"]
+
+
+def test_empty_missing_and_empty_allowlist_is_clean() -> None:
+    """Pins today's live case: nothing missing, nothing allowlisted."""
+    unexplained, stale = _allowlist_verdict([], {})
+
+    assert (unexplained, stale) == ([], [])
