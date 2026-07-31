@@ -101,6 +101,17 @@ def build() -> dict:
             "missing": sorted(theirs - ours),
         },
         "divergences": divergences.get("divergence", []),
+        "divergences_status": (
+            "unpopulated-T0: the D1-D17 register is live in "
+            "crates/hypergraph-rs/tests/conformance/main.rs but has not yet been "
+            "transcribed here. An empty `divergences` list does NOT mean zero known "
+            "divergences. Populated in T1."
+        ),
+        "symbols_status": (
+            "`bound` means 'not routed through the _deferred stub factory', NOT "
+            "'fully implemented'. Some bound symbols raise NotImplementedError from "
+            "Rust for particular arguments. Read `symbols` together with `exclusions`."
+        ),
         "exclusions": {
             "files": exclusions.get("file_exclusion", []),
             "tests": exclusions.get("test_exclusion", []),

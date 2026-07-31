@@ -165,3 +165,26 @@ def test_skip_classes_are_exactly_the_unrunnable_ones() -> None:
     import conftest
 
     assert conftest._SKIP_CLASSES == frozenset({"env", "upstream-bug", "out-of-scope"})
+
+
+def test_no_test_entry_hides_behind_a_skip_class() -> None:
+    """Every test-level gap must RUN and be pinned by strict xfail.
+
+    Reclassifying an entry to a skip class silently returns a running, failing
+    gap to the hidden column, and no other guard catches it: the drift check
+    faithfully reproduces the reclassification. Zero test entries carry a skip
+    class today. If a genuinely un-runnable test-level gap ever appears, update
+    this deliberately and record why — the same discipline EXPECTED_INVISIBLE
+    carries.
+    """
+    import conftest
+
+    hidden = sorted(
+        f"{path}::{name}"
+        for (path, name), cls in ENTRY_CLASSES.items()
+        if cls in conftest._SKIP_CLASSES
+    )
+    assert hidden == [], (
+        "test entries classed into a skip tier, hiding a running gap:\n  "
+        + "\n  ".join(hidden)
+    )

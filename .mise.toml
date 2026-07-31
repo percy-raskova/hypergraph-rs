@@ -67,11 +67,11 @@ description = "Regenerate python/hypergraph_rs/compat/manifest.json from the bui
 run = ".venv/bin/python tools/gen_manifest.py"
 
 [tasks."py:gate"]
-description = "The XGI conformance gate, exactly as CI runs it: symbol audit, manifest drift + registry integrity + denominator, then the ported suite. Sequential — heavy builds single-flight. Override the interpreter with PY=... (CI passes PY=python, which resolves to the setup-python + maturin develop environment)."
+description = "The XGI conformance gate, exactly as CI runs it: symbol audit, manifest drift + registry integrity + denominator + oracle integrity, then the ported suite. Sequential — heavy builds single-flight. Override the interpreter with PY=... (CI passes PY=python, which resolves to the setup-python + maturin develop environment)."
 run = """
 set -e
 PY="${PY:-.venv/bin/python}"
 $PY tools/audit_symbols.py
-$PY -m pytest tests/test_manifest_drift.py tests/test_registry_integrity.py tests/test_denominator.py -q
+$PY -m pytest tests/test_manifest_drift.py tests/test_registry_integrity.py tests/test_denominator.py tests/test_oracle_integrity.py -q
 $PY -m pytest tests/ported -q
 """

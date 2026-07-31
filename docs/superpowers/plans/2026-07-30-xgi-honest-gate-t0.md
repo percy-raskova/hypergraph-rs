@@ -956,6 +956,16 @@ taking the ported suite from 311 to 315 passing."
 
 - [ ] **Step 1: Write the counter**
 
+> **SUPERSEDED — see shipped code.** This `ast.walk`-over-`FunctionDef` counter double-counts:
+> Python is last-definition-wins, but `ast.walk` visits every `FunctionDef` node regardless of
+> redefinition, so a module that defines the same test name twice (`stats/test_core_stats_functions.py`
+> does this twice over) is overcounted by 2 — 52 instead of the 50 pytest actually collects. The
+> `if path.exists() else 0` fallback in `file_exclusion_test_counts` also silently reports a
+> deleted/renamed registry path as zero tests hidden, rather than erroring, quietly shrinking the
+> invisible-test headline count. Fixed in commits `380305c` (dedupe to unique `(class, name)`
+> identities, not AST nodes — the true invisible total is 98, not 100) and `1670a49` (raise
+> `FileNotFoundError` instead of defaulting to 0). Shipped version: `tools/count_tests.py`.
+
 ```python
 # tools/count_tests.py
 """AST test counting for files pytest never collects (spec §4.1, F3).
@@ -1008,6 +1018,14 @@ if __name__ == "__main__":
 ```
 
 - [ ] **Step 2: Write the test that pins the number**
+
+> **SUPERSEDED — see shipped code.** `test_whole_file_exclusions_hide_a_known_number_of_tests`
+> below asserts only `sum(counts.values()) == 100` — a total-only pin. Two files can drift by
+> equal and opposite amounts (one overcounted, one undercounted) and the sum still matches,
+> which is the exact silent-drift failure mode this tier exists to remove. Fixed in commit
+> `380305c`: the shipped version pins every file's count individually via an `EXPECTED_INVISIBLE`
+> dict, plus a separate test for the sum (98, not 100 — see the Step 1 supersession above for why
+> the total changed). Shipped version: `tests/test_denominator.py`.
 
 ```python
 # tests/test_denominator.py
@@ -1346,6 +1364,17 @@ In `.github/workflows/ci.yml`, in the `xgi-conformance` job, insert between the 
 Task 5's review found the skip half of `pytest_collection_modifyitems` is **dead at runtime and unpinned**: after Task 5 no *test* entry carries `env`, `upstream-bug`, or `out-of-scope` (the only skip-class entry is a file exclusion, whose class is never consulted). Inverting the branch condition would turn all 77 xfails into skips and nothing in the suite would fail. The reviewer verified the branch by hand — but hand-verification is exactly what this tier replaces with executable guards.
 
 Add to `tests/test_registry_integrity.py`:
+
+> **SUPERSEDED — see shipped code.** This guard asserts the CONTENTS of `_SKIP_CLASSES` — a
+> constant, not the behaviour that consumes it. Its docstring claims "This is the guard for
+> that [dead skip branch]," but inverting the branch condition it is supposed to guard
+> (`conftest.py`'s `if cls in _SKIP_CLASSES` → `not in`) does not change this assertion at all:
+> mutation testing confirmed all 77 strict xfails silently become skips and the whole gate stays
+> green. Fixed in commit `5b3bfdf`: `test_skip_and_xfail_markers_land_on_the_right_classes` now
+> drives `pytest_collection_modifyitems` against synthetic registry entries and asserts which
+> marker (`skip` vs strict `xfail`) actually lands, with `test_skip_classes_are_exactly_the_
+> unrunnable_ones` kept alongside it as the narrower constant-drift pin (renamed/added/removed
+> class). Shipped version: `tests/test_registry_integrity.py`.
 
 ```python
 def test_skip_classes_are_exactly_the_unrunnable_ones() -> None:

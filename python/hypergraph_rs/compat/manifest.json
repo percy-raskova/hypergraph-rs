@@ -1,5 +1,6 @@
 {
   "divergences": [],
+  "divergences_status": "unpopulated-T0: the D1-D17 register is live in crates/hypergraph-rs/tests/conformance/main.rs but has not yet been transcribed here. An empty `divergences` list does NOT mean zero known divergences. Populated in T1.",
   "exclusions": {
     "files": [
       {
@@ -854,5 +855,6 @@
     "write_incidence_matrix": "bound",
     "z_eigenvector_centrality": "deferred"
   },
+  "symbols_status": "`bound` means 'not routed through the _deferred stub factory', NOT 'fully implemented'. Some bound symbols raise NotImplementedError from Rust for particular arguments. Read `symbols` together with `exclusions`.",
   "xgi_target": "0.10.2"
 }
