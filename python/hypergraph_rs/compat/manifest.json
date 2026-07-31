@@ -969,10 +969,36 @@
       "utils.utilities"
     ]
   },
+  "partial_symbols": [
+    {
+      "reason": "Random-sampling assortativity path awaits the Phase-4 rand_pcg pin (module doc, algorithms.rs). Only exact=True is ported. xgi returns a float unconditionally; verified against real xgi 0.10.2.",
+      "site": "crates/hypergraph-rs-python/src/algorithms.rs:163",
+      "symbol": "degree_assortativity",
+      "trigger": "exact=False (the default) \u2014 any kind/num_samples/seed; the bare call degree_assortativity(H) already hits this"
+    },
+    {
+      "reason": "The in_degree getter constructs DiStat with both degree_source and edge_source None, so __call__'s fallback branch always raises. xgi re-dispatches and returns a filtered/re-parametrized Stat instead. Not covered by any ported test (untested per the T1 recon) and not in exclusions.toml.",
+      "site": "crates/hypergraph-rs-python/src/dihypergraph.rs:2190 (DiStat::__call__, via the in_degree getter at :1470-1484)",
+      "symbol": "DiHypergraph",
+      "trigger": "Invoking the Stat as a function at all \u2014 D.nodes.in_degree(...) or even D.nodes.in_degree() with zero arguments. The bare property access D.nodes.in_degree (no call) does not raise."
+    },
+    {
+      "reason": "Identical root cause and fix to in_degree: the out_degree getter also constructs DiStat with both sources None. xgi returns a valid re-parametrized Stat; ours raises unconditionally on call.",
+      "site": "crates/hypergraph-rs-python/src/dihypergraph.rs:2190 (DiStat::__call__, via the out_degree getter at :1488-1502)",
+      "symbol": "DiHypergraph",
+      "trigger": "Invoking the Stat as a function at all, including zero-arg D.nodes.out_degree()."
+    },
+    {
+      "reason": "PyEdgeStat's Attr arm is the one EdgeStatKind that never got a re-parametrization branch (contrast PyNodeStat::Attr at stats.rs:280-293, which does re-parametrize and does not raise for the identical H.nodes.attrs(key)() shape). xgi returns a re-dispatched Stat, not an error.",
+      "site": "crates/hypergraph-rs-python/src/stats.rs:471 (PyEdgeStat::__call__, EdgeStatKind::Attr arm)",
+      "symbol": "Hypergraph",
+      "trigger": "Re-invoking the EdgeStat returned by H.edges.attrs(key) as a function \u2014 H.edges.attrs('color')() or with a new key. Only the Attr kind raises; Size/Order re-parametrize fine on the same __call__."
+    }
+  ],
   "schema_version": 1,
   "symbols": {
-    "DiHypergraph": "bound",
-    "Hypergraph": "bound",
+    "DiHypergraph": "bound-partial",
+    "Hypergraph": "bound-partial",
     "SimplicialComplex": "bound",
     "adjacency_matrix": "bound",
     "adjacency_tensor": "deferred",
@@ -994,7 +1020,7 @@
     "convert_labels_to_integers": "bound",
     "cut_to_order": "bound",
     "dcsbm_hypergraph": "deferred",
-    "degree_assortativity": "bound",
+    "degree_assortativity": "bound-partial",
     "degree_counts": "bound",
     "degree_histogram": "bound",
     "degree_matrix": "bound",
@@ -1136,6 +1162,6 @@
     "write_incidence_matrix": "bound",
     "z_eigenvector_centrality": "deferred"
   },
-  "symbols_status": "`bound` means 'not routed through the _deferred stub factory', NOT 'fully implemented'. Some bound symbols raise NotImplementedError from Rust for particular arguments. Read `symbols` together with `exclusions`.",
+  "symbols_status": "`bound` means 'not routed through the _deferred stub factory', NOT 'fully implemented'. `bound-partial` means the symbol is bound and still raises NotImplementedError for the argument shapes recorded in `partial_symbols`. Read `symbols` together with `exclusions`, `partial_symbols` and `divergences`.",
   "xgi_target": "0.10.2"
 }

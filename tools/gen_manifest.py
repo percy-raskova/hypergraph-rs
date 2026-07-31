@@ -80,12 +80,42 @@ def _symbol_status() -> dict[str, str]:
         raise ManifestError(str(exc)) from exc
 
 
+def _partial_symbols() -> list[dict]:
+    return _load_toml("partial_symbols.toml").get("partial_symbol", [])
+
+
+def _promote_partials(status: dict[str, str], partials: list[dict]) -> dict[str, str]:
+    """Mark bound-but-raising symbols `bound-partial`.
+
+    A symbol recorded partial that the package reports `deferred` is a
+    contradiction — one of the two records is stale — so it raises rather than
+    silently picking a winner.
+    """
+    out = dict(status)
+    # Bounded: one pass over the authored register.
+    for entry in partials:
+        symbol = entry["symbol"]
+        if symbol not in out:
+            raise ManifestError(
+                f"partial_symbols.toml names {symbol!r}, which is not in "
+                "hypergraph_rs.__all__"
+            )
+        if out[symbol] == "deferred":
+            raise ManifestError(
+                f"{symbol!r} is recorded partial but is a deferred stub; "
+                "delete the partial entry or the stub"
+            )
+        out[symbol] = "bound-partial"
+    return out
+
+
 def build() -> dict:
     require_xgi_target()
     import hypergraph_rs
 
     exclusions = _load_toml("exclusions.toml")
     divergences = _load_toml("divergences.toml")
+    partials = _partial_symbols()
 
     ours = _dotted_paths("hypergraph_rs")
     theirs = _dotted_paths("xgi")
@@ -94,7 +124,8 @@ def build() -> dict:
         "schema_version": 1,
         "hypergraph_rs_version": getattr(hypergraph_rs, "__version__", "unknown"),
         "xgi_target": XGI_TARGET,
-        "symbols": _symbol_status(),
+        "symbols": _promote_partials(_symbol_status(), partials),
+        "partial_symbols": partials,
         "namespaces": {
             "expected": sorted(theirs),
             "resolved": sorted(theirs & ours),
@@ -109,8 +140,10 @@ def build() -> dict:
         ),
         "symbols_status": (
             "`bound` means 'not routed through the _deferred stub factory', NOT "
-            "'fully implemented'. Some bound symbols raise NotImplementedError from "
-            "Rust for particular arguments. Read `symbols` together with `exclusions`."
+            "'fully implemented'. `bound-partial` means the symbol is bound and "
+            "still raises NotImplementedError for the argument shapes recorded "
+            "in `partial_symbols`. Read `symbols` together with `exclusions`, "
+            "`partial_symbols` and `divergences`."
         ),
         "exclusions": {
             "files": exclusions.get("file_exclusion", []),

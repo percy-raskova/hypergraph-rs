@@ -1,0 +1,47 @@
+# compat/partial_symbols.toml
+#
+# Symbols the manifest calls `bound` — meaning "not routed through the _deferred
+# stub factory" — that nonetheless raise NotImplementedError for ordinary
+# arguments. Without this file a compat checker reports them as usable.
+#
+# Schema, one table per site:
+#
+#   [[partial_symbol]]
+#   symbol  = "degree_assortativity"   # the public name in __all__
+#   site    = "crates/.../algorithms.rs:163"
+#   trigger = "exact=False"            # the argument shape that raises
+#   reason  = "..."                    # what xgi does instead
+#
+# An entry here promotes the symbol to `bound-partial` in manifest.json. When a
+# gap is CLOSED, delete its entry — tests/test_partial_symbols.py pins the
+# raising behaviour, so a fix that leaves the entry breaks the build.
+#
+# `symbol` must be a name in `hypergraph_rs.__all__` (symbol_status() only
+# classifies top-level names — see tools/symbol_status.py). Sites B/C/D below
+# raise inside instance methods reached through DiHypergraph.nodes/Hypergraph.edges,
+# not through a top-level callable, so `symbol` names the enclosing class;
+# `site`/`trigger`/`reason` carry the exact dotted call shape.
+
+[[partial_symbol]]
+symbol = "degree_assortativity"
+site = "crates/hypergraph-rs-python/src/algorithms.rs:163"
+trigger = "exact=False (the default) — any kind/num_samples/seed; the bare call degree_assortativity(H) already hits this"
+reason = "Random-sampling assortativity path awaits the Phase-4 rand_pcg pin (module doc, algorithms.rs). Only exact=True is ported. xgi returns a float unconditionally; verified against real xgi 0.10.2."
+
+[[partial_symbol]]
+symbol = "DiHypergraph"
+site = "crates/hypergraph-rs-python/src/dihypergraph.rs:2190 (DiStat::__call__, via the in_degree getter at :1470-1484)"
+trigger = "Invoking the Stat as a function at all — D.nodes.in_degree(...) or even D.nodes.in_degree() with zero arguments. The bare property access D.nodes.in_degree (no call) does not raise."
+reason = "The in_degree getter constructs DiStat with both degree_source and edge_source None, so __call__'s fallback branch always raises. xgi re-dispatches and returns a filtered/re-parametrized Stat instead. Not covered by any ported test (untested per the T1 recon) and not in exclusions.toml."
+
+[[partial_symbol]]
+symbol = "DiHypergraph"
+site = "crates/hypergraph-rs-python/src/dihypergraph.rs:2190 (DiStat::__call__, via the out_degree getter at :1488-1502)"
+trigger = "Invoking the Stat as a function at all, including zero-arg D.nodes.out_degree()."
+reason = "Identical root cause and fix to in_degree: the out_degree getter also constructs DiStat with both sources None. xgi returns a valid re-parametrized Stat; ours raises unconditionally on call."
+
+[[partial_symbol]]
+symbol = "Hypergraph"
+site = "crates/hypergraph-rs-python/src/stats.rs:471 (PyEdgeStat::__call__, EdgeStatKind::Attr arm)"
+trigger = "Re-invoking the EdgeStat returned by H.edges.attrs(key) as a function — H.edges.attrs('color')() or with a new key. Only the Attr kind raises; Size/Order re-parametrize fine on the same __call__."
+reason = "PyEdgeStat's Attr arm is the one EdgeStatKind that never got a re-parametrization branch (contrast PyNodeStat::Attr at stats.rs:280-293, which does re-parametrize and does not raise for the identical H.nodes.attrs(key)() shape). xgi returns a re-dispatched Stat, not an error."
