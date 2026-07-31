@@ -96,6 +96,40 @@ def _allowlist_verdict(
     return unexplained, stale
 
 
+# The em dash below is written as its UTF-8 escape sequence (\xe2\x80\x94)
+# rather than the literal character: bytes literals only permit ASCII source
+# characters, so embedding "—" directly is a SyntaxError. This is the exact
+# same three bytes the character encodes to; tests/conftest.py's sentinel
+# comment contains the literal character, which Python encodes to these same
+# bytes when the file is read via read_bytes().
+SENTINEL = b"# === END VERBATIM XGI 0.10.2 conftest \xe2\x80\x94 repo-authored code below this line ==="
+
+
+def _upstream_prefix(raw: bytes) -> bytes:
+    """Everything above the sentinel, which must appear exactly once."""
+    parts = raw.split(SENTINEL)
+    assert len(parts) != 1, (
+        "tests/conftest.py has lost its sentinel; without it the ~30 upstream "
+        "fixtures every ported test depends on have no byte-fidelity coverage"
+    )
+    assert len(parts) == 2, (
+        f"the sentinel must appear exactly once, found {len(parts) - 1}"
+    )
+    return parts[0]
+
+
+def test_shared_conftest_prefix_is_verbatim_upstream() -> None:
+    upstream = UPSTREAM / "conftest.py"
+    if not upstream.exists():
+        raise AssertionError(f"upstream conftest not found at {upstream}")
+    ours = (PORTED.parent / "conftest.py").read_bytes()
+    assert _normalise(_upstream_prefix(ours)) == _normalise(upstream.read_bytes()), (
+        "tests/conftest.py's upstream section differs from XGI 0.10.2's. Every "
+        "ported test's inputs come from these fixtures; a change here silently "
+        "alters what the oracle asserts."
+    )
+
+
 def test_ported_oracle_files_are_verbatim_upstream() -> None:
     if not UPSTREAM.exists():
         raise AssertionError(

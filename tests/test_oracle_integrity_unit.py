@@ -82,3 +82,26 @@ def test_empty_missing_and_empty_allowlist_is_clean() -> None:
     unexplained, stale = _allowlist_verdict([], {})
 
     assert (unexplained, stale) == ([], [])
+
+
+from test_oracle_integrity import SENTINEL, _upstream_prefix
+
+
+def test_prefix_split_returns_everything_above_the_sentinel() -> None:
+    body = b"import xgi\nFIXTURE = 1\n" + SENTINEL + b"\nREPO = 2\n"
+    assert _upstream_prefix(body) == b"import xgi\nFIXTURE = 1\n"
+
+
+def test_missing_sentinel_raises() -> None:
+    import pytest
+
+    with pytest.raises(AssertionError, match="sentinel"):
+        _upstream_prefix(b"import xgi\nno sentinel here\n")
+
+
+def test_duplicated_sentinel_raises() -> None:
+    import pytest
+
+    body = b"a\n" + SENTINEL + b"\nb\n" + SENTINEL + b"\nc\n"
+    with pytest.raises(AssertionError, match="exactly once"):
+        _upstream_prefix(body)

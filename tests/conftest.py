@@ -339,6 +339,10 @@ def h_links_and_triangles2():
 @pytest.fixture
 def h1():
     return xgi.Hypergraph([{1, 2, 3}, {2, 3, 4, 5}, {5, 6, 7}, {5, 6}])
+# === END VERBATIM XGI 0.10.2 conftest — repo-authored code below this line ===
+# tests/test_oracle_integrity.py byte-compares everything ABOVE this marker
+# against upstream's conftest.py. Do not move, reword, or duplicate it, and do
+# not add repo-authored code above it.
 
 
 # --- Task 15: conformance exclusion glue (spec §9.1) ---
