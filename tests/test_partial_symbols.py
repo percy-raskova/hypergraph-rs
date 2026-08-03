@@ -12,7 +12,7 @@ ROOT = pathlib.Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
 MANIFEST = ROOT / "python" / "hypergraph_rs" / "compat" / "manifest.json"
-FIELDS = {"symbol", "site", "trigger", "reason"}
+FIELDS = {"symbol", "class", "exception", "site", "trigger", "reason"}
 
 
 def _authored() -> list[dict]:
@@ -103,3 +103,34 @@ def test_edge_attrs_stat_recall_still_raises() -> None:
     H.add_edges_from([({1, 2}, {"color": "blue"}), ({3, 4, 5}, {"color": "purple"})])
     with pytest.raises(NotImplementedError):
         H.edges.attrs("color")()
+
+
+def test_every_entry_carries_a_taxonomy_class() -> None:
+    """The nine-class set is closed and shared with exclusions.toml; a register
+    outside it cannot be joined against the others."""
+    from taxonomy import CLASSES
+
+    for entry in _authored():
+        assert entry["class"] in CLASSES, (
+            f"{entry['symbol']}: class {entry['class']!r} is not one of "
+            f"{sorted(CLASSES)}"
+        )
+
+
+def test_every_entry_names_the_exception_it_raises() -> None:
+    """`bound-partial` is not NotImplementedError-specific. The drawing.*
+    family raises ImportError, and a register that cannot say so would send a
+    consumer without the mpl extra to a symbol reported usable."""
+    for entry in _authored():
+        assert entry["exception"], f"{entry['symbol']}: empty exception"
+        assert entry["exception"] in {e.__name__ for e in (
+            NotImplementedError, ImportError, TypeError, ValueError, KeyError,
+            AttributeError, RuntimeError,
+        )}, f"{entry['symbol']}: {entry['exception']!r} is not a known builtin"
+
+
+def test_entries_are_unique() -> None:
+    """A double-pasted entry is otherwise accepted silently: the symbol map is
+    idempotent and the manifest list just grows."""
+    seen = [(e["symbol"], e["site"]) for e in _authored()]
+    assert len(seen) == len(set(seen)), f"duplicate (symbol, site): {seen}"
