@@ -72,10 +72,18 @@
 - `write_hif_collection` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `z_eigenvector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 
-# Bound symbols (93/164)
+# Bound-partial symbols (3/164)
+
+These are bound, but some argument shapes or environments raise. See `compat/partial_symbols.toml` for the exact triggers.
 
 - `DiHypergraph`
 - `Hypergraph`
+- `degree_assortativity`
+
+# Bound symbols (90/164)
+
+Bound is a BINDING fact, not a behaviour one: it means the symbol is not routed through the `_deferred` stub factory. Absence from the partial list above is not evidence a symbol never raises — it may simply be unmeasured.
+
 - `SimplicialComplex`
 - `adjacency_matrix`
 - `bipartite_spring_layout`
@@ -90,7 +98,6 @@
 - `connected_components`
 - `convert_labels_to_integers`
 - `cut_to_order`
-- `degree_assortativity`
 - `degree_counts`
 - `degree_histogram`
 - `degree_matrix`

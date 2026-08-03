@@ -364,7 +364,7 @@ reason = "imports private _choose_degrees; helper not part of the port."
 [[test_exclusion]]
 path = "algorithms/test_assortativity.py"
 test = "test_degree_assortativity"
-class = "deferred-symbol"
+class = "core-gap"
 reason = "deferred (documented deviation, algorithms.rs module doc): degree_assortativity(exact=False) (random-sampling path) awaits the Phase-4 rand_pcg pin; raises NotImplementedError."
 
 [[test_exclusion]]

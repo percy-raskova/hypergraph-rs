@@ -84,6 +84,16 @@ def _partial_symbols() -> list[dict]:
     return _load_toml("partial_symbols.toml").get("partial_symbol", [])
 
 
+def partial_symbol_names() -> set[str]:
+    """The symbols recorded in compat/partial_symbols.toml.
+
+    One derivation, two consumers: build() promotes them to `bound-partial`,
+    and audit_symbols.py separates them out of the plain-bound ledger. When
+    these drifted apart, two generated artifacts disagreed.
+    """
+    return {entry["symbol"] for entry in _partial_symbols()}
+
+
 def _promote_partials(status: dict[str, str], partials: list[dict]) -> dict[str, str]:
     """Mark bound-but-raising symbols `bound-partial`.
 

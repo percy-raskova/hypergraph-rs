@@ -655,7 +655,7 @@
         "test": "test_choose_degrees"
       },
       {
-        "class": "deferred-symbol",
+        "class": "core-gap",
         "path": "algorithms/test_assortativity.py",
         "reason": "deferred (documented deviation, algorithms.rs module doc): degree_assortativity(exact=False) (random-sampling path) awaits the Phase-4 rand_pcg pin; raises NotImplementedError.",
         "test": "test_degree_assortativity"
