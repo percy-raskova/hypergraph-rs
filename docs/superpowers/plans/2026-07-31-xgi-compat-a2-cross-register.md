@@ -331,15 +331,24 @@ Run each, confirm the named failure, then revert:
 
 Mutations 1 and 2 regenerate `tests/DEFERRED_SYMBOLS.md` from deliberately
 broken code, and reverting `audit_symbols.py` does not un-write the file.
-After the final revert, regenerate from clean sources and prove it:
+Task 1 commits nothing until Step 10, so a `git diff` against HEAD cannot
+serve as the check — the ledger legitimately differs from HEAD by this
+task's own transformation. Prove the round trip by content instead. Before
+mutation 1, save Step 7's clean output:
+
+```bash
+cp tests/DEFERRED_SYMBOLS.md /tmp/a2-task1-ledger-step7.md
+```
+
+After the final revert, regenerate from clean sources and compare:
 
 ```bash
 .venv/bin/python tools/audit_symbols.py
-git diff --exit-code tests/DEFERRED_SYMBOLS.md
+diff /tmp/a2-task1-ledger-step7.md tests/DEFERRED_SYMBOLS.md
 ```
 
-Expected: exit 0, no diff — Step 10 commits this file, and it must be the
-clean-source version.
+Expected: exit 0, no output — the regenerated ledger is byte-identical to
+Step 7's clean output, so Step 10 commits the clean-source version.
 
 Record the observed failure text for each in your report.
 
