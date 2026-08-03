@@ -461,7 +461,7 @@ from `# compat/partial_symbols.toml` down to the blank line before the first
 #   exception = "NotImplementedError"    # what it actually raises
 #   site      = "crates/.../algorithms.rs:163"
 #   trigger   = "exact=False"            # the argument shape that raises
-#   reason    = "..."                    # what xgi does instead
+#   reason    = "..."                    # xgi's side of the gap: its differing behaviour, or the packaging fact when no call-site comparison exists
 #
 # An entry here promotes the symbol to `bound-partial` in manifest.json. When a
 # gap is CLOSED, delete its entry — tests/test_partial_symbols.py pins the
@@ -583,8 +583,8 @@ for name in ('draw', 'draw_nodes', 'draw_hyperedges'):
     fn = getattr(hrs, name)
     try:
         fn(H)
-    except BaseException as exc:
-        print(name, '->', type(exc).__name__, ':', exc)
+    except Exception as exc:
+        print(name, '->', type(exc).__name__, ':', exc, '| module:', getattr(fn, '__module__', '<none>'))
     else:
         print(name, '-> NO RAISE')
 "
@@ -634,7 +634,7 @@ environment — you cannot, and saying so would be false.
 Create `docs/superpowers/specs/evidence/2026-07-31-drawing-import-measurement.md`
 containing: the wheel path and ABI tag used, the venv construction command, the
 verbatim output of Step 2, the metadata output of Step 3, and one line per
-symbol stating the exception type observed. State explicitly that xgi's side is
+symbol stating the exception type and `__module__` observed. State explicitly that xgi's side is
 established from packaging metadata rather than execution, and why. If any
 symbol printed `NO RAISE`, say so — it means that symbol is not import-gated and
 gets no entry.
@@ -648,7 +648,7 @@ For each symbol that actually raised, append to `compat/partial_symbols.toml`:
 symbol = "draw"
 class = "env"
 exception = "ImportError"
-site = "<the module and line from the observed traceback>"
+site = "<the symbol's __module__, verbatim from the Step 2 output>"
 trigger = "any call in an environment without matplotlib installed"
 reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all — the divergence is in packaging, not at the call site."
 ```
@@ -663,17 +663,31 @@ or DONE_WITH_CONCERNS. The remaining tasks do not depend on this one.
 
 - [ ] **Step 6: Update partial_symbols_status — only if entries were added**
 
-In `tools/gen_manifest.py`, the string currently ends
-`"Known-unmeasured: the drawing.* ImportError family."` — that sentence becomes
-false once the entries exist. Replace **only that final sentence** with:
+In `tools/gen_manifest.py`, the `"partial_symbols_status"` value currently
+reads, in full:
 
 ```python
-            "unmeasured. Every entry here was observed raising, in the "
-            "environment its trigger names."
+        "partial_symbols_status": (
+            "A measured, INCOMPLETE record. Absence from this list is NOT "
+            "evidence a symbol is free of raising paths — it may simply be "
+            "unmeasured. Known-unmeasured: the drawing.* ImportError family."
+        ),
 ```
 
-Do **not** delete the preceding "Absence from this list is NOT evidence"
-sentence — it remains true and is load-bearing.
+The final sentence becomes false once the entries exist. Replace the whole
+value so it reads, in full:
+
+```python
+        "partial_symbols_status": (
+            "A measured, INCOMPLETE record. Absence from this list is NOT "
+            "evidence a symbol is free of raising paths — it may simply be "
+            "unmeasured. Every entry here was observed raising, in the "
+            "environment its trigger names."
+        ),
+```
+
+The "Absence from this list is NOT evidence" sentence stays — it remains true
+and is load-bearing.
 
 - [ ] **Step 7: Regenerate everything the new entries feed**
 
@@ -785,7 +799,7 @@ for shape, call in (('zero-arg', lambda: H.edges.attrs('color')()),
                     ('new key',  lambda: H.edges.attrs('color')('color'))):
     try:
         call()
-    except BaseException as exc:
+    except Exception as exc:
         print(shape, '->', type(exc).__name__, ':', exc)
     else:
         print(shape, '-> NO RAISE')
@@ -936,7 +950,7 @@ the ones that cannot.
 | Kind | Files | Inserts | Fate |
 |---|---|---|---|
 | test → `tools/` | `test_denominator`, `test_divergence_register`, `test_manifest_drift`, `test_partial_symbols`, `test_symbol_status`, `test_xgi_version_pin`, `tests/ported/test_gate_summary` | `…/tools` | removed; imports re-qualified |
-| test → `tests/` | `test_ignore_hook`, `test_oracle_integrity_unit`, `test_registry_integrity` | own directory | removed; the shared conftest insert covers them |
+| test → `tests/` | `test_ignore_hook`, `test_oracle_integrity_unit`, `test_registry_integrity` | own directory | removed; pytest's basedir insertion covers them |
 | tool → `tests/` | `migrate_exclusions:12`, `count_tests:45` | `…/tests` | **kept**, commented |
 
 The two kept inserts import `tests/conftest_exclusions.py`, and `tests/` must
@@ -952,7 +966,6 @@ This task changes the gate's command line. It runs last and alone.
 - Modify: `tools/migrate_exclusions.py`, `tools/count_tests.py` (comments only)
 - Modify: `.mise.toml` (`py:manifest`, `py:gate`)
 - Modify: `tests/test_gate_wiring.py` (three assertions pin the old invocation)
-- Modify: `tests/conftest.py` (one insert, **below** the sentinel)
 - Modify: the ten test files that carry a preamble
 - Create: `tests/test_no_duplicate_path_preamble.py`
 
@@ -969,7 +982,7 @@ exempts itself by path.
 
 ```python
 # tests/test_no_duplicate_path_preamble.py
-"""One place puts the repo root on sys.path for tests, not ten."""
+"""No test file touches sys.path; python -m pytest and pytest's basedir insertion cover imports."""
 
 import pathlib
 
@@ -990,11 +1003,11 @@ def test_no_test_file_inserts_into_sys_path() -> None:
     offenders: list[str] = []
     # Bounded: one pass over a finite glob of the tests tree.
     for path in sorted((ROOT / "tests").rglob("*.py")):
-        if path.name == "conftest.py" or path.resolve() == SELF:
+        if path.resolve() == SELF:
             continue
         if NEEDLE in path.read_text():
             offenders.append(str(path.relative_to(ROOT)))
-    assert not offenders, f"these should rely on tests/conftest.py: {offenders}"
+    assert not offenders, f"these should rely on pytest's own sys.path handling: {offenders}"
 
 
 def test_only_exempt_tools_insert_into_sys_path() -> None:
@@ -1122,34 +1135,15 @@ Keep every assertion's message text: the guard's purpose is unchanged, only the
 string it matches. Do not weaken an assertion to a substring that would also
 match the old form.
 
-- [ ] **Step 8: Add the single test-side insert**
+- [ ] **Step 8: Confirm no test-side insert is needed**
 
-In `tests/conftest.py`, add this block **immediately after the existing
-`import pathlib` (currently line 350) and before `import pytest` (line 352)** —
-not directly under the sentinel:
-
-```python
-import sys
-
-# One place, not ten. The repo root lets tests import the `tools` package; the
-# tests directory lets the three tests that import sibling helpers (conftest,
-# conftest_exclusions) work without their own preamble.
-_REPO_ROOT = pathlib.Path(__file__).parent.parent
-sys.path.insert(0, str(_REPO_ROOT / "tests"))
-sys.path.insert(0, str(_REPO_ROOT))
-```
-
-**The position matters and is not interchangeable with "below the sentinel".**
-The sentinel is line 342 and its three comment lines run to 345, but `pathlib`
-is not imported until line 350. Placing the block at 346 would run
-`pathlib.Path(...)` before `pathlib` is bound, raising `NameError` while
-importing `conftest.py` — which aborts collection for the whole suite, not just
-the new guard. If you would rather not depend on file order at all, add
-`import pathlib` to the block itself; a duplicate import is harmless and the
-block then works anywhere below the sentinel.
-
-**Never edit above the sentinel** — `tests/test_oracle_integrity.py`
-byte-compares that region against upstream, including trailing whitespace.
+Measured 2026-08-03 (probes in the closeout plan, Task 1 Step 7): `$PY -m
+pytest` puts the repo root (CWD) on `sys.path`, which covers every
+`tools.` import from tests; pytest's default `prepend` import mode inserts
+`tests/` itself when collecting, which covers the three files importing
+sibling helpers (`conftest`, `conftest_exclusions`). No mise task invokes
+bare `pytest`. `tests/conftest.py` therefore gets NO insert — do not add
+one. If a future invocation style needs one, measure first.
 
 - [ ] **Step 9: Strip the ten test preambles**
 
@@ -1181,8 +1175,9 @@ exist and the correct rewrite differs:
 The three files that inserted their own directory (`test_ignore_hook.py`,
 `test_oracle_integrity_unit.py`, `test_registry_integrity.py`) import tests-tree
 modules such as `conftest` and `conftest_exclusions` — those statements are
-already correct and must **not** be prefixed with `tools.`; Step 8's second
-insert is what keeps them working.
+already correct and must **not** be prefixed with `tools.`; pytest's basedir
+insertion of `tests/` is what keeps them working (Step 8 records the
+measurement).
 
 - [ ] **Step 10: Run both gates**
 
@@ -1208,7 +1203,7 @@ incomplete — fix it rather than restoring a `sys.path` insert.
    `from conftest_exclusions import FILE_EXCLUSIONS` as the next statement.
    Deleting only the insert line leaves the `if` with an empty body and yields
    `IndentationError`, not the failure this mutation is testing for. Then run —
-   **outside pytest**, because under pytest the conftest insert now covers it:
+   **outside pytest**, because under pytest the basedir insertion of `tests/` covers it:
    ```bash
    .venv/bin/python -c "from tools.count_tests import file_exclusion_test_counts; file_exclusion_test_counts()"
    ```
@@ -1217,8 +1212,8 @@ incomplete — fix it rather than restoring a `sys.path` insert.
    both lines.
 
 Record all three observed results. Note in your report that mutation 3 must run
-outside pytest — inside it, the conftest insert masks the breakage, and that
-masking is itself worth stating.
+outside pytest — inside it, pytest's basedir insertion masks the breakage, and
+that masking is itself worth stating.
 
 - [ ] **Step 12: Commit**
 
@@ -1227,8 +1222,9 @@ git add tools/ tests/ .mise.toml python/hypergraph_rs/compat/manifest.json
 git commit --no-verify -m "refactor(tools): make tools a package, one sys.path insert for tests
 
 Fifteen files carried a preamble. tools/ becomes a package so three tool->tool
-inserts dissolve, and tests/conftest.py carries one insert covering the ten test
-files. Two tool inserts remain and are commented: they import
+inserts dissolve; the ten test files need no replacement insert — python -m
+pytest and pytest's basedir insertion cover them (measured). Two tool inserts
+remain and are commented: they import
 tests/conftest_exclusions.py, and tests/ must never become a package because it
 holds the byte-verbatim upstream conftest.
 
@@ -1241,8 +1237,9 @@ unchanged."
 
 ## Self-Review
 
-**Spec coverage:** F1→Task 1. F2→Tasks 2 and 3. F3→Task 2. F4→Tasks 2 (M7) and
-4 (M1, M2). F5→Task 4. F6/F7→Task 5. Rulings 1, 2→Task 1. Rulings 3, 4→Tasks 3
+**Spec coverage:** F1→Task 1. F2→Tasks 2 and 3. F3→Task 2. F4→Task 2 (Step 1's
+uniqueness and exception guards) and Task 4 (Step 4's trigger re-description,
+Step 5's match= narrowing). F5→Task 4. F6/F7→Task 5. Rulings 1, 2→Task 1. Rulings 3, 4→Tasks 3
 and 2. Ruling 5→this plan exists. Ruling 6→out of plan scope, handled by the
 controller. Ruling 7→Task 5, at the scope F7 establishes.
 
@@ -1267,7 +1264,7 @@ command line, and it re-points `test_gate_wiring.py` in the same commit.
   byte-identical messages. Step 5 says so rather than implying the pins
   discriminate between the sites.
 - Task 5's mutation 3 only demonstrates the exemption outside pytest; inside it,
-  the new conftest insert masks the breakage. Step 11 says so.
+  pytest's basedir insertion masks the breakage. Step 11 says so.
 
 ---
 
@@ -1319,3 +1316,46 @@ have not yet converged on that task.
 
 **Do not skip the third pass.** Pass 2 proved that fixing this plan introduces
 new defects at roughly two-thirds the rate it removes them.
+
+**RESOLUTION — 2026-08-03 (closeout plan Task 1).** All eight outstanding
+findings applied as surgical edits:
+
+- **U3** spelled out: F4 now maps to Task 2 (Step 1's uniqueness and
+  exception guards) and Task 4 (Step 4's trigger re-description, Step 5's
+  match= narrowing).
+- **U6** widened: `reason` now names xgi's side of the gap — behaviour, or
+  the packaging fact when no call-site comparison exists.
+- **U7** narrowed to `except Exception` at both sites (Task 3 Step 2, Task 4
+  Step 3). Line 866's `type[BaseException]` stayed: a return-type annotation
+  feeding `pytest.raises`, not a handler — the catch-all ban does not reach
+  it.
+- **U12/U5**: the Step 2 harness now prints each symbol's `__module__`, the
+  evidence document records it, and `site` cites that observed value — no
+  traceback needed.
+- **U17** quoted in full: Step 6 now carries the complete before/after
+  `partial_symbols_status` value, verified against
+  `tools/gen_manifest.py:150-154` on 2026-08-03.
+- **U14** resolved by measurement — DROP path. Probes (2026-08-03, repo
+  root, `.venv` cp313):
+  - A: `.venv/bin/python -m pytest <scratch>/test_cwd.py`, asserting
+    `os.getcwd() in sys.path` → `1 passed` (python -m puts CWD on sys.path).
+  - B: `.venv/bin/pytest` exists; the same probe → `1 failed` (bare pytest
+    adds no CWD). No mise task invokes bare pytest.
+  - C: sibling import (`import helper_mod` beside the test) with no insert
+    → `1 passed` (prepend-mode basedir insertion).
+  - D: no `tests/__init__.py`; no `importmode` override in pyproject.toml,
+    pytest.ini, setup.cfg or tox.ini.
+  - `tests/conftest.py` contains no `sys.path` text at all, and no conftest
+    under tests/ contains the insert needle.
+  Eleven edits, not the six the closeout plan predicted — the Kind-table
+  row, the Files-list conftest line, and the guard's `conftest.py`
+  exemption (removable per the last measurement above) surfaced during
+  execution.
+- **U16/U19/U20** re-verified closed: the both-docstring-lines instruction
+  sits in Task 5 Step 4's final paragraph; the not-`^`-anchored warning
+  sits in the same step; Task 3 Step 7 and Task 4 Step 7 both carry
+  regenerate-and-rerun blocks.
+
+**THIRD PRE-FLIGHT PASS STILL REQUIRED before execution** — this record
+does not lift the do-not-execute bar; only a PASS 3 record below it may do
+that.
