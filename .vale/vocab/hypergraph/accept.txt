@@ -1,0 +1,16 @@
+# hypergraph-rs project vocabulary (Vale accept list).
+# One case-sensitive regex per line; see ~/.config/vale/CONFIGURING.md §4.
+[Uu]nmerged
+[Uu]npushed
+[Xx]fail(?:ed|s)?
+pass_rate
+[Uu]napplied
+[Tt]racebacks?
+[Cc]onftest
+[Rr]unnability
+[Vv]envs?
+[Bb]abylon(?:'s)?
+(?i)xgi
+[Ss]ubagents?
+[Cc]ompat
+[Uu]nmutated
