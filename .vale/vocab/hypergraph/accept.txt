@@ -14,3 +14,8 @@ pass_rate
 [Ss]ubagents?
 [Cc]ompat
 [Uu]nmutated
+(?i)pytest(?:'s)?
+[Bb]asedirs?
+[Dd]ocstrings?
+mpl
+[Ii]mplementer(?:s|'s)?
