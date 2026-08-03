@@ -1022,16 +1022,20 @@ every gate run."
 `tests/` and five are tools. This task removes the ones that can go and comments
 the ones that cannot.
 
-**The preambles are three different things.** Do not treat them uniformly:
+**The preambles are four different things.** Do not treat them uniformly:
 
 | Kind | Files | Inserts | Fate |
 |---|---|---|---|
 | test → `tools/` | `test_denominator`, `test_divergence_register`, `test_manifest_drift`, `test_partial_symbols`, `test_symbol_status`, `test_xgi_version_pin`, `tests/ported/test_gate_summary` | `…/tools` | removed; imports re-qualified |
 | test → `tests/` | `test_ignore_hook`, `test_oracle_integrity_unit`, `test_registry_integrity` | own directory | removed; pytest's basedir insertion covers them |
 | tool → `tests/` | `migrate_exclusions:12`, `count_tests:45` | `…/tests` | **kept**, commented |
+| tool → `tools/` | `gen_manifest:19`, `gate_report:20`, `audit_symbols:11` | `…/tools` | removed; packaging dissolves them |
 
 The two kept inserts import `tests/conftest_exclusions.py`, and `tests/` must
-never become a package — it holds the byte-verbatim oracle conftest. The three
+never become a package: a `tests/__init__.py` would move pytest's prepend-mode
+insertion to the repo root, breaking every bare tests-tree import. (Either
+way the byte-verbatim oracle conftest stays untouched — the byte-compare
+covers its prefix, which a sibling file cannot alter.) The three
 tool→tool inserts (`gen_manifest:19`, `gate_report:20`, `audit_symbols:11`)
 dissolve under packaging.
 
@@ -1067,12 +1071,12 @@ ROOT = pathlib.Path(__file__).parent.parent
 SELF = pathlib.Path(__file__).resolve()
 
 # Assembled at runtime so this file's own source never contains the literal it
-# searches for. Without this the guard flags itself and can never pass.
+# searches for — belt-and-braces alongside the SELF exemption below.
 NEEDLE = "sys.path" + ".insert"
 
 # The two tools that import tests/conftest_exclusions.py. tests/ cannot become
-# a package — it holds the byte-verbatim upstream conftest — so these inserts
-# are load-bearing and exempt.
+# a package (an __init__.py would break pytest's tests-tree imports), so these
+# inserts are load-bearing and exempt.
 EXEMPT: frozenset[str] = frozenset({"migrate_exclusions.py", "count_tests.py"})
 
 
@@ -1179,8 +1183,9 @@ Above `sys.path.insert` in `tools/migrate_exclusions.py` and in the function in
 
 ```python
 # Load-bearing: imports tests/conftest_exclusions.py. tests/ must never become
-# a package — it holds the byte-verbatim upstream conftest — so this insert
-# cannot be replaced by the tools package. tests/test_no_duplicate_path_preamble.py
+# a package (an __init__.py would move pytest's prepend insertion to the repo
+# root and break the bare tests-tree imports), so this insert cannot be
+# replaced by the tools package. tests/test_no_duplicate_path_preamble.py
 # exempts these two files by name.
 ```
 
@@ -1242,8 +1247,10 @@ basedir is `tests/ported/`), loading `tests/conftest.py` is what prepends
 under `--confcutdir=tests/ported`). No mise task invokes bare `pytest`.
 `tests/conftest.py` therefore gets NO insert — do not add one. **Stated
 limitation, not hidden:** bare `.venv/bin/pytest` exists and adds no CWD
-entry, so after this task the seven `tools.*`-importing test files are
-uncollectible under it; `python -m pytest` is the supported invocation. Put
+entry, so after this task six of the seven `tools.*`-importing test files
+are uncollectible under it (the seventh, `tests/test_partial_symbols.py`,
+imports tools only inside test bodies — it collects, and two of its tests
+fail at call time); `python -m pytest` is the supported invocation. Put
 that in your report's limitations. If a future invocation style needs an
 insert, measure first. (Task 4's `[tool.pytest.ini_options]` addition does not
 disturb these measurements: `pyproject.toml` is already pytest's configfile,
@@ -1303,10 +1310,15 @@ incomplete — fix it rather than restoring a `sys.path` insert.
 
 - [ ] **Step 11: Prove the guards by mutation**
 
-1. Re-add `sys.path.insert(0, "x")` to any one test file. Expected:
-   `test_no_test_file_inserts_into_sys_path` fails naming that file.
-2. Re-add one to `tools/gate_report.py`. Expected:
-   `test_only_exempt_tools_insert_into_sys_path` fails naming it.
+Run each, confirm the named failure, then revert:
+
+1. Re-add `sys.path.insert(0, "x")` to any one test file, then run
+   `.venv/bin/python -m pytest tests/test_no_duplicate_path_preamble.py -q`
+   (the guard reads file TEXT, so running only the guard file sidesteps any
+   collection error in the mutated file). Expected:
+   `test_no_test_file_inserts_into_sys_path` fails naming that file. Revert.
+2. Re-add one to `tools/gate_report.py`; same guard-file run. Expected:
+   `test_only_exempt_tools_insert_into_sys_path` fails naming it. Revert.
 3. In `tools/count_tests.py`, delete the **whole guard** — both the
    `if _tests_dir not in sys.path:` line and its indented
    `sys.path.insert(0, _tests_dir)` body (lines 44-45 today; Step 5's comment
@@ -1321,8 +1333,29 @@ incomplete — fix it rather than restoring a `sys.path` insert.
    Expected: `ModuleNotFoundError: No module named 'conftest_exclusions'`, which
    is what proves the exemption is real rather than merely asserted. Restore
    both lines.
+4. In `.mise.toml`, swap the ported-suite line and the gate-report line (so
+   `$PY -m tools.gate_report …` runs before `$PY -m pytest tests/ported -q`),
+   then run `.venv/bin/python -m pytest tests/test_gate_wiring.py -q`.
+   Expected: `test_gate_still_runs_the_ported_suite_last` FAILS. This is the
+   discrimination proof the old pin never had — the pre-Step-7 needle
+   (`"tests/ported"`) would have PASSED this same mutation against the
+   pre-Step-6 gate line, because its first match sits inside the
+   `--ignore=tests/ported` fragment. Revert.
 
-Record all three observed results. Note in your report that mutation 3 must run
+After the final revert, prove every mutation is unwound before Step 12 stages
+whole directories:
+
+```bash
+.venv/bin/python -m pytest tests/test_no_duplicate_path_preamble.py tests/test_gate_wiring.py -q
+.venv/bin/python -c "from tools.count_tests import file_exclusion_test_counts; file_exclusion_test_counts()"
+```
+
+Expected: every guard test passes and the import round-trip exits 0 —
+mutations 1, 2 and 4 unwound, mutation 3's two lines restored. Step 12's
+`git add tools/ tests/` stages whole directories, so a forgotten revert would
+land in the commit silently; this run is what prevents that.
+
+Record all four observed results. Note in your report that mutation 3 must run
 outside pytest — inside it, pytest's basedir insertion masks the breakage, and
 that masking is itself worth stating.
 
@@ -1336,8 +1369,9 @@ Fifteen files carried a preamble. tools/ becomes a package so three tool->tool
 inserts dissolve; the ten test files need no replacement insert — python -m
 pytest and pytest's basedir insertion cover them (measured). Two tool inserts
 remain and are commented: they import
-tests/conftest_exclusions.py, and tests/ must never become a package because it
-holds the byte-verbatim upstream conftest.
+tests/conftest_exclusions.py, and tests/ must never become a package — an
+__init__.py would move pytest's prepend insertion to the repo root and break
+the bare tests-tree imports.
 
 py:gate now invokes the tools with -m, and test_gate_wiring.py's two invocation
 pins are re-pointed at the module rather than the path. The pytest lines are
@@ -1376,8 +1410,9 @@ command line, and it re-points `test_gate_wiring.py` in the same commit.
   discriminate between the sites.
 - Task 5's mutation 3 only demonstrates the exemption outside pytest; inside it,
   pytest's basedir insertion masks the breakage. Step 11 says so.
-- After Task 5, the seven `tools.*`-importing test files are uncollectible
-  under bare `.venv/bin/pytest` (which adds no CWD entry to `sys.path`);
+- After Task 5, six of the seven `tools.*`-importing test files are
+  uncollectible under bare `.venv/bin/pytest` (no CWD entry on `sys.path`);
+  the seventh, `tests/test_partial_symbols.py`, fails at call time instead.
   `python -m pytest` is the supported invocation. Step 8 says so.
 
 ---
@@ -1494,3 +1529,24 @@ throughout and the gate-wiring ordering pin re-anchored on
 first). Four confirmed findings were regressions from the 2026-08-03 repair
 itself — the two-thirds law held again. **THE DO-NOT-EXECUTE BAR REMAINS
 UP** until a PASS 4 record below this one clears Task 5.
+
+**PASS 4 — 2026-08-03, Task 5 only.** Five Opus lenses, one refute-by-default
+skeptic per finding, cap 8 (one dropped and hand-triaged: the preamble
+taxonomy gained its fourth table row). 39 raised, 28 after dedup, 8 confirmed
+— collapsing to **five unique defects (2 major, 3 minor)**, down from ~18 in
+pass 3, with none of pass 3's stale-count character recurring. The majors
+were mutation hygiene: Step 11's mutations 1-2 lacked reverts while Step 12
+stages whole directories, and the re-anchored ordering pin shipped without a
+discrimination proof — both fixed above (mutation 4 now swaps the gate lines
+and expects the pin to FAIL; a post-revert verification block guards the
+whole-directory `git add`). Also fixed: the bare-pytest limitation corrected
+to six-of-seven (`test_partial_symbols` collects; two tests fail at call
+time),
+the four-site "tests/ must never become a package" justification replaced
+with the real prepend-insertion mechanism, and the guard comment's false
+load-bearing claim. A dedicated Opus verifier re-checked all eleven fix edits
+against the tree: five CLEAN verdicts; its two cosmetic notes landed above.
+**Convergence judgment:** the defect count collapsed and no finding indicts
+Task 5's scope, so per the owner's absorb-and-pass-4 ruling the split path is
+not taken. **THIS RECORD LIFTS THE DO-NOT-EXECUTE BAR — it clears the plan
+for execution.**
