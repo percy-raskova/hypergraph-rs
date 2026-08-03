@@ -34,32 +34,35 @@ Every task's requirements implicitly include this section.
   it is verified equivalent to xgi. No artifact may imply otherwise.
 - **Every shipped register entry is verified by direct execution against both
   libraries.** Inferred, simulated, or reasoned-about entries must never ship.
-  Task 3 is the one place where "both libraries" needs care — read its Step 4.
+  Task 3 is the one place where "both libraries" needs care — read its Step 3.
 - The ported suite must stay at **`316 passed, 1 skipped, 77 xfailed`** and the
   honest denominator at **`492`**, at every task boundary.
 - **`gaps_by_class` moves in Task 1 and only in Task 1** (`core-gap` 12→13,
   `deferred-symbol` 51→50). `pass_rate` stays `0.6423` — numerator and
   denominator are untouched. Print before/after and record both in the report.
+  (The spec's §5 predicted `pass_rate` would move; the measured prediction is
+  that it does not — reclassification moves an entry between classes without
+  touching the counts. This plan overrides the spec here, deliberately.)
 - **`compat-report.json` is 16 lines.** Read it with `cat compat-report.json`,
   never `tail -14` — that drops the opening brace and the first key, producing
   output that is not valid JSON and hides `denominator`.
 - **The gate discovers tests; it does not list them.** `py:gate`'s meta-test
   invocation is `pytest tests/ --ignore=tests/ported -q`, never an explicit file
   list. **Never pin the meta-suite's pass count anywhere.**
-- **`py:gate` runs under `set -e` and its second line runs the meta suite.** Any
-  step that runs `mise run py:gate` while a deliberately-failing red-phase test
-  exists will abort before reaching the report. Capture baselines *before*
-  writing red-phase tests.
+- **`py:gate` runs under `set -e`, and the meta suite runs before the report**
+  (the gate's third command, after the stats cleanup and the symbol audit). Any step that runs `mise run py:gate` while a deliberately-failing
+  red-phase test exists will abort before reaching the report. Capture
+  baselines *before* writing red-phase tests.
 - Files under `tests/ported/` that have an upstream XGI counterpart are
   **immutable**. Repo-authored files there are editable
   (`tests/ported/test_gate_summary.py` is repo-authored).
 - `tests/conftest.py`'s prefix above the
   `# === END VERBATIM XGI 0.10.2 conftest` sentinel is byte-compared against
-  upstream and must **never** be edited. Additions go below it. The repo-authored
-  section below the sentinel imports `json`, `pathlib` and `pytest`, but **not
-  `sys`**.
+  upstream and must **never** be edited. Additions go below it.
 - The divergence/exclusion taxonomy is a **closed nine-class set** in
-  `tools/taxonomy.py`. Every `compat/` register validates against it.
+  `tools/taxonomy.py`. After Task 2, every `compat/` register validates against
+  it — today `partial_symbols.toml` is the one that does not, which is Task 2's
+  reason to exist.
 - **Do not rebuild the Rust extension.** Cargo is single-flight in this repo.
   No task here needs a rebuild.
 - Python is `.venv/bin/python`. **Never run `import xgi` as a bash command** —
@@ -78,17 +81,22 @@ Every task's requirements implicitly include this section.
 
 | File | Responsibility | Tasks |
 |---|---|---|
-| `tools/gen_manifest.py` | gains `partial_symbol_names()`; `partial_symbols_status` updated | 1, 3 |
+| `tools/gen_manifest.py` | gains `partial_symbol_names()`; `partial_symbols_status` updated | 1, 3, 5 |
 | `tools/audit_symbols.py` | applies the promotion when emitting the ledger | 1, 5 |
 | `tests/DEFERRED_SYMBOLS.md` | generated; gains a bound-partial section | 1, 3 |
 | `compat/exclusions.toml` | one entry reclassified `deferred-symbol` → `core-gap` | 1 |
-| `tests/test_cross_register.py` | **new** — pins agreement *between* artifacts | 1, 5 |
+| `tests/test_cross_register.py` | **new** — pins agreement *between* artifacts | 1 |
 | `compat/partial_symbols.toml` | gains `exception` and `class`; one trigger trimmed | 2, 3, 4 |
 | `tests/test_partial_symbols.py` | `FIELDS` grows; taxonomy check; `match=`; uniqueness | 2, 4, 5 |
 | `pyproject.toml` | gains `[tool.pytest.ini_options] markers` | 4 |
 | `tools/__init__.py` | **new** — makes `tools` importable as a package | 5 |
 | `tests/test_gate_wiring.py` | its two invocation pins re-pointed at the module | 5 |
 | `.mise.toml` | `$PY tools/x.py` → `$PY -m tools.x` | 5 |
+| `tools/gate_report.py` | imports qualified; docstring + argv usage re-pointed | 5 |
+| `tools/migrate_exclusions.py`, `tools/count_tests.py` | kept inserts gain comments | 5 |
+| `tests/test_no_duplicate_path_preamble.py` | **new** — the no-preamble guard | 5 |
+| the ten preamble-carrying test files | preambles stripped, imports re-qualified | 5 |
+| `docs/superpowers/specs/evidence/2026-07-31-drawing-import-measurement.md` | **new** — measurement evidence | 3 |
 
 ---
 
@@ -117,8 +125,8 @@ pre-Task-7 picture; `exclusions.toml` independently calls the symbol
 - [ ] **Step 1: Record the baseline FIRST**
 
 This must happen before any red-phase test exists. `py:gate` runs under `set -e`
-and its second line runs the meta suite, so once a deliberately-failing test is
-on disk the gate aborts before printing the report.
+and runs the meta suite (its third command) before the report, so once a
+deliberately-failing test is on disk the gate aborts before printing the report.
 
 ```bash
 mise run py:gate && cat compat-report.json
@@ -185,13 +193,14 @@ def test_the_ledger_does_not_call_a_partial_symbol_plainly_bound() -> None:
 def test_the_ledger_names_every_partial_symbol() -> None:
     ledger = LEDGER.read_text()
     for symbol in sorted(_partial_symbols()):
-        assert f"- `{symbol}`" in ledger, f"{symbol} vanished from the ledger"
+        assert f"- `{symbol}`\n" in ledger, f"{symbol} vanished from the ledger"
 
 
 def test_no_exclusion_calls_a_bound_partial_symbol_deferred() -> None:
     """Name-based, deliberately: a test exclusion whose test name embeds a
     symbol the manifest calls bound-partial must not be classed
-    `deferred-symbol`. The symbol is bound — only some argument shapes raise."""
+    `deferred-symbol`. The symbol is bound — only some argument shapes or
+    environments raise."""
     partial = _partial_symbols()
     for excl in _test_exclusions():
         if excl["class"] != "deferred-symbol":
@@ -253,8 +262,9 @@ call (line 38) with:
         for n in deferred:
             f.write(f"- `{n}` — no Phase 0-6 plan built it; calling raises NotImplementedError.\n")
         f.write(f"\n# Bound-partial symbols ({len(partials)}/164)\n\n")
-        f.write("These are bound, but some argument shapes raise. See "
-                "`compat/partial_symbols.toml` for the exact call shapes.\n\n")
+        f.write("These are bound, but some argument shapes or environments "
+                "raise. See `compat/partial_symbols.toml` for the exact "
+                "triggers.\n\n")
         for n in partials:
             f.write(f"- `{n}`\n")
         f.write(f"\n# Bound symbols ({len(bound)}/164)\n\n")
@@ -318,6 +328,18 @@ Run each, confirm the named failure, then revert:
    regenerate. Expected: `test_the_ledger_names_every_partial_symbol` fails.
 3. In `exclusions.toml`, set the class back to `deferred-symbol`. Expected:
    `test_no_exclusion_calls_a_bound_partial_symbol_deferred` fails.
+
+Mutations 1 and 2 regenerate `tests/DEFERRED_SYMBOLS.md` from deliberately
+broken code, and reverting `audit_symbols.py` does not un-write the file.
+After the final revert, regenerate from clean sources and prove it:
+
+```bash
+.venv/bin/python tools/audit_symbols.py
+git diff --exit-code tests/DEFERRED_SYMBOLS.md
+```
+
+Expected: exit 0, no diff — Step 10 commits this file, and it must be the
+clean-source version.
 
 Record the observed failure text for each in your report.
 
@@ -440,8 +462,9 @@ the `DiStat` getters never got a re-parametrization branch at the PyO3 layer.
 - [ ] **Step 4: Update the whole header, not just the schema block**
 
 In `compat/partial_symbols.toml`, the header has prose above and below the
-schema comment. Both mention `NotImplementedError` specifically and would
-contradict the widened schema. Replace the entire comment header — every line
+schema comment; the prose above names `NotImplementedError` specifically
+(line 4) and would contradict the widened schema. Replace the entire comment
+header — every line
 from `# compat/partial_symbols.toml` down to the blank line before the first
 `[[partial_symbol]]` — with:
 
@@ -459,7 +482,7 @@ from `# compat/partial_symbols.toml` down to the blank line before the first
 #   symbol    = "degree_assortativity"   # the public name in __all__
 #   class     = "core-gap"               # one of tools/taxonomy.py CLASSES
 #   exception = "NotImplementedError"    # what it actually raises
-#   site      = "crates/.../algorithms.rs:163"
+#   site      = "crates/.../algorithms.rs:163"  # or the symbol's __module__, for env-gated entries with no call site
 #   trigger   = "exact=False"            # the argument shape that raises
 #   reason    = "..."                    # xgi's side of the gap: its differing behaviour, or the packaging fact when no call-site comparison exists
 #
@@ -533,7 +556,7 @@ rule an inferred entry must not ship. This task observes it or reports BLOCKED.
 
 **Files:**
 - Modify: `compat/partial_symbols.toml` (up to three entries, only if observed)
-- Modify: `tools/gen_manifest.py` (`partial_symbols_status`, only if measured)
+- Modify: `tools/gen_manifest.py` (`partial_symbols_status` and `symbols_status`, only if measured)
 - Regenerate: `tests/DEFERRED_SYMBOLS.md`
 - Create: `docs/superpowers/specs/evidence/2026-07-31-drawing-import-measurement.md`
 
@@ -689,6 +712,34 @@ value so it reads, in full:
 The "Absence from this list is NOT evidence" sentence stays — it remains true
 and is load-bearing.
 
+In the same edit, widen the sibling `symbols_status` value: its "raise from
+Rust for particular arguments" becomes false once the drawing family — which
+raises from the Python-side `_require_mpl` import gate, for every argument
+shape — joins `bound-partial`. The value currently reads, in full:
+
+```python
+        "symbols_status": (
+            "`bound` means 'not routed through the _deferred stub factory', NOT "
+            "'fully implemented'. Some bound symbols raise from Rust for "
+            "particular arguments; only those MEASURED so far are marked "
+            "`bound-partial` and recorded in `partial_symbols`. Read `symbols` "
+            "together with `exclusions`, `partial_symbols` and `divergences`."
+        ),
+```
+
+Replace the whole value so it reads, in full:
+
+```python
+        "symbols_status": (
+            "`bound` means 'not routed through the _deferred stub factory', NOT "
+            "'fully implemented'. Some bound symbols raise for particular "
+            "arguments (from Rust) or environments (from Python-side import "
+            "gates); only those MEASURED so far are marked `bound-partial` and "
+            "recorded in `partial_symbols`. Read `symbols` together with "
+            "`exclusions`, `partial_symbols` and `divergences`."
+        ),
+```
+
 - [ ] **Step 7: Regenerate everything the new entries feed**
 
 Adding entries changes `partial_symbol_names()`, which changes both the manifest
@@ -706,11 +757,15 @@ Expected: all pass; ported `316 passed, 1 skipped, 77 xfailed`; `denominator`
 
 - [ ] **Step 8: State the limitation plainly, then commit**
 
-Mutation: change one new entry's `exception` to `NotImplementedError` and re-run
-the suite. **This is expected to find no guard.** The register cannot execute an
-mpl-free import from inside the normal suite, so these entries are *not*
-behaviourally pinned the way the other four are. Record that in your report as a
-known limitation — do not imply otherwise.
+Mutation: change one new entry's `exception` to `NotImplementedError` and
+re-run the suite **without regenerating the manifest**. Expected:
+`test_manifest_exposes_the_detail` fails — the authored TOML no longer matches
+the committed manifest. That is a serialization-drift guard, not a behavioural
+pin: **no test observes the actual exception type**, because the register
+cannot execute an mpl-free import from inside the normal suite, so these
+entries are *not* behaviourally pinned the way the other four are. Revert the
+entry. Record both halves in your report as a known limitation — do not let
+the drift failure imply a behavioural guard exists.
 
 ```bash
 git add compat/partial_symbols.toml tools/gen_manifest.py \
@@ -737,7 +792,7 @@ were out of that task's scope.
 
 **Files:**
 - Modify: `compat/partial_symbols.toml` (the `Hypergraph` entry's `trigger`)
-- Modify: `tests/test_partial_symbols.py` (three `match=` arguments, one new test)
+- Modify: `tests/test_partial_symbols.py` (two new tests, three pins re-derived via a new `_expected()` helper)
 - Modify: `pyproject.toml` (register the `slow` marker)
 
 **Interfaces:**
@@ -884,7 +939,18 @@ def test_degree_assortativity_exact_false_still_raises() -> None:
 Use `"algorithms.rs"` for the assortativity site, `"in_degree"` /`"out_degree"`
 for the two `DiStat` sites, and `"PyEdgeStat::__call__"` for the attrs site —
 confirm each fragment selects exactly one entry before relying on it. Now
-changing a register entry's `exception` to a wrong type makes its pin fail.
+changing a register entry's `exception` to a wrong type makes its pin fail —
+unless the wrong type is a SUPERCLASS of the real one: `pytest.raises` matches
+subclasses, so `RuntimeError` (on Task 2's allow-list) would still pass for a
+`NotImplementedError` site. The pins' honest claim is "raises an instance of
+the named type"; Step 8's second mutation proves the register value is
+load-bearing using a non-ancestor type.
+
+The two `DiStat` fragments imply TWO tests: today's
+`test_di_stat_call_still_raises` loops over both stats under one
+`pytest.raises`. Split it — one test per stat, each passing its own fragment
+to `_expected` — so the single-entry assert holds and each test pins its
+site's claimed exception independently.
 
 - [ ] **Step 6: Register the marker**
 
@@ -897,9 +963,11 @@ markers = [
 ]
 ```
 
-Adding this section makes pytest treat `pyproject.toml` as its config file.
-Confirm in Step 7 that the ported counts are unchanged — if the rootdir or
-collection changed, the ported total will move and that must not pass silently.
+pytest already treats `pyproject.toml` as its config file (measured:
+`--collect-only` prints `configfile: pyproject.toml` today, with no
+`[tool.pytest.ini_options]` table present), so adding the table changes what
+pytest reads from the file, not which file it reads. Step 7's full run still
+re-confirms the ported counts as cheap insurance.
 
 - [ ] **Step 7: Regenerate and run everything**
 
@@ -918,9 +986,18 @@ unchanged from Task 1's post-state.
 
 - [ ] **Step 8: Prove the match= guards by mutation**
 
-For one of the three pins, change its `match=` to a string the real message does
-not contain. Expected: that test fails with pytest's "DID NOT MATCH" style
-error, proving the argument is load-bearing rather than decorative. Revert.
+1. For one of the three pins, change its `match=` to a string the real message
+   does not contain. Expected: that test fails with pytest's "DID NOT MATCH"
+   style error, proving the argument is load-bearing rather than decorative.
+   Revert.
+2. Change one entry's `exception` in `compat/partial_symbols.toml` to a
+   non-ancestor wrong type (`ValueError`), run `mise run py:manifest`, then
+   `.venv/bin/python -m pytest tests/test_partial_symbols.py -q`. Expected:
+   that site's pin fails — the site raises its real exception, which is not a
+   `ValueError`. This proves the register value is load-bearing in the pins.
+   Do NOT use a superclass such as `RuntimeError` for this mutation:
+   `pytest.raises` matches subclasses and the pin would pass. Revert the entry
+   and run `mise run py:manifest` again.
 
 - [ ] **Step 9: Commit**
 
@@ -965,7 +1042,7 @@ This task changes the gate's command line. It runs last and alone.
 - Modify: `tools/gen_manifest.py`, `tools/gate_report.py`, `tools/audit_symbols.py`
 - Modify: `tools/migrate_exclusions.py`, `tools/count_tests.py` (comments only)
 - Modify: `.mise.toml` (`py:manifest`, `py:gate`)
-- Modify: `tests/test_gate_wiring.py` (three assertions pin the old invocation)
+- Modify: `tests/test_gate_wiring.py` (two assertions pin the old invocation)
 - Modify: the ten test files that carry a preamble
 - Create: `tests/test_no_duplicate_path_preamble.py`
 
@@ -982,7 +1059,7 @@ exempts itself by path.
 
 ```python
 # tests/test_no_duplicate_path_preamble.py
-"""No test file touches sys.path; python -m pytest and pytest's basedir insertion cover imports."""
+"""No test file inserts into sys.path; python -m pytest and pytest's own insertions cover imports."""
 
 import pathlib
 
@@ -1001,13 +1078,15 @@ EXEMPT: frozenset[str] = frozenset({"migrate_exclusions.py", "count_tests.py"})
 
 def test_no_test_file_inserts_into_sys_path() -> None:
     offenders: list[str] = []
-    # Bounded: one pass over a finite glob of the tests tree.
+    # Bounded: one pass over a finite glob of the tests tree. The sweep
+    # includes tests/ported/ upstream files (immutable); measured 2026-08-03,
+    # none contain the needle — only repo-authored files did.
     for path in sorted((ROOT / "tests").rglob("*.py")):
         if path.resolve() == SELF:
             continue
         if NEEDLE in path.read_text():
             offenders.append(str(path.relative_to(ROOT)))
-    assert not offenders, f"these should rely on pytest's own sys.path handling: {offenders}"
+    assert not offenders, f"rely on python -m pytest and pytest's own insertions, not per-file inserts: {offenders}"
 
 
 def test_only_exempt_tools_insert_into_sys_path() -> None:
@@ -1040,19 +1119,23 @@ as `python -m tools.<name>`; see .mise.toml.
 """
 ```
 
+Note: `python -m tools.<name>` would work even without this marker (implicit
+namespace package); the explicit `__init__.py` pins the intent, carries the
+docstring, and keeps type-checkers treating `tools/` as one package.
+
 - [ ] **Step 4: Qualify the tools→tools imports**
 
 In each of `tools/gen_manifest.py`, `tools/gate_report.py`,
 `tools/audit_symbols.py`: delete the `sys.path.insert(...)` line that points at
 `tools/`, then qualify **every** sibling import. Re-derive the full list rather
 than trusting this one — and note the command must **not** be `^`-anchored,
-because two of the six sites are function-level imports indented inside `main()`:
+because three of the six sites are function-level imports indented inside `main()`:
 
 ```bash
 rg -n "from (count_tests|symbol_status|gen_manifest|taxonomy) import" tools/
 ```
 
-Expect six hits across four files. The list must at minimum cover:
+Expect six hits across three files. The list must at minimum cover:
 
 | File | Before | After |
 |---|---|---|
@@ -1082,7 +1165,12 @@ trusting these three lines.
 in two places (lines 10-11: `Usage: python tools/gate_report.py --from-stats
 <path>` and the manual-fallback line below it). Direct-path execution stops
 working the moment its sibling import is qualified, so update both lines to
-`python -m tools.gate_report …` in the same edit.
+`python -m tools.gate_report …` in the same edit. The argv-error message at
+`tools/gate_report.py:82-83` (`"usage: gate_report.py <passed> <skipped>
+<xfailed>\n   or: gate_report.py --from-stats <path>"`) has the same problem —
+re-point both of its lines to `python -m tools.gate_report` too. The comment
+at `tests/conftest.py:409` ("…for tools/gate_report.py.") names the consumer
+FILE, not an invocation — leave it unchanged.
 
 - [ ] **Step 5: Comment the two exempt inserts**
 
@@ -1129,7 +1217,13 @@ at the tool rather than its path:
 - line 17: `assert "tools/gate_report.py" in _gate_run()` →
   `assert "tools.gate_report" in _gate_run()`
 - line 34: `assert run.index("tests/ported") < run.index("tools/gate_report.py")` →
-  `assert run.index("tests/ported") < run.index("tools.gate_report")`
+  `assert run.index("pytest tests/ported") < run.index("tools.gate_report")`
+
+  The needle gains its `pytest ` prefix deliberately: bare `"tests/ported"`
+  first matches the `--ignore=tests/ported` fragment on the META-suite line
+  (measured: index 116, vs the ported run at 139), so the old pin held even
+  for orderings it exists to forbid. `"pytest tests/ported"` matches only the
+  ported-run line.
 
 Keep every assertion's message text: the guard's purpose is unchanged, only the
 string it matches. Do not weaken an assertion to a substring that would also
@@ -1137,13 +1231,23 @@ match the old form.
 
 - [ ] **Step 8: Confirm no test-side insert is needed**
 
-Measured 2026-08-03 (probes in the closeout plan, Task 1 Step 7): `$PY -m
-pytest` puts the repo root (CWD) on `sys.path`, which covers every
-`tools.` import from tests; pytest's default `prepend` import mode inserts
-`tests/` itself when collecting, which covers the three files importing
-sibling helpers (`conftest`, `conftest_exclusions`). No mise task invokes
-bare `pytest`. `tests/conftest.py` therefore gets NO insert — do not add
-one. If a future invocation style needs one, measure first.
+Measured 2026-08-03 (probes in the closeout plan Task 1 Step 7, extended by
+pass 3): `$PY -m pytest` puts the repo root (CWD) on `sys.path`, which covers
+every `tools.` import from tests. FOUR files import tests-tree modules, kept
+working by two pytest-side mechanisms: prepend-mode basedir insertion of
+`tests/` covers `test_ignore_hook.py`, `test_oracle_integrity_unit.py` and
+`test_registry_integrity.py`; for `tests/ported/test_gate_summary.py` (whose
+basedir is `tests/ported/`), loading `tests/conftest.py` is what prepends
+`tests/` and resolves its `conftest_exclusions` import (measured: it fails
+under `--confcutdir=tests/ported`). No mise task invokes bare `pytest`.
+`tests/conftest.py` therefore gets NO insert — do not add one. **Stated
+limitation, not hidden:** bare `.venv/bin/pytest` exists and adds no CWD
+entry, so after this task the seven `tools.*`-importing test files are
+uncollectible under it; `python -m pytest` is the supported invocation. Put
+that in your report's limitations. If a future invocation style needs an
+insert, measure first. (Task 4's `[tool.pytest.ini_options]` addition does not
+disturb these measurements: `pyproject.toml` is already pytest's configfile,
+and a `markers` key has no `sys.path` effect.)
 
 - [ ] **Step 9: Strip the ten test preambles**
 
@@ -1153,8 +1257,10 @@ Re-derive the list first — earlier tasks may have added files:
 rg -n "sys\.path\.insert" tests/
 ```
 
-For each file, delete the insert line (and `import sys` if nothing else in the
-file uses it). Then re-derive the imports — **they are not all at module level
+For each file, delete the insert line (and `import sys` or `import pathlib` if
+nothing else in the file uses them — check each; four of the seven
+tools-inserting files use `pathlib` only in the insert). Then re-derive the
+imports — **they are not all at module level
 and not all the same shape**:
 
 ```bash
@@ -1167,17 +1273,21 @@ exist and the correct rewrite differs:
 - `from <tool> import <names>` → `from tools.<tool> import <names>`.
 - **A bare `import <tool>`** → `from tools import <tool>`, which keeps every
   `<tool>.attr` call site working unchanged. `tests/test_xgi_version_pin.py:12`
-  is this shape: `import gen_manifest`, followed by six attribute accesses
-  (`gen_manifest.XGI_TARGET`, `.require_xgi_target()`, `.ManifestError`,
-  `.build()`). Rewriting it as `from tools.gen_manifest import …` would require
-  editing all six call sites; `from tools import gen_manifest` requires none.
+  is this shape: `import gen_manifest`, followed by seven attribute accesses
+  (four distinct names: `gen_manifest.XGI_TARGET`, `.require_xgi_target()`,
+  `.ManifestError`, `.build()`). Rewriting it as
+  `from tools.gen_manifest import …` would require editing all seven call
+  sites; `from tools import gen_manifest` requires none.
 
-The three files that inserted their own directory (`test_ignore_hook.py`,
-`test_oracle_integrity_unit.py`, `test_registry_integrity.py`) import tests-tree
-modules such as `conftest` and `conftest_exclusions` — those statements are
-already correct and must **not** be prefixed with `tools.`; pytest's basedir
-insertion of `tests/` is what keeps them working (Step 8 records the
-measurement).
+FOUR files import tests-tree modules such as `conftest` and
+`conftest_exclusions`: the three that inserted their own directory
+(`test_ignore_hook.py`, `test_oracle_integrity_unit.py`,
+`test_registry_integrity.py`) plus `tests/ported/test_gate_summary.py`'s
+function-level `conftest_exclusions` import. Those statements are already
+correct and must **not** be prefixed with `tools.`; pytest's own insertions
+keep them working — basedir insertion of `tests/` for the first three, the
+`tests/conftest.py` load for the ported file (Step 8 records both
+measurements).
 
 - [ ] **Step 10: Run both gates**
 
@@ -1198,8 +1308,9 @@ incomplete — fix it rather than restoring a `sys.path` insert.
 2. Re-add one to `tools/gate_report.py`. Expected:
    `test_only_exempt_tools_insert_into_sys_path` fails naming it.
 3. In `tools/count_tests.py`, delete the **whole guard** — both the
-   `if _tests_dir not in sys.path:` line (44) and its indented
-   `sys.path.insert(0, _tests_dir)` body (45), leaving
+   `if _tests_dir not in sys.path:` line and its indented
+   `sys.path.insert(0, _tests_dir)` body (lines 44-45 today; Step 5's comment
+   shifts them — re-derive), leaving
    `from conftest_exclusions import FILE_EXCLUSIONS` as the next statement.
    Deleting only the insert line leaves the `if` with an empty body and yields
    `IndentationError`, not the failure this mutation is testing for. Then run —
@@ -1219,7 +1330,7 @@ that masking is itself worth stating.
 
 ```bash
 git add tools/ tests/ .mise.toml python/hypergraph_rs/compat/manifest.json
-git commit --no-verify -m "refactor(tools): make tools a package, one sys.path insert for tests
+git commit --no-verify -m "refactor(tools): make tools a package; tests need no sys.path inserts
 
 Fifteen files carried a preamble. tools/ becomes a package so three tool->tool
 inserts dissolve; the ten test files need no replacement insert — python -m
@@ -1238,8 +1349,8 @@ unchanged."
 ## Self-Review
 
 **Spec coverage:** F1→Task 1. F2→Tasks 2 and 3. F3→Task 2. F4→Task 2 (Step 1's
-uniqueness and exception guards) and Task 4 (Step 4's trigger re-description,
-Step 5's match= narrowing). F5→Task 4. F6/F7→Task 5. Rulings 1, 2→Task 1. Rulings 3, 4→Tasks 3
+uniqueness guard) and Task 4 (Step 4's trigger re-description, Step 5's match=
+narrowing). F5→Task 4. F6/F7→Task 5. Rulings 1, 2→Task 1. Rulings 3, 4→Tasks 3
 and 2. Ruling 5→this plan exists. Ruling 6→out of plan scope, handled by the
 controller. Ruling 7→Task 5, at the scope F7 establishes.
 
@@ -1265,6 +1376,9 @@ command line, and it re-points `test_gate_wiring.py` in the same commit.
   discriminate between the sites.
 - Task 5's mutation 3 only demonstrates the exemption outside pytest; inside it,
   pytest's basedir insertion masks the breakage. Step 11 says so.
+- After Task 5, the seven `tools.*`-importing test files are uncollectible
+  under bare `.venv/bin/pytest` (which adds no CWD entry to `sys.path`);
+  `python -m pytest` is the supported invocation. Step 8 says so.
 
 ---
 
@@ -1277,7 +1391,9 @@ which **10 were regressions introduced by that rewrite**. Nine of pass 2's
 seventeen are applied above. The rest are NOT. Do not execute this plan until
 they are.
 
-**Still outstanding, with the pass-2 finding id:**
+**Still outstanding, with the pass-2 finding id** *(historical — the
+2026-08-03 repair applied every item below; see the RESOLUTION record at the
+end of this section)*:
 
 - **U3** — the Self-Review's "Spec coverage" line reads `F4→Tasks 2 (M7) and 4
   (M1, M2)`. `M1`, `M2` and `M7` are identifiers from Plan A's Task 7 review;
@@ -1359,3 +1475,22 @@ findings applied as surgical edits:
 **THIRD PRE-FLIGHT PASS STILL REQUIRED before execution** — this record
 does not lift the do-not-execute bar; only a PASS 3 record below it may do
 that.
+
+**PASS 3 — 2026-08-03.** Ten Opus lens finders (five whole-plan, five
+Task-5-only), one refute-by-default Opus skeptic per finding. 125 raised,
+110 after dedup, 76 verified under the per-lens cap of 8: **45 confirmed, 31
+refuted**; the 34 cap-dropped findings were hand-triaged afterwards — none
+dismissed unread. After merging cross-scope duplicates: ~30 unique defects,
+18 anchored in Task 5. **The Task 5 convergence gate FIRED** (strict
+majority), and the owner ruled: absorb the fixes, then run a pass-4
+pre-flight over Task 5 alone. All unique confirmed defects plus 16 of the 34
+dropped produced surgical edits above (the rest duplicated confirmed fixes).
+Headline fixes: `symbols_status` joins Task 3 Step 6 with a full before/after
+quote (the CRITICAL); Task 1 Step 9 now regenerates the ledger after its
+mutations; Task 4 Step 8 gains a non-ancestor `exception` mutation
+(`pytest.raises` matches subclasses); Task 5's stale counts corrected
+throughout and the gate-wiring ordering pin re-anchored on
+`"pytest tests/ported"` (the bare needle matched `--ignore=tests/ported`
+first). Four confirmed findings were regressions from the 2026-08-03 repair
+itself — the two-thirds law held again. **THE DO-NOT-EXECUTE BAR REMAINS
+UP** until a PASS 4 record below this one clears Task 5.

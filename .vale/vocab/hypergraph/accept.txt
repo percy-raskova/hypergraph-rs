@@ -19,3 +19,9 @@ pass_rate
 [Dd]ocstrings?
 mpl
 [Ii]mplementer(?:s|'s)?
+[Uu]ncollectible
+[Pp]repends?
+[Nn]amespaces?
+[Dd]edup(?:ed|s)?
+configfile
+argv
