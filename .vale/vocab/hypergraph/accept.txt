@@ -25,3 +25,6 @@ mpl
 [Dd]edup(?:ed|s)?
 configfile
 argv
+[Mm]atplotlib
+[Mm]onkeypatch(?:ing|ed|es)?
+[Vv]irtualenvs?

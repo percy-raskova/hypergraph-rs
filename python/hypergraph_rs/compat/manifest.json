@@ -1001,9 +1001,33 @@
       "site": "crates/hypergraph-rs-python/src/stats.rs:471 (PyEdgeStat::__call__, EdgeStatKind::Attr arm)",
       "symbol": "Hypergraph",
       "trigger": "Re-invoking the EdgeStat returned by H.edges.attrs(key) as a function \u2014 H.edges.attrs('color')() or with a new key. Only the Attr kind raises; Size/Order re-parametrize fine on the same __call__."
+    },
+    {
+      "class": "env",
+      "exception": "ImportError",
+      "reason": "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all \u2014 the divergence is in packaging, not at the call site.",
+      "site": "hypergraph_rs.drawing",
+      "symbol": "draw",
+      "trigger": "any call in an environment without matplotlib installed"
+    },
+    {
+      "class": "env",
+      "exception": "ImportError",
+      "reason": "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all \u2014 the divergence is in packaging, not at the call site.",
+      "site": "hypergraph_rs.drawing",
+      "symbol": "draw_nodes",
+      "trigger": "any call in an environment without matplotlib installed"
+    },
+    {
+      "class": "env",
+      "exception": "ImportError",
+      "reason": "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all \u2014 the divergence is in packaging, not at the call site.",
+      "site": "hypergraph_rs.drawing",
+      "symbol": "draw_hyperedges",
+      "trigger": "any call in an environment without matplotlib installed"
     }
   ],
-  "partial_symbols_status": "A measured, INCOMPLETE record. Absence from this list is NOT evidence a symbol is free of raising paths \u2014 it may simply be unmeasured. Known-unmeasured: the drawing.* ImportError family.",
+  "partial_symbols_status": "A measured, INCOMPLETE record. Absence from this list is NOT evidence a symbol is free of raising paths \u2014 it may simply be unmeasured. Every entry here was observed raising, in the environment its trigger names.",
   "schema_version": 2,
   "symbols": {
     "DiHypergraph": "bound-partial",
@@ -1039,14 +1063,14 @@
     "dispatch_many_stats": "deferred",
     "dispatch_stat": "deferred",
     "download_xgi_data": "deferred",
-    "draw": "bound",
+    "draw": "bound-partial",
     "draw_bipartite": "deferred",
     "draw_directed_dyads": "deferred",
     "draw_hyperedge_labels": "deferred",
-    "draw_hyperedges": "bound",
+    "draw_hyperedges": "bound-partial",
     "draw_multilayer": "deferred",
     "draw_node_labels": "deferred",
-    "draw_nodes": "bound",
+    "draw_nodes": "bound-partial",
     "draw_simplices": "deferred",
     "draw_undirected_dyads": "deferred",
     "dual_dict": "bound",
@@ -1171,6 +1195,6 @@
     "write_incidence_matrix": "bound",
     "z_eigenvector_centrality": "deferred"
   },
-  "symbols_status": "`bound` means 'not routed through the _deferred stub factory', NOT 'fully implemented'. Some bound symbols raise from Rust for particular arguments; only those MEASURED so far are marked `bound-partial` and recorded in `partial_symbols`. Read `symbols` together with `exclusions`, `partial_symbols` and `divergences`.",
+  "symbols_status": "`bound` means 'not routed through the _deferred stub factory', NOT 'fully implemented'. Some bound symbols raise for particular arguments (from Rust) or environments (from Python-side import gates); only those MEASURED so far are marked `bound-partial` and recorded in `partial_symbols`. Read `symbols` together with `exclusions`, `partial_symbols` and `divergences`.",
   "xgi_target": "0.10.2"
 }

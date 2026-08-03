@@ -152,15 +152,17 @@ def build() -> dict:
         ),
         "symbols_status": (
             "`bound` means 'not routed through the _deferred stub factory', NOT "
-            "'fully implemented'. Some bound symbols raise from Rust for "
-            "particular arguments; only those MEASURED so far are marked "
-            "`bound-partial` and recorded in `partial_symbols`. Read `symbols` "
-            "together with `exclusions`, `partial_symbols` and `divergences`."
+            "'fully implemented'. Some bound symbols raise for particular "
+            "arguments (from Rust) or environments (from Python-side import "
+            "gates); only those MEASURED so far are marked `bound-partial` and "
+            "recorded in `partial_symbols`. Read `symbols` together with "
+            "`exclusions`, `partial_symbols` and `divergences`."
         ),
         "partial_symbols_status": (
             "A measured, INCOMPLETE record. Absence from this list is NOT "
             "evidence a symbol is free of raising paths — it may simply be "
-            "unmeasured. Known-unmeasured: the drawing.* ImportError family."
+            "unmeasured. Every entry here was observed raising, in the "
+            "environment its trigger names."
         ),
         "exclusions": {
             "files": exclusions.get("file_exclusion", []),

@@ -60,3 +60,27 @@ exception = "NotImplementedError"
 site = "crates/hypergraph-rs-python/src/stats.rs:471 (PyEdgeStat::__call__, EdgeStatKind::Attr arm)"
 trigger = "Re-invoking the EdgeStat returned by H.edges.attrs(key) as a function — H.edges.attrs('color')() or with a new key. Only the Attr kind raises; Size/Order re-parametrize fine on the same __call__."
 reason = "PyEdgeStat's Attr arm is the one EdgeStatKind that never got a re-parametrization branch (contrast PyNodeStat::Attr at stats.rs:280-293, which does re-parametrize and does not raise for the identical H.nodes.attrs(key)() shape). xgi returns a re-dispatched Stat, not an error."
+
+[[partial_symbol]]
+symbol = "draw"
+class = "env"
+exception = "ImportError"
+site = "hypergraph_rs.drawing"
+trigger = "any call in an environment without matplotlib installed"
+reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all — the divergence is in packaging, not at the call site."
+
+[[partial_symbol]]
+symbol = "draw_nodes"
+class = "env"
+exception = "ImportError"
+site = "hypergraph_rs.drawing"
+trigger = "any call in an environment without matplotlib installed"
+reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all — the divergence is in packaging, not at the call site."
+
+[[partial_symbol]]
+symbol = "draw_hyperedges"
+class = "env"
+exception = "ImportError"
+site = "hypergraph_rs.drawing"
+trigger = "any call in an environment without matplotlib installed"
+reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all — the divergence is in packaging, not at the call site."

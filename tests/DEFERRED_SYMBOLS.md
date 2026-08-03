@@ -72,15 +72,18 @@
 - `write_hif_collection` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `z_eigenvector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 
-# Bound-partial symbols (3/164)
+# Bound-partial symbols (6/164)
 
 These are bound, but some argument shapes or environments raise. See `compat/partial_symbols.toml` for the exact triggers.
 
 - `DiHypergraph`
 - `Hypergraph`
 - `degree_assortativity`
+- `draw`
+- `draw_hyperedges`
+- `draw_nodes`
 
-# Bound symbols (90/164)
+# Bound symbols (87/164)
 
 Bound is a BINDING fact, not a behaviour one: it means the symbol is not routed through the `_deferred` stub factory. Absence from the partial list above is not evidence a symbol never raises — it may simply be unmeasured.
 
@@ -102,9 +105,6 @@ Bound is a BINDING fact, not a behaviour one: it means the symbol is not routed 
 - `degree_histogram`
 - `degree_matrix`
 - `density`
-- `draw`
-- `draw_hyperedges`
-- `draw_nodes`
 - `dual_dict`
 - `dynamical_assortativity`
 - `edge_neighborhood`
