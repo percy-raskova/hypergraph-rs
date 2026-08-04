@@ -30,3 +30,8 @@ argv
 [Vv]irtualenvs?
 (?i)truthy
 (?i)falsy
+[Uu]ntracked
+[Ss]ubstrings?
+[Bb]asenames?
+[Hh]ardcoded
+[Aa]llowlists?
