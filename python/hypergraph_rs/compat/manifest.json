@@ -1000,7 +1000,7 @@
       "reason": "PyEdgeStat's Attr arm is the one EdgeStatKind that never got a re-parametrization branch (contrast PyNodeStat::Attr at stats.rs:280-293, which does re-parametrize and does not raise for the identical H.nodes.attrs(key)() shape). xgi returns a re-dispatched Stat, not an error.",
       "site": "crates/hypergraph-rs-python/src/stats.rs:471 (PyEdgeStat::__call__, EdgeStatKind::Attr arm)",
       "symbol": "Hypergraph",
-      "trigger": "Re-invoking the EdgeStat returned by H.edges.attrs(key) as a function \u2014 H.edges.attrs('color')() or with a new key. Only the Attr kind raises; Size/Order re-parametrize fine on the same __call__."
+      "trigger": "Re-invoking the EdgeStat returned by H.edges.attrs(key) with zero arguments \u2014 H.edges.attrs('color')(). A str positional instead raises TypeError from PyO3 extraction before the Attr arm is reached. Only the Attr kind raises; Size/Order re-parametrize fine on the same __call__."
     },
     {
       "class": "env",

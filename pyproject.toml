@@ -38,3 +38,8 @@ manifest-path = "crates/hypergraph-rs-python/Cargo.toml"
 module-name = "hypergraph_rs._hypergraph_rs_core"
 python-source = "python"
 strip = true
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: upstream XGI's marker for network- or compute-heavy tests. Registered here only to silence PytestUnknownMarkWarning; the ported files that use it are byte-verbatim upstream copies and must not be edited.",
+]
