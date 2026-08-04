@@ -3,6 +3,7 @@
 
 import pathlib
 import subprocess
+import sys
 
 ROOT = pathlib.Path(__file__).parent.parent
 SELF = pathlib.Path(__file__).resolve()
@@ -50,7 +51,10 @@ def test_bare_pytest_collects_the_full_suite() -> None:
     a pytest-native mechanism, not a per-file sys.path.insert, so it does
     not conflict with the two guards above. Single bounded subprocess call,
     collection only (no test execution)."""
-    pytest_bin = ROOT / ".venv" / "bin" / "pytest"
+    # Derived from the running interpreter, not a hardcoded venv layout: CI's
+    # setup-python has no .venv (tests/test_oracle_integrity.py's oracle path
+    # follows the same rule for the same reason).
+    pytest_bin = pathlib.Path(sys.executable).parent / "pytest"
     result = subprocess.run(
         [str(pytest_bin), "--collect-only", "-q", "tests/"],
         cwd=ROOT,
