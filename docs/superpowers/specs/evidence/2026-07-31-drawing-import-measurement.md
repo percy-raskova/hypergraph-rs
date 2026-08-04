@@ -127,7 +127,7 @@ confirming that matplotlib stays optional here.
 
 | symbol | exception | message | `__module__` observed |
 |---|---|---|---|
-| `draw` | `ImportError` | `matplotlib drawing requires the `mpl` extra: `pip install 'hypergraph-rs[mpl]'`. For matplotlib-free rendering, use `H.render()` for a scene-graph.` | `hypergraph_rs.drawing` |
+| `draw` | `ImportError` | ``matplotlib drawing requires the `mpl` extra: `pip install 'hypergraph-rs[mpl]'`. For matplotlib-free rendering, use `H.render()` for a scene-graph.`` | `hypergraph_rs.drawing` |
 | `draw_nodes` | `ImportError` | (same message) | `hypergraph_rs.drawing` |
 | `draw_hyperedges` | `ImportError` | (same message) | `hypergraph_rs.drawing` |
 
@@ -141,3 +141,12 @@ with `matplotlib present: False` (the wheel does not pull matplotlib in as a
 hard dependency, so no `DONE_WITH_CONCERNS` flag applies), and all three
 symbols raised `ImportError` as inferred. Step 5 adds an entry to
 `compat/partial_symbols.toml` for each of the three.
+
+**Stated limitation.** The three `env` entries are NOT behaviorally pinned
+inside the normal suite: no test executes `draw`/`draw_nodes`/
+`draw_hyperedges` in an mpl-free environment (that would require this
+document's throwaway venv at test time). The only suite coverage touching
+them is `test_manifest_exposes_the_detail`, a TOML-to-manifest equality
+check — serialization drift, not behavior. The register header's "pins the
+raising behaviour for the sites it can reach" does not reach these three;
+this measurement is their evidence.
