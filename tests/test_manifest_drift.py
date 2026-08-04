@@ -8,13 +8,11 @@ generated manifest, and the build fails until the committed copy is refreshed.
 
 import json
 import pathlib
-import sys
 import tomllib
 
 ROOT = pathlib.Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "tools"))
 
-from gen_manifest import DEST, build  # noqa: E402
+from tools.gen_manifest import DEST, build  # noqa: E402
 
 
 def test_committed_manifest_matches_generated():

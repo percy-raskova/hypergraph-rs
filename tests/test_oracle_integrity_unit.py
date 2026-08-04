@@ -1,9 +1,6 @@
 """The oracle comparison must notice a MISSING file, not only a drifted one."""
 
 import pathlib
-import sys
-
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
 from test_oracle_integrity import _allowlist_verdict, _compare_tree
 

@@ -1,12 +1,9 @@
 """The shipped divergence register must be complete, unique, and in-taxonomy."""
 
 import pathlib
-import sys
 import tomllib
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "tools"))
-
-from taxonomy import CLASSES
+from tools.taxonomy import CLASSES
 
 ROOT = pathlib.Path(__file__).parent.parent
 FIELDS = {"id", "api", "ours", "xgi", "class", "reason"}

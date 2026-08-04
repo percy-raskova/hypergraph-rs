@@ -5,17 +5,13 @@ Fails if __all__ != XGI's 164. Classifies each symbol as bound or deferred (a st
 __module__ is exactly the `_deferred` stub factory module). Writes tests/DEFERRED_SYMBOLS.md.
 """
 import importlib
-import pathlib
-import sys
-
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
 
 def main():
     xgi = importlib.import_module(
         "xgi", package=None)  # the installed oracle; used only to read the canonical 164 names
 
-    from gen_manifest import require_xgi_target
+    from tools.gen_manifest import require_xgi_target
 
     require_xgi_target()
 
@@ -23,8 +19,8 @@ def main():
     want, have = set(xgi.__all__), set(hr.__all__)
     assert have == want, f"surface mismatch: missing={want-have} extra={have-want}"
 
-    from gen_manifest import partial_symbol_names
-    from symbol_status import symbol_status
+    from tools.gen_manifest import partial_symbol_names
+    from tools.symbol_status import symbol_status
 
     status = symbol_status(hr, sorted(want))
     partial = partial_symbol_names()

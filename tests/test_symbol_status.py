@@ -1,15 +1,11 @@
 # tests/test_symbol_status.py
 """The deferred-stub predicate must pin the module identity, not a name suffix."""
 
-import pathlib
-import sys
 import types
 
 import pytest
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "tools"))
-
-from symbol_status import DEFERRED_MODULE, SymbolStatusError, symbol_status
+from tools.symbol_status import DEFERRED_MODULE, SymbolStatusError, symbol_status
 
 
 def _ns(name: str, **attrs: object) -> types.ModuleType:

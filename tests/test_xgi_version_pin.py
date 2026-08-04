@@ -1,15 +1,10 @@
 # tests/test_xgi_version_pin.py
 """A conformance score against the wrong xgi is not a conformance score."""
 
-import pathlib
-import sys
-
 import pytest
 import xgi
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "tools"))
-
-import gen_manifest
+from tools import gen_manifest
 
 
 def test_matching_version_passes() -> None:

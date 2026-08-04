@@ -3,13 +3,11 @@
 
 import json
 import pathlib
-import sys
 import tomllib
 
 import pytest
 
 ROOT = pathlib.Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "tools"))
 
 MANIFEST = ROOT / "python" / "hypergraph_rs" / "compat" / "manifest.json"
 FIELDS = {"symbol", "class", "exception", "site", "trigger", "reason"}
@@ -53,7 +51,7 @@ def test_promote_partials_rejects_a_deferred_symbol() -> None:
     already been overwritten by the time `test_no_symbol_is_both_partial_and_
     deferred` reads it, so that test cannot fail if this guard is deleted.
     """
-    from gen_manifest import ManifestError, _promote_partials
+    from tools.gen_manifest import ManifestError, _promote_partials
 
     entry = {
         "symbol": "x",
@@ -68,7 +66,7 @@ def test_promote_partials_rejects_a_deferred_symbol() -> None:
 
 
 def test_promote_partials_rejects_a_name_not_in_all() -> None:
-    from gen_manifest import ManifestError, _promote_partials
+    from tools.gen_manifest import ManifestError, _promote_partials
 
     entry = {
         "symbol": "ghost",
@@ -149,7 +147,7 @@ def test_edge_attrs_stat_recall_still_raises() -> None:
 def test_every_entry_carries_a_taxonomy_class() -> None:
     """The nine-class set is closed and shared with exclusions.toml; a register
     outside it cannot be joined against the others."""
-    from taxonomy import CLASSES
+    from tools.taxonomy import CLASSES
 
     for entry in _authored():
         assert entry["class"] in CLASSES, (

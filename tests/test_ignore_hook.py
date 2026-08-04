@@ -11,9 +11,6 @@ since `False` would pass a falsiness check and reintroduce the bug.
 """
 
 import pathlib
-import sys
-
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
 
 from conftest import pytest_ignore_collect
 from conftest_exclusions import FILE_EXCLUSIONS

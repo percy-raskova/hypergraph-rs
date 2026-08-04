@@ -64,7 +64,7 @@ run = "uvx maturin build --manifest-path crates/hypergraph-rs-python/Cargo.toml"
 
 [tasks."py:manifest"]
 description = "Regenerate python/hypergraph_rs/compat/manifest.json from the built extension + authored TOMLs. Requires real xgi 0.10.2 installed (differential oracle)."
-run = ".venv/bin/python tools/gen_manifest.py"
+run = ".venv/bin/python -m tools.gen_manifest"
 
 [tasks."py:gate"]
 description = "The XGI conformance gate, exactly as CI runs it: symbol audit, manifest drift + registry integrity + denominator + oracle integrity, then the ported suite. Sequential — heavy builds single-flight. Override the interpreter with PY=... (CI passes PY=python, which resolves to the setup-python + maturin develop environment)."
@@ -72,8 +72,8 @@ run = """
 set -e
 PY="${PY:-.venv/bin/python}"
 rm -f .gate-stats.json
-$PY tools/audit_symbols.py
+$PY -m tools.audit_symbols
 $PY -m pytest tests/ --ignore=tests/ported -q
 $PY -m pytest tests/ported -q
-$PY tools/gate_report.py --from-stats .gate-stats.json
+$PY -m tools.gate_report --from-stats .gate-stats.json
 """

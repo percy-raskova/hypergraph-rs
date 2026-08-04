@@ -12,14 +12,12 @@ import importlib
 import json
 import pathlib
 import pkgutil
-import sys
 import tomllib
 
 ROOT = pathlib.Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "tools"))
 
-from count_tests import file_exclusion_test_counts  # noqa: E402
-from symbol_status import SymbolStatusError, symbol_status  # noqa: E402
+from tools.count_tests import file_exclusion_test_counts  # noqa: E402
+from tools.symbol_status import SymbolStatusError, symbol_status  # noqa: E402
 
 DEST = ROOT / "python" / "hypergraph_rs" / "compat" / "manifest.json"
 XGI_TARGET = "0.10.2"

@@ -14,7 +14,7 @@ def _gate_run() -> str:
 
 
 def test_gate_invokes_gate_report() -> None:
-    assert "tools/gate_report.py" in _gate_run(), (
+    assert "tools.gate_report" in _gate_run(), (
         "gate_report.py computes the honest score and cross-checks xfail counts "
         "against the manifest; orphaned, it can never disagree with anything"
     )
@@ -31,7 +31,7 @@ def test_gate_report_reads_exact_stats_not_a_parsed_summary() -> None:
 def test_gate_still_runs_the_ported_suite_last() -> None:
     run = _gate_run()
     assert "tests/ported" in run
-    assert run.index("tests/ported") < run.index("tools/gate_report.py"), (
+    assert run.index("pytest tests/ported") < run.index("tools.gate_report"), (
         "the report must be produced from the ported run, so it comes after it"
     )
 

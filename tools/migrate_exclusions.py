@@ -9,6 +9,11 @@ TOML is committed; the tool prints them at the end and exits non-zero.
 import pathlib
 import sys
 
+# Load-bearing: imports tests/conftest_exclusions.py. tests/ must never become
+# a package (an __init__.py would move pytest's prepend insertion to the repo
+# root and break the bare tests-tree imports), so this insert cannot be
+# replaced by the tools package. tests/test_no_duplicate_path_preamble.py
+# exempts these two files by name.
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "tests"))
 
 from conftest_exclusions import FILE_EXCLUSIONS, TEST_EXCLUSIONS  # noqa: E402

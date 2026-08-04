@@ -1,11 +1,6 @@
 """The honest denominator includes tests no pytest run can see (spec F3)."""
 
-import pathlib
-import sys
-
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "tools"))
-
-from count_tests import file_exclusion_test_counts  # noqa: E402
+from tools.count_tests import file_exclusion_test_counts
 
 EXPECTED_INVISIBLE: dict[str, int] = {
     "stats/test_core_stats_functions.py": 50,

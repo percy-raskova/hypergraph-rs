@@ -7,8 +7,8 @@ automatically as the last step of `mise run py:gate`, which writes exact
 counts to `.gate-stats.json` via `tests/conftest.py`'s `pytest_sessionfinish`
 hook and passes that file with `--from-stats`.
 
-Usage:  python tools/gate_report.py --from-stats <path>
-   or:  python tools/gate_report.py <passed> <skipped> <xfailed>  (manual fallback)
+Usage:  python -m tools.gate_report --from-stats <path>
+   or:  python -m tools.gate_report <passed> <skipped> <xfailed>  (manual fallback)
 """
 
 import collections
@@ -17,9 +17,8 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "tools"))
 
-from gen_manifest import DEST  # noqa: E402
+from tools.gen_manifest import DEST  # noqa: E402
 
 
 def main(passed: int, skipped: int, xfailed: int) -> int:
@@ -79,6 +78,6 @@ if __name__ == "__main__":
             main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]))
         )
     raise SystemExit(
-        "usage: gate_report.py <passed> <skipped> <xfailed>\n"
-        "   or: gate_report.py --from-stats <path>"
+        "usage: python -m tools.gate_report <passed> <skipped> <xfailed>\n"
+        "   or: python -m tools.gate_report --from-stats <path>"
     )

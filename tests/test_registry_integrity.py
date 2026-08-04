@@ -6,11 +6,8 @@ tests/ported/ so the exclusion glue in conftest.py never rewrites them.
 
 import ast
 import pathlib
-import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent))
-
-from conftest_exclusions import (  # noqa: E402
+from conftest_exclusions import (
     ENTRY_CLASSES,
     FILE_EXCLUSIONS,
     TEST_EXCLUSIONS,

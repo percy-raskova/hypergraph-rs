@@ -41,6 +41,11 @@ def count_tests_in_file(path: pathlib.Path) -> int:
 def file_exclusion_test_counts() -> dict[str, int]:
     """`{relpath: test count}` for every whole-file exclusion."""
     _tests_dir = str(pathlib.Path(__file__).parent.parent / "tests")
+    # Load-bearing: imports tests/conftest_exclusions.py. tests/ must never become
+    # a package (an __init__.py would move pytest's prepend insertion to the repo
+    # root and break the bare tests-tree imports), so this insert cannot be
+    # replaced by the tools package. tests/test_no_duplicate_path_preamble.py
+    # exempts these two files by name.
     if _tests_dir not in sys.path:
         sys.path.insert(0, _tests_dir)
     from conftest_exclusions import FILE_EXCLUSIONS
