@@ -35,7 +35,7 @@ class = "core-gap"
 exception = "NotImplementedError"
 site = "crates/hypergraph-rs-python/src/algorithms.rs:163"
 trigger = "exact=False (the default) — any kind/num_samples/seed; the bare call degree_assortativity(H) already hits this"
-reason = "Random-sampling assortativity path awaits the Phase-4 rand_pcg pin (module doc, algorithms.rs). Only exact=True is ported. xgi returns a float unconditionally; verified against real xgi 0.10.2."
+reason = "Random-sampling assortativity path awaits the Phase-4 rand_pcg pin (module doc, algorithms.rs). Only exact=True is ported. xgi's exact=False path returns a Python float when the sampled degree pairs have variance (measured: -0.647 on a varied-degree fixture) but returns the literal int 0, not a float, when corrcoef is NaN from zero variance — the uniform-triangle fixture this entry's own test uses hits exactly that path, with a 'RuntimeWarning: invalid value encountered in divide'. Verified against real xgi 0.10.2."
 
 [[partial_symbol]]
 symbol = "DiHypergraph"

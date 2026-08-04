@@ -35,7 +35,7 @@ D1–D17 **can** be transcribed, but the register as named is not the register t
 | D15 | NOT-A-REGISTER-ENTRY | yes | `SimplicialComplex.add_edge/remove_edge` | both raise `XGIError`, wording differs | both raise | CONTESTED [^6] |
 | D16 | NEVER-DIVERGED | yes | `DiHypergraph.clear_edges` | absent | absent | CONFIRMED |
 | D17 | **LIVE** | yes | `add_simplex(m, idx=<falsy>)` | honours `0`/`''`/`False`/`0.0` literally | auto-assigns next uid | CONFIRMED |
-| REV-1 | **LIVE** | yes | `is_uniform(H)` with a size-0 edge | `False` (falsy) | `-1` (truthy) → branch flip | CONFIRMED |
+| REV-1 | **LIVE** | yes | `is_uniform(H)` when, post-singleton-discard, only size-0 edges remain | `False` (falsy) | `-1` (truthy) → branch flip | CONFIRMED |
 | REV-2 | **LIVE** | yes | `max_edge_order(H)` with a size-0 edge | `None` → `TypeError` on arithmetic | `-1` | CONFIRMED |
 | U1→D18 | **LIVE** | yes | `sunflower(l, c, m)` with `m == c` | returns in ms | infinite loop (timeout 124) | CONFIRMED |
 | U2→D19 | **LIVE** | yes | `complete_hypergraph(4, max_order=0, include_singletons=False)` | `(4 nodes, 0 edges)` | `AssertionError` | CONFIRMED |
@@ -155,14 +155,14 @@ api = "SimplicialComplex.add_simplex(members, idx=<Python-falsy>)"
 ours = "Honours idx=0, '', False, 0.0 literally, creating an edge with that id and type."
 xgi = "`next(_edge_uid) if not idx else idx` — falsy idx is ignored and the next uid is auto-assigned."
 class = "divergence"
-reason = "The binding branches on whether the kwarg was supplied, never on truthiness. On a FRESH complex idx=0 agrees coincidentally; the counter must be advanced first to see it."
+reason = "The binding branches on whether the kwarg was supplied, never on truthiness. The divergence needs id 0 FREE while the uid counter has moved past it — e.g. add_simplex(m0, idx=5) first, then idx=0/''/False/0.0 all diverge identically (xgi auto-assigns 6, ours honours the literal id). If id 0 is occupied instead (e.g. an unadorned auto-id add_simplex first), xgi's `if idx in self._edge` guard fires before the truthiness check for 0/False/0.0 — both refuse with a uid-exists warning, matching ours — and only idx='' still diverges."
 [[divergence]]
 id = "REV-1"
-api = "is_uniform(H) when a size-0 edge is present"
+api = "is_uniform(H) when, after discarding singleton (size-1) edges, the only remaining edge size is 0"
 ours = "Returns False (falsy) — usize cannot represent -1."
-xgi = "Returns int -1, which is TRUTHY: `if is_uniform(H):` takes the branch under xgi and not under us."
+xgi = "Discards singleton edges first (same unique_edge_sizes()-minus-{1} rule as ours); returns int -1 (TRUTHY) only when what remains is exactly {0}. `if is_uniform(H):` takes the branch under xgi and not under us in that case."
 class = "divergence"
-reason = "Oracle-verified deviation (properties.rs). Also fires for empty+size-1 and two-empty-edges, slightly wider than the ledger's wording. Non-degenerate cases match exactly."
+reason = "Oracle-verified deviation (properties.rs:64-79, which documents this exact case). Measured via single add_edge calls per fixture (add_edges_from would hit D32's first-position IndexError on an all-empty edge list): only-empty, empty+size-1, and two-empty edges all diverge (ours False, xgi -1); empty+size-2 and empty+size-3 AGREE (both False), since the non-singleton size set then has 2 elements on both sides."
 [[divergence]]
 id = "REV-2"
 api = "max_edge_order(H) when at least one edge exists and the largest is size 0"
