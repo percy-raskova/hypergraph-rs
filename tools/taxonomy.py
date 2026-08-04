@@ -1,8 +1,10 @@
-"""The closed exclusion/divergence taxonomy — one definition, two registries.
+"""The closed exclusion/divergence/partial-symbol taxonomy — one definition,
+three registries.
 
-The set was previously inline in tests/ported/test_gate_summary.py. Both
-compat/exclusions.toml and compat/divergences.toml are validated against it, so
-the two files cannot drift into private vocabularies.
+The set was previously inline in tests/ported/test_gate_summary.py.
+compat/exclusions.toml, compat/divergences.toml, and compat/partial_symbols.toml
+are all validated against it, so the three files cannot drift into private
+vocabularies.
 """
 
 CLASSES: frozenset[str] = frozenset(
