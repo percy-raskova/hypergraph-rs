@@ -13,15 +13,26 @@ def _gate_run() -> str:
     return config["tasks"]["py:gate"]["run"]
 
 
+def _effective_gate_run() -> str:
+    """The raw run string is TOML text, not a command list — a line that has
+    been commented out still contains every substring these guards look for.
+    Strip shell comments before matching, so the guards police what py:gate
+    actually RUNS. A `#` starts a comment when it opens a word (line start,
+    or preceded by whitespace) and is not itself escaped or quoted — the
+    same rule bash applies, and sufficient here since the run string never
+    quotes a literal `#`."""
+    return re.sub(r"(?:^|(?<=\s))#.*$", "", _gate_run(), flags=re.MULTILINE)
+
+
 def test_gate_invokes_gate_report() -> None:
-    assert "tools.gate_report" in _gate_run(), (
+    assert "tools.gate_report" in _effective_gate_run(), (
         "gate_report.py computes the honest score and cross-checks xfail counts "
         "against the manifest; orphaned, it can never disagree with anything"
     )
 
 
 def test_gate_report_reads_exact_stats_not_a_parsed_summary() -> None:
-    run = _gate_run()
+    run = _effective_gate_run()
     assert "--from-stats" in run, (
         "counts must come from the reporter's own stats, not from scraping "
         "pytest's human-readable summary line"
@@ -29,8 +40,15 @@ def test_gate_report_reads_exact_stats_not_a_parsed_summary() -> None:
 
 
 def test_gate_still_runs_the_ported_suite_last() -> None:
-    run = _gate_run()
+    run = _effective_gate_run()
     assert "tests/ported" in run
+    assert "pytest tests/ported" in run, (
+        "the ported suite must run under pytest, not merely be named in the script"
+    )
+    assert "tools.gate_report" in run, (
+        "gate_report.py computes the honest score and cross-checks xfail counts "
+        "against the manifest; orphaned, it can never disagree with anything"
+    )
     assert run.index("pytest tests/ported") < run.index("tools.gate_report"), (
         "the report must be produced from the ported run, so it comes after it"
     )
@@ -43,10 +61,14 @@ def test_gate_clears_stale_stats_before_the_first_test_run() -> None:
     run produced it. Without deleting it up front, a stale file from an
     unrelated or interrupted run would be silently accepted as 'a real
     run'."""
-    run = _gate_run()
+    run = _effective_gate_run()
     assert "rm -f .gate-stats.json" in run, (
         "py:gate must delete .gate-stats.json before running any tests, so a "
         "stale file can never be silently accepted as this run's counts"
+    )
+    assert "pytest" in run, (
+        "py:gate must actually invoke pytest for the removal-before-first-run "
+        "ordering to mean anything"
     )
     assert run.index("rm -f .gate-stats.json") < run.index("pytest"), (
         "the removal must happen before the first pytest invocation, "
@@ -58,7 +80,7 @@ def test_gate_discovers_meta_tests_rather_than_listing_them() -> None:
     """Task 1's review found six guards that would have run in no gate at all,
     because py:gate enumerated four test files by hand. A list is a proxy for
     'the tests run' — forgetting an entry is silent."""
-    run = _gate_run()
+    run = _effective_gate_run()
     assert "tests/ --ignore=tests/ported" in run, (
         "py:gate must DISCOVER tests/, not enumerate files"
     )
