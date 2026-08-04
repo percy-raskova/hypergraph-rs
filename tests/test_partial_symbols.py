@@ -24,10 +24,10 @@ def _manifest() -> dict:
 
 def test_register_is_non_empty_and_well_formed() -> None:
     entries = _authored()
-    symbols = {e.get("symbol") for e in entries}
     assert entries, (
-        f"{len(entries)} partial sites across {len(symbols)} symbols are "
-        "confirmed; an empty file hides them"
+        "compat/partial_symbols.toml is empty; every confirmed partial site "
+        "is hidden — the manifest's bound-partial symbols name what should "
+        "be here"
     )
     for entry in entries:
         assert set(entry) == FIELDS, f"{entry.get('symbol')}: fields {sorted(entry)}"
