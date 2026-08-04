@@ -279,6 +279,14 @@
       "ours": "TypeError: type 'hypergraph_rs.Hypergraph' is not an acceptable base type; Py_TPFLAGS_BASETYPE is False.",
       "reason": "PyO3 classes are not subclassable unless declared #[pyclass(subclass)]. Import-fatal at class-definition time, so a consumer that subclasses cannot even load. Found during the method-layer sweep, absent from the 34-entry register.",
       "xgi": "Subclasses normally; Py_TPFLAGS_BASETYPE is True."
+    },
+    {
+      "api": "draw / draw_nodes / draw_hyperedges",
+      "class": "divergence",
+      "id": "D39",
+      "ours": "draw_nodes and draw_hyperedges are literal aliases of draw (`_require_mpl(lambda *a, **k: draw(*a, **k))`): all three render the whole scene identically (measured on the same fixture, each on its own Axes: 0 patches, 4 lines) and return a bare `Axes`. `ax, collections = hrs.draw(H)` raises `TypeError: cannot unpack non-iterable Axes object`. All three carry the wrapper's `(*args, **kwargs)` signature \u2014 draw_nodes/draw_hyperedges expose none of their own per-element styling kwargs.",
+      "reason": "Measured with matplotlib installed in this repo's .venv against xgi 0.10.2, closing evidence-doc gap 2 (docs/superpowers/specs/evidence/2026-07-30-divergence-register-measurement.md \u00a77): 'not re-run (matplotlib), so not in the TOML; verify then add as a D37 sibling.' Same tuple-vs-bare-value family as D37/D24/D25 \u2014 the value is right (all three do draw something), the container and the per-symbol behaviour are not. compat/partial_symbols.toml's three `env`-class entries recorded only the missing-matplotlib ImportError path and claimed no other divergence existed; this entry is the call-site divergence that claim denied.",
+      "xgi": "Three distinct functions. `draw` returns `(ax, (node_collection, dyad_collection, edge_collection))`; `draw_nodes` returns `(ax, node_collection)` and renders only nodes; `draw_hyperedges` returns `(ax, (dyad_collection, edge_collection))` and renders only dyads/hyperedges \u2014 each with its own 10-15 styling kwargs (node_fc, node_size, dyad_color, edge_fc, ...)."
     }
   ],
   "divergences_status": "Populated from compat/divergences.toml, measured against real xgi 0.10.2 rather than transcribed from the D1-D17 register, which covers under half of the live Python-visible surface. Each entry is a difference that is DELIBERATE and OBSERVABLE; deferred symbols and missing namespaces are gaps, recorded separately. A symbol absent from this list is NOT thereby verified equivalent.",
@@ -335,9 +343,9 @@
         "reason": "tests the nodestat_func/dispatch decorator machinery, replaced by idiomatic Rust (spec \u00a74.4)."
       },
       {
-        "class": "deferred-symbol",
+        "class": "divergence",
         "path": "drawing/test_draw.py",
-        "reason": "matplotlib @mpl_image_compare pixel tests; replaced by scene-graph tests (spec \u00a79.3)."
+        "reason": "Not a pixel-comparison file (no test here uses @mpl_image_compare; that description was inaccurate). Measured per-test: 8 of 16 tests (test_draw, test_draw_nodes, test_draw_nodes_fc_cmap, test_draw_nodes_interp, test_draw_hyperedges, test_draw_hyperedges_fc_cmap, test_draw_hyperedges_ec, test_draw_hypergraph_hull) fail with `TypeError: cannot unpack non-iterable Axes object` \u2014 draw/draw_nodes/draw_hyperedges ARE bound-partial per the manifest, they just diverge from xgi's tuple return (D39, compat/divergences.toml). `divergence`, not `deferred-symbol`, is the class consistent with that (tools/taxonomy.py). The other 7 (test_draw_simplices, test_draw_multilayer, test_draw_bipartite, test_draw_bipartite_with_str_labels_and_isolated_nodes, test_draw_undirected_dyads, test_draw_directed_dyads, test_issue_515) do exercise genuinely deferred symbols (draw_simplices/draw_multilayer/draw_bipartite/draw_undirected_dyads/draw_directed_dyads, \u00a7A ledger). test_issue_499 passes on its own but is swept up in the file-level exclusion. Scene-graph tests (spec \u00a79.3) cover the drawable content directly."
       },
       {
         "class": "upstream-private",
@@ -1005,7 +1013,7 @@
     {
       "class": "env",
       "exception": "ImportError",
-      "reason": "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all \u2014 the divergence is in packaging, not at the call site.",
+      "reason": "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all. This entry records the raise-on-missing-matplotlib path only \u2014 it is NOT the only divergence: with matplotlib present, the call site itself diverges too (draw returns a bare Axes where xgi returns a tuple; see D39, compat/divergences.toml).",
       "site": "hypergraph_rs.drawing",
       "symbol": "draw",
       "trigger": "any call in an environment without matplotlib installed"
@@ -1013,7 +1021,7 @@
     {
       "class": "env",
       "exception": "ImportError",
-      "reason": "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all \u2014 the divergence is in packaging, not at the call site.",
+      "reason": "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all. This entry records the raise-on-missing-matplotlib path only \u2014 it is NOT the only divergence: with matplotlib present, draw_nodes is a literal alias of draw, not xgi's dedicated node-only renderer (see D39, compat/divergences.toml).",
       "site": "hypergraph_rs.drawing",
       "symbol": "draw_nodes",
       "trigger": "any call in an environment without matplotlib installed"
@@ -1021,7 +1029,7 @@
     {
       "class": "env",
       "exception": "ImportError",
-      "reason": "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all \u2014 the divergence is in packaging, not at the call site.",
+      "reason": "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all. This entry records the raise-on-missing-matplotlib path only \u2014 it is NOT the only divergence: with matplotlib present, draw_hyperedges is a literal alias of draw, not xgi's dedicated hyperedges-only renderer (see D39, compat/divergences.toml).",
       "site": "hypergraph_rs.drawing",
       "symbol": "draw_hyperedges",
       "trigger": "any call in an environment without matplotlib installed"

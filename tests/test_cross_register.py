@@ -17,12 +17,17 @@ def _manifest() -> dict:
 def _test_exclusions() -> list[dict]:
     """`test_exclusion` ONLY, deliberately.
 
-    `file_exclusion` entries are keyed on a path, and the guard below matches
-    symbol names as bare substrings. `drawing/test_draw.py` is classed
-    `deferred-symbol` and contains the substring `draw`, so once Task 3
-    registers `draw` as bound-partial a path-matching guard would fail on a
-    collision rather than a contradiction. Test names embed the symbol under
-    test; file paths do not, so the heuristic is sound only here.
+    `file_exclusion` entries are keyed on a path, not a test name, so the
+    embeds-the-symbol-under-test convention this guard relies on does not
+    hold for them — a path could contain a bound-partial symbol's name as a
+    pure substring accident, with no contradiction behind it. (`drawing/
+    test_draw.py` itself was NOT such a case: before 2026-08-04 it was classed
+    `deferred-symbol` while the manifest called `draw`/`draw_nodes`/
+    `draw_hyperedges` bound-partial — a genuine contradiction, not a
+    collision, fixed by reclassing the file exclusion to `divergence` in
+    compat/exclusions.toml rather than by widening this guard.) Test names are
+    written to embed the symbol under test, so the heuristic is sound only
+    here.
     """
     with (ROOT / "compat" / "exclusions.toml").open("rb") as fh:
         return tomllib.load(fh).get("test_exclusion", [])

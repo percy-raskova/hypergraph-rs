@@ -67,7 +67,7 @@ class = "env"
 exception = "ImportError"
 site = "hypergraph_rs.drawing"
 trigger = "any call in an environment without matplotlib installed"
-reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all — the divergence is in packaging, not at the call site."
+reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all. This entry records the raise-on-missing-matplotlib path only — it is NOT the only divergence: with matplotlib present, the call site itself diverges too (draw returns a bare Axes where xgi returns a tuple; see D39, compat/divergences.toml)."
 
 [[partial_symbol]]
 symbol = "draw_nodes"
@@ -75,7 +75,7 @@ class = "env"
 exception = "ImportError"
 site = "hypergraph_rs.drawing"
 trigger = "any call in an environment without matplotlib installed"
-reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all — the divergence is in packaging, not at the call site."
+reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all. This entry records the raise-on-missing-matplotlib path only — it is NOT the only divergence: with matplotlib present, draw_nodes is a literal alias of draw, not xgi's dedicated node-only renderer (see D39, compat/divergences.toml)."
 
 [[partial_symbol]]
 symbol = "draw_hyperedges"
@@ -83,4 +83,4 @@ class = "env"
 exception = "ImportError"
 site = "hypergraph_rs.drawing"
 trigger = "any call in an environment without matplotlib installed"
-reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all — the divergence is in packaging, not at the call site."
+reason = "hypergraph-rs makes matplotlib an optional `mpl` extra, so this symbol imports and raises only at call time. xgi 0.10.2 hard-depends on matplotlib (Requires-Dist: matplotlib>=3.4), so the same environment cannot host xgi at all. This entry records the raise-on-missing-matplotlib path only — it is NOT the only divergence: with matplotlib present, draw_hyperedges is a literal alias of draw, not xgi's dedicated hyperedges-only renderer (see D39, compat/divergences.toml)."

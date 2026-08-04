@@ -3,9 +3,9 @@
 # A measured register of deliberate, observable differences between
 # hypergraph-rs and real xgi 0.10.2, verified by direct execution against
 # both libraries (docs/superpowers/specs/evidence/
-# 2026-07-30-divergence-register-measurement.md). 35 entries: D1-D17 (the
+# 2026-07-30-divergence-register-measurement.md). 36 entries: D1-D17 (the
 # register originally promoted from tests/conformance/main.rs, spec §4 C1)
-# supplies 12 of them; the remaining 23 carry REV- and higher D-numbers found
+# supplies 12 of them; the remaining 24 carry REV- and higher D-numbers found
 # by measuring the PyO3 surface directly, which the Rust conformance harness
 # structurally cannot observe.
 #
@@ -267,3 +267,10 @@ ours = "TypeError: type 'hypergraph_rs.Hypergraph' is not an acceptable base typ
 xgi = "Subclasses normally; Py_TPFLAGS_BASETYPE is True."
 class = "binding-gap"
 reason = "PyO3 classes are not subclassable unless declared #[pyclass(subclass)]. Import-fatal at class-definition time, so a consumer that subclasses cannot even load. Found during the method-layer sweep, absent from the 34-entry register."
+[[divergence]]
+id = "D39"
+api = "draw / draw_nodes / draw_hyperedges"
+ours = "draw_nodes and draw_hyperedges are literal aliases of draw (`_require_mpl(lambda *a, **k: draw(*a, **k))`): all three render the whole scene identically (measured on the same fixture, each on its own Axes: 0 patches, 4 lines) and return a bare `Axes`. `ax, collections = hrs.draw(H)` raises `TypeError: cannot unpack non-iterable Axes object`. All three carry the wrapper's `(*args, **kwargs)` signature — draw_nodes/draw_hyperedges expose none of their own per-element styling kwargs."
+xgi = "Three distinct functions. `draw` returns `(ax, (node_collection, dyad_collection, edge_collection))`; `draw_nodes` returns `(ax, node_collection)` and renders only nodes; `draw_hyperedges` returns `(ax, (dyad_collection, edge_collection))` and renders only dyads/hyperedges — each with its own 10-15 styling kwargs (node_fc, node_size, dyad_color, edge_fc, ...)."
+class = "divergence"
+reason = "Measured with matplotlib installed in this repo's .venv against xgi 0.10.2, closing evidence-doc gap 2 (docs/superpowers/specs/evidence/2026-07-30-divergence-register-measurement.md §7): 'not re-run (matplotlib), so not in the TOML; verify then add as a D37 sibling.' Same tuple-vs-bare-value family as D37/D24/D25 — the value is right (all three do draw something), the container and the per-symbol behaviour are not. compat/partial_symbols.toml's three `env`-class entries recorded only the missing-matplotlib ImportError path and claimed no other divergence existed; this entry is the call-site divergence that claim denied."

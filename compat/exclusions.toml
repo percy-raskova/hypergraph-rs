@@ -60,8 +60,8 @@ reason = "tests the nodestat_func/dispatch decorator machinery, replaced by idio
 
 [[file_exclusion]]
 path = "drawing/test_draw.py"
-class = "deferred-symbol"
-reason = "matplotlib @mpl_image_compare pixel tests; replaced by scene-graph tests (spec §9.3)."
+class = "divergence"
+reason = "Not a pixel-comparison file (no test here uses @mpl_image_compare; that description was inaccurate). Measured per-test: 8 of 16 tests (test_draw, test_draw_nodes, test_draw_nodes_fc_cmap, test_draw_nodes_interp, test_draw_hyperedges, test_draw_hyperedges_fc_cmap, test_draw_hyperedges_ec, test_draw_hypergraph_hull) fail with `TypeError: cannot unpack non-iterable Axes object` — draw/draw_nodes/draw_hyperedges ARE bound-partial per the manifest, they just diverge from xgi's tuple return (D39, compat/divergences.toml). `divergence`, not `deferred-symbol`, is the class consistent with that (tools/taxonomy.py). The other 7 (test_draw_simplices, test_draw_multilayer, test_draw_bipartite, test_draw_bipartite_with_str_labels_and_isolated_nodes, test_draw_undirected_dyads, test_draw_directed_dyads, test_issue_515) do exercise genuinely deferred symbols (draw_simplices/draw_multilayer/draw_bipartite/draw_undirected_dyads/draw_directed_dyads, §A ledger). test_issue_499 passes on its own but is swept up in the file-level exclusion. Scene-graph tests (spec §9.3) cover the drawable content directly."
 
 [[file_exclusion]]
 path = "drawing/test_draw_utils.py"

@@ -19,8 +19,12 @@ EVIDENCE_DOC = (
 
 # D38 (F7, subclassability) was found during the method-layer sweep AFTER the
 # evidence document froze, so it has no counterpart there by design — it is
-# not a paraphrase gap, it is a genuinely later addition.
-NO_EVIDENCE_COUNTERPART = {"D38"}
+# not a paraphrase gap, it is a genuinely later addition. D39 (draw/draw_nodes/
+# draw_hyperedges return shape) is the same kind of later addition: the
+# evidence document's §7 gap 2 anticipated it in prose ("verify then add as a
+# D37 sibling") but never carried it in the Ready-to-paste TOML block, so it
+# has no counterpart to compare text against either.
+NO_EVIDENCE_COUNTERPART = {"D38", "D39"}
 
 
 def _register() -> list[dict]:
@@ -45,10 +49,11 @@ def _evidence_entries() -> list[dict]:
 
 
 def test_register_is_populated() -> None:
-    """34 measured in the evidence document, plus D38 (F7, subclassability),
-    which was found during the method-layer sweep after that document froze."""
-    assert len(_register()) == 35, (
-        "the measured live, Python-visible register is 35 entries; a short "
+    """34 measured in the evidence document, plus D38 (F7, subclassability)
+    and D39 (draw/draw_nodes/draw_hyperedges return shape), both found after
+    that document froze."""
+    assert len(_register()) == 36, (
+        "the measured live, Python-visible register is 36 entries; a short "
         "register reads as complete when it is not"
     )
 
