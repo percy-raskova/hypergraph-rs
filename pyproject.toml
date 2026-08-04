@@ -40,6 +40,13 @@ python-source = "python"
 strip = true
 
 [tool.pytest.ini_options]
+# pythonpath puts the repo root on sys.path for every invocation, including
+# bare `pytest` (which, unlike `python -m pytest`, does not add the CWD
+# itself). This is pytest's own mechanism, not a conftest sys.path.insert —
+# tests/test_no_duplicate_path_preamble.py polices the latter, not this.
+# Without it, bare `pytest tests/` aborts collection on the six repo-authored
+# files that import tools.* at module scope (measured 2026-08-04).
+pythonpath = ["."]
 markers = [
     "slow: upstream XGI's marker for network- or compute-heavy tests. Registered here only to silence PytestUnknownMarkWarning; the ported files that use it are byte-verbatim upstream copies and must not be edited.",
 ]
