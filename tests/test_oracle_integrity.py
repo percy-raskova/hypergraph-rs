@@ -9,6 +9,7 @@ Repo-authored files (no upstream counterpart) are exempt; they are this repo's
 own tests, not ports.
 """
 
+import ast
 import pathlib
 import re
 
@@ -31,17 +32,43 @@ UPSTREAM = pathlib.Path(xgi.__file__).resolve().parent.parent / "tests"
 # a false positive on every file that imports at all. Anchoring the
 # substitution to the import statement's root-module position only (start of
 # line, only leading whitespace before `import`/`from`) normalises exactly
-# the two shapes the port's `port_tests.sh` swap produces and leaves every
-# other `xgi` token (call sites, error-message text, identifiers like
-# `load_xgi_data`) untouched on both sides.
-_IMPORT_ROOT = re.compile(rb"(?m)^(\s*)import (?:xgi|hypergraph_rs as xgi)\s*$")
-_FROM_ROOT = re.compile(rb"(?m)^(\s*)from (?:xgi|hypergraph_rs)\b")
+# the one shape each side is allowed to carry, and leaves every other `xgi`
+# token (call sites, error-message text, identifiers like `load_xgi_data`)
+# untouched on both sides.
+#
+# The two sides get SEPARATE regexes and separate normalise functions —
+# deliberately not one pattern accepting either spelling on either side. A
+# shared pattern would rewrite both `import xgi` and `import hypergraph_rs as
+# xgi` to the identical `import PKG` token regardless of which file carries
+# which, so a ported file left un-swapped — still reading the real `import
+# xgi` — would normalise to the same token as a correctly-swapped port and
+# compare equal to upstream. That is testing xgi against itself and calling
+# it byte-verbatim (a vacuous green). `_normalise_ported` only recognises the
+# port's own sanctioned spelling (`hypergraph_rs`); a bare `import xgi` left
+# on the ported side is untouched by it and therefore fails to match
+# upstream's normalised `import PKG`, which is the drift it must be.
+_UPSTREAM_IMPORT_ROOT = re.compile(rb"(?m)^(\s*)import xgi\s*$")
+_UPSTREAM_FROM_ROOT = re.compile(rb"(?m)^(\s*)from xgi\b")
+_PORTED_IMPORT_ROOT = re.compile(rb"(?m)^(\s*)import hypergraph_rs as xgi\s*$")
+_PORTED_FROM_ROOT = re.compile(rb"(?m)^(\s*)from hypergraph_rs\b")
 
 
-def _normalise(raw: bytes) -> bytes:
-    """Collapse the one sanctioned difference: the xgi -> hypergraph_rs import swap."""
-    raw = _IMPORT_ROOT.sub(rb"\1import PKG", raw)
-    raw = _FROM_ROOT.sub(rb"\1from PKG", raw)
+def _normalise_upstream(raw: bytes) -> bytes:
+    """Collapse upstream's own import spelling (`import xgi`) to a common token."""
+    raw = _UPSTREAM_IMPORT_ROOT.sub(rb"\1import PKG", raw)
+    raw = _UPSTREAM_FROM_ROOT.sub(rb"\1from PKG", raw)
+    return raw
+
+
+def _normalise_ported(raw: bytes) -> bytes:
+    """Collapse the port's own sanctioned import swap to the same common token.
+
+    Deliberately does NOT also accept a bare `import xgi`/`from xgi` — see
+    the module comment above the regexes. A ported file that still imports
+    the real `xgi` must fail the comparison, not be normalised away.
+    """
+    raw = _PORTED_IMPORT_ROOT.sub(rb"\1import PKG", raw)
+    raw = _PORTED_FROM_ROOT.sub(rb"\1from PKG", raw)
     return raw
 
 
@@ -76,7 +103,9 @@ def _compare_tree(
         if not ours.exists():
             missing.append(rel)
             continue
-        if _normalise(ours.read_bytes()) != _normalise(path.read_bytes()):
+        if _normalise_ported(ours.read_bytes()) != _normalise_upstream(
+            path.read_bytes()
+        ):
             drifted.append(rel)
     return missing, drifted
 
@@ -118,15 +147,51 @@ def _upstream_prefix(raw: bytes) -> bytes:
     return parts[0]
 
 
+def _redefined_below_sentinel(raw: bytes) -> list[str]:
+    """Top-level names the upstream prefix defines, silently redefined below it.
+
+    The byte comparison in test_shared_conftest_prefix_is_verbatim_upstream
+    only pins the bytes ABOVE the sentinel. Python resolves module-level
+    names last-definition-wins, so a repo-authored `def h1(): ...` (or
+    `class ...`) placed below the sentinel silently replaces upstream's
+    fixture of the same name at import time — no error, no visible change to
+    the byte-pinned prefix above, and every ported test that depends on that
+    fixture now runs against a different input. Sorted for a deterministic
+    failure message.
+    """
+    sentinel_line = _upstream_prefix(raw).count(b"\n") + 1
+    tree = ast.parse(raw.decode("utf-8"))
+    above: set[str] = set()
+    redefined: set[str] = set()
+    # Bounded: one pass over the file's top-level statements.
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if node.lineno <= sentinel_line:
+            above.add(node.name)
+        elif node.name in above:
+            redefined.add(node.name)
+    return sorted(redefined)
+
+
 def test_shared_conftest_prefix_is_verbatim_upstream() -> None:
     upstream = UPSTREAM / "conftest.py"
     if not upstream.exists():
         raise AssertionError(f"upstream conftest not found at {upstream}")
     ours = (PORTED.parent / "conftest.py").read_bytes()
-    assert _normalise(_upstream_prefix(ours)) == _normalise(upstream.read_bytes()), (
+    assert _normalise_ported(_upstream_prefix(ours)) == _normalise_upstream(
+        upstream.read_bytes()
+    ), (
         "tests/conftest.py's upstream section differs from XGI 0.10.2's. Every "
         "ported test's inputs come from these fixtures; a change here silently "
         "alters what the oracle asserts."
+    )
+    redefined = _redefined_below_sentinel(ours)
+    assert redefined == [], (
+        "repo-authored code below the sentinel redefines a name the upstream "
+        "prefix above already defines; Python resolves module-level names "
+        "last-definition-wins, so the redefinition silently replaces what the "
+        "byte-pinned prefix asserts:\n  " + "\n  ".join(redefined)
     )
 
 
