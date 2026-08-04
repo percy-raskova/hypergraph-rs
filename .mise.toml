@@ -66,13 +66,17 @@ run = "uvx maturin build --manifest-path crates/hypergraph-rs-python/Cargo.toml"
 description = "Regenerate python/hypergraph_rs/compat/manifest.json from the built extension + authored TOMLs. Requires real xgi 0.10.2 installed (differential oracle)."
 run = ".venv/bin/python -m tools.gen_manifest"
 
+[tasks."py:symbols"]
+description = "Regenerate tests/DEFERRED_SYMBOLS.md from the built extension + authored TOMLs. Requires real xgi 0.10.2 installed (differential oracle). py:gate only CHECKS this file (--check, no write); run this task and commit the result when the ledger drifts."
+run = ".venv/bin/python -m tools.audit_symbols"
+
 [tasks."py:gate"]
-description = "The XGI conformance gate, exactly as CI runs it: symbol audit, manifest drift + registry integrity + denominator + oracle integrity, then the ported suite. Sequential — heavy builds single-flight. Override the interpreter with PY=... (CI passes PY=python, which resolves to the setup-python + maturin develop environment)."
+description = "The XGI conformance gate, exactly as CI runs it: symbol audit (read-only — fails on a stale committed ledger rather than regenerating it; see py:symbols), manifest drift + registry integrity + denominator + oracle integrity, then the ported suite. Sequential — heavy builds single-flight. Override the interpreter with PY=... (CI passes PY=python, which resolves to the setup-python + maturin develop environment)."
 run = """
 set -e
 PY="${PY:-.venv/bin/python}"
 rm -f .gate-stats.json
-$PY -m tools.audit_symbols
+$PY -m tools.audit_symbols --check
 $PY -m pytest tests/ --ignore=tests/ported -q
 $PY -m pytest tests/ported -q
 $PY -m tools.gate_report --from-stats .gate-stats.json
