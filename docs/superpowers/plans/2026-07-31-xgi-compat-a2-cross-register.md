@@ -1258,7 +1258,7 @@ under `--confcutdir=tests/ported`). No mise task invokes bare `pytest`.
 limitation, not hidden:** bare `.venv/bin/pytest` exists and adds no CWD
 entry, so after this task six of the seven `tools.*`-importing test files
 are uncollectible under it (the seventh, `tests/test_partial_symbols.py`,
-imports tools only inside test bodies — it collects, and two of its tests
+imports tools only inside test bodies — it collects, and three of its tests
 fail at call time); `python -m pytest` is the supported invocation. Put
 that in your report's limitations. If a future invocation style needs an
 insert, measure first. (Task 4's `[tool.pytest.ini_options]` addition does not
