@@ -1,10 +1,13 @@
 # T1 slice recon — divergences.toml, xgi.compat, T0 carry-overs
 
-> **Two entries were corrected after this document was first written.** D34's arity was
-> inverted (the divergence is on `cleanup()`/`in_place=True`, not `in_place=False`) and
-> D30's wording understated the difference. Both are fixed in place in the table and the
-> ready-to-paste TOML below; footnotes [^8] and [^9] record what was originally claimed and
-> what measurement replaced it. Everything else stands as written.
+> **Four entries were corrected after this document was first written.** D34's arity was
+> inverted (the divergence is on `cleanup()`/`in_place=True`, not `in_place=False`) and D30's
+> wording understated the difference; footnotes [^8] and [^9] record both. REV-1's api/xgi
+> fields claimed the divergence fires for any size-0 edge, when xgi actually discards
+> singleton edges first and only diverges once the post-discard size set is exactly `{0}`;
+> D17's reason named the wrong uid-counter state for reproducing the divergence. Footnotes
+> [^10] and [^11] record both. All four are fixed in place in the table and the ready-to-paste
+> TOML below. Everything else stands as written.
 
 ## 1. Verdict in one paragraph
 
@@ -34,8 +37,8 @@ D1–D17 **can** be transcribed, but the register as named is not the register t
 | D14 | **LIVE** | yes | `DiHypergraph.add_edge('abc')` | no raise; edge 0, tail `{a}` head `{b}` | `XGIError` | CONFIRMED |
 | D15 | NOT-A-REGISTER-ENTRY | yes | `SimplicialComplex.add_edge/remove_edge` | both raise `XGIError`, wording differs | both raise | CONTESTED [^6] |
 | D16 | NEVER-DIVERGED | yes | `DiHypergraph.clear_edges` | absent | absent | CONFIRMED |
-| D17 | **LIVE** | yes | `add_simplex(m, idx=<falsy>)` | honours `0`/`''`/`False`/`0.0` literally | auto-assigns next uid | CONFIRMED |
-| REV-1 | **LIVE** | yes | `is_uniform(H)` when, post-singleton-discard, only size-0 edges remain | `False` (falsy) | `-1` (truthy) → branch flip | CONFIRMED |
+| D17 | **LIVE** | yes | `add_simplex(m, idx=<falsy>)` | honours `0`/`''`/`False`/`0.0` literally | auto-assigns next uid | CORRECTED [^10] |
+| REV-1 | **LIVE** | yes | `is_uniform(H)` when, post-singleton-discard, only size-0 edges remain | `False` (falsy) | `-1` (truthy) → branch flip | CORRECTED [^11] |
 | REV-2 | **LIVE** | yes | `max_edge_order(H)` with a size-0 edge | `None` → `TypeError` on arithmetic | `-1` | CONFIRMED |
 | U1→D18 | **LIVE** | yes | `sunflower(l, c, m)` with `m == c` | returns in ms | infinite loop (timeout 124) | CONFIRMED |
 | U2→D19 | **LIVE** | yes | `complete_hypergraph(4, max_order=0, include_singletons=False)` | `(4 nodes, 0 edges)` | `AssertionError` | CONFIRMED |
@@ -68,6 +71,8 @@ D1–D17 **can** be transcribed, but the register as named is not the register t
 [^7]: Superseded by [^8] — this footnote originally flagged D30 as the one unverified entry. It has since been measured.
 [^8]: **Correction, 2026-07-30 (spec author).** D30 was the only shipped entry no one had re-run. Measured: `k = {i: 3 for i in range(12)}`, seed 42 → xgi gives 12 edges, degree sequence `[3]×12`, no warning; ours gives 11 edges, `[1,2,3×10]`. The original wording, "close to but not bit-exact", omitted that the edge count differs and that xgi hits `k` exactly. Entry text corrected above.
 [^9]: **Correction, 2026-07-30 (spec author).** D34's arity was inverted in the first draft. Measured across all three call shapes: xgi returns `Hypergraph` for `cleanup()`, `cleanup(in_place=True)` and `cleanup(in_place=False)` alike; ours returns `None` for the first two and `Hypergraph` for the third. So `in_place=False` is the one path that AGREES, and the divergence is on the default path. Caught by re-measurement during the method-layer sweep, not by either the investigator or the verifier.
+[^10]: **Correction, 2026-08-04 (register-claims group, post-freeze).** D17's reason originally read "On a FRESH complex idx=0 agrees coincidentally; the counter must be advanced first to see it." Re-measured: advancing the counter via an ordinary auto-id `add_simplex` ALSO occupies id 0, so xgi's `if idx in self._edge` guard fires and refuses `0`/`False`/`0.0` with a warning instead of auto-assigning — only `idx=''` still diverges in that state. The clean reproduction needs id 0 left FREE instead (e.g. an explicit `add_simplex(m0, idx=5)` first), after which xgi returns `[5, 6]` against ours `[5, 0]`/`[5, '']`/`[5, False]`/`[5, 0.0]`. Entry text corrected above and in `compat/divergences.toml`.
+[^11]: **Correction, 2026-08-04 (register-claims group, post-freeze).** REV-1's api/xgi fields originally read "`is_uniform(H)` when a size-0 edge is present" / "Returns int -1, which is TRUTHY". Re-measured: xgi's `is_uniform()` discards singleton (size-1) edges via `unique_edge_sizes()` before checking, so int `-1` (truthy) arises only when the post-discard size set is exactly `{0}`. Verified across five fixtures via single `add_edge` calls: only-empty, empty+size-1, and two-empty edges all diverge (ours `False`, xgi `-1`); empty+size-2 and empty+size-3 agree (both `False`). hypergraph-rs's own `properties.rs:64-79` documents the identical discard-then-check rule. Entry text corrected above and in `compat/divergences.toml`.
 ### Ready-to-paste TOML
 Schema taken verbatim from `compat/divergences.toml`'s header (`id`, `api`, `ours`, `xgi`, `class`, `reason` — no other fields exist; `tools/gen_manifest.py:103` passes the `divergence` array through unvalidated). D18–D37 are free: `rg -o '\bD[0-9]{1,2}\b'` over `main.rs`, `reconciliation-inventory.json`, `compat/` and `tools/` returns exactly D1–D17 and nothing higher.
 

@@ -28,3 +28,5 @@ argv
 [Mm]atplotlib
 [Mm]onkeypatch(?:ing|ed|es)?
 [Vv]irtualenvs?
+(?i)truthy
+(?i)falsy

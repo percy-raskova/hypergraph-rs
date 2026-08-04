@@ -1,5 +1,13 @@
 # T1b sweep — `bound` symbols that raise `NotImplementedError` (or equivalent) for some input
 
+> **A correction landed on one entry after this document's first draft.** Finding A's
+> `degree_assortativity` reason in the ready-to-paste TOML below originally claimed xgi
+> "returns a float unconditionally." Measurement disproved this: xgi returns a Python float
+> only when the sampled degree pairs have variance, and the literal int `0` when `corrcoef`
+> is NaN from zero variance — exactly what the uniform-triangle fixture this entry's own test
+> uses hits. Corrected in place below; footnote [^1] records what was originally claimed and
+> what measurement replaced it. Everything else stands as written.
+
 Scope: every public hypergraph_rs callable that is `bound` in
 `python/hypergraph_rs/compat/manifest.json` (i.e. NOT routed through `_deferred.make_deferred`)
 but raises for at least one reachable argument/environment combination. Feeds
@@ -79,7 +87,7 @@ status.
 symbol = "degree_assortativity"
 site = "crates/hypergraph-rs-python/src/algorithms.rs:163"
 trigger = "exact=False (the default) — any kind/num_samples/seed; the bare call degree_assortativity(H) already hits this"
-reason = "Random-sampling assortativity path awaits the Phase-4 rand_pcg pin (module doc, algorithms.rs). Only exact=True is ported. xgi returns a float unconditionally; verified against real xgi 0.10.2."
+reason = "Random-sampling assortativity path awaits the Phase-4 rand_pcg pin (module doc, algorithms.rs). Only exact=True is ported. xgi's exact=False path returns a Python float when the sampled degree pairs have variance (measured: -0.647 on a varied-degree fixture) but returns the literal int 0, not a float, when corrcoef is NaN from zero variance — the uniform-triangle fixture this entry's own test uses hits exactly that path, with a 'RuntimeWarning: invalid value encountered in divide'. Verified against real xgi 0.10.2." # CORRECTED 2026-08-04, see footnote [^1]
 
 [[partial_symbol]]
 symbol = "DiHypergraph.nodes.in_degree"
@@ -105,3 +113,12 @@ site = "python/hypergraph_rs/drawing/__init__.py:42-70 (_require_mpl decorator; 
 trigger = "Calling any of the three when matplotlib is not importable (hypergraph-rs[mpl] extra not installed)."
 reason = "SCHEMA QUESTION FOR OWNER: raises ImportError, not NotImplementedError, so it may not belong under a status literally named for NotImplementedError. Verified by simulation (HAS_MPL monkeypatched False in-process; matplotlib IS installed in this .venv so the natural absence could not be reproduced directly). Flagged because it is the same class of check()-lies-about-bound problem, just environment-triggered rather than argument-triggered."
 ```
+
+[^1]: **Correction, 2026-08-04 (register-claims group, post-freeze).** Finding A's reason
+originally read "xgi returns a float unconditionally; verified against real xgi 0.10.2." from
+a single degenerate probe. Re-measured: xgi's `exact=False` path returns a Python float when
+the sampled degree pairs have variance (`-0.647` on a varied-degree fixture) but the literal
+int `0`, not a float, when `corrcoef` is NaN from zero variance — exactly the uniform-triangle
+fixture this entry's own test (`tests/test_partial_symbols.py:100-103`) exercises, with a
+`RuntimeWarning: invalid value encountered in divide`. Entry text corrected above and in
+`compat/partial_symbols.toml`.
