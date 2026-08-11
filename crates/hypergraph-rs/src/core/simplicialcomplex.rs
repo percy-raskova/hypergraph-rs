@@ -218,7 +218,11 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
                 return Ok(()); // duplicate idx -> no-op (XGI warns+returns)
             }
         }
-        // Top simplex (non-empty -> passes the strict add_edge check).
+        // Top simplex. `add_edge` has no member-count floor to pass — it
+        // accepts an empty member list exactly as it accepts any other (see
+        // the documentation-defect fix on `Hypergraph::add_empty_edge`,
+        // same D1 register entry this function's own comment above cites);
+        // an empty `set` here (the empty-simplex case) succeeds the same way.
         let _ = self.inner.add_edge(set.clone(), idx, attrs);
         // Missing subfaces (size >= 2), attribute-free.
         for face in subfaces(&set) {

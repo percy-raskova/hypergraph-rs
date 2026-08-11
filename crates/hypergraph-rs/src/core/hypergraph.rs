@@ -210,11 +210,16 @@ impl<N, E, M> Hypergraph<N, E, M> {
 
     /// Add a hyperedge with NO members (an empty edge). Returns the assigned edge id.
     ///
-    /// XGI 0.10.2 permits empty edges (`H.add_edge([])`); the strict core `add_edge` rejects them
-    /// with `EdgeError::EmptyMembers` by design. This additive method is the sanctioned
-    /// binding-support hook (Phase 7 OQ-1) — it duplicates only `add_edge`'s id-assignment/counter
-    /// policy, adds a lone `Hyperedge` node with no membership edges, and returns the id (so callers
-    /// need no separate auto-id peek).
+    /// **Documentation-defect fix (this comment previously claimed the opposite of what the code
+    /// does — see the register entry below).** XGI 0.10.2's own docstring claims `add_edge([])`
+    /// raises `XGIError`; its RUNTIME does not — it silently creates an empty edge, and XGI's own
+    /// test suite asserts that (D1 register, `conform_add_edge_empty_creates_edge`). `add_edge`
+    /// above matches the runtime, not the docstring: an empty member list is ACCEPTED, not
+    /// rejected, and no `EdgeError::EmptyMembers` variant exists anywhere in this crate. This
+    /// method is not a workaround for a rejection that does not happen — it is the explicit,
+    /// self-documenting spelling for the empty-edge case (Phase 7 OQ-1), duplicating only
+    /// `add_edge`'s id-assignment/counter policy, adding a lone `Hyperedge` node with no
+    /// membership edges, and returning the id (so callers need no separate auto-id peek).
     pub fn add_empty_edge(&mut self, idx: Option<String>, attrs: E) -> String {
         self.assert_not_frozen();
         let edge_id = match &idx {
