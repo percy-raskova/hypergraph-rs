@@ -1,14 +1,15 @@
 name: Rust gate
 
 # Ported 2026-07-22 from babylon's .github/workflows/rust.yml when this repo
-# moved out of the babylon tree. DORMANT until this repo has a remote —
-# publishing (and any GitHub repo) is an owner decision (plans/EXECUTION-STATE.md).
-# House rules (babylon Constitution III.11 — Loud Failure):
+# moved out of the babylon tree.
+# House rules (Loud Failure):
 #   - every job carries timeout-minutes (a hang dies loudly);
 #   - no continue-on-error;
 #   - steps invoke the same mise tasks devs run locally — one invocation
 #     source of truth (rust-toolchain.toml is the identical pin for CI and
-#     local dev).
+#     local dev);
+#   - every action is pinned to a full commit, with its version in a comment.
+#     Dependabot (.github/dependabot.yml) moves the pins.
 
 on:
   push:
@@ -30,14 +31,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5
         with:
           cache: true
 
       - name: Cache cargo registry + target dir
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
 
       # Pre-warm the pinned toolchain so a download failure surfaces here,
       # not mid-gate.
@@ -52,23 +53,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5
         with:
           cache: true
 
       - name: Cache cargo registry + target dir (MSRV-keyed)
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           key: msrv
 
       - name: "MSRV floor check (identical to local — mise run rust:msrv)"
         run: mise run rust:msrv
 
-  # Phase 7 — the XGI conformance gate (build+test only; no publish, per the hard constraint
-  # in plans/phase-7-python-conformance.md). DORMANT alongside rust-gate/rust-msrv above until
-  # this repo has a remote (plans/EXECUTION-STATE.md), but wired now so the gate is ready.
+  # The XGI conformance gate (build + test only; nothing is published).
   xgi-conformance:
     name: "Python bindings — XGI conformance gate (hashseed ${{ matrix.hashseed }})"
     runs-on: ubuntu-latest
@@ -82,17 +81,26 @@ jobs:
         # entirely, which is the reproducible baseline.
         hashseed: ["0", "1", "42", "random"]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.13" }
-      - uses: jdx/mise-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.13"
+      - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5
         with:
           cache: true
-      - run: pip install maturin pytest -r tests/requirements-dev.txt
-      - run: pip install "xgi==0.10.2"                 # test-only differential oracle
-      - run: maturin develop
+      # `maturin develop` installs into a virtualenv and refuses to run
+      # without one. `.venv` is also where the mise tasks look for the
+      # interpreter, so the gate below runs exactly as it does locally.
+      - name: Create .venv
+        run: python -m venv .venv
+      - name: Install the build and test tools
+        run: .venv/bin/python -m pip install maturin pytest -r tests/requirements-dev.txt
+      - name: Install the XGI oracle (test-only differential reference)
+        run: .venv/bin/python -m pip install "xgi==0.10.2"
+      - name: Build the extension into .venv
+        run: .venv/bin/maturin develop
       - name: "XGI conformance gate (identical to local — mise run py:gate)"
-        run: PY=python mise run py:gate
+        run: mise run py:gate
         env:
           PYTHONHASHSEED: ${{ matrix.hashseed }}
 
@@ -101,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: pip install maturin
       - run: maturin build --release --out dist        # build wheel to dist/, do NOT upload
       - run: python -c "import glob; assert glob.glob('dist/*.whl'), 'no wheel built'"
