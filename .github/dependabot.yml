@@ -20,14 +20,6 @@ updates:
         update-types:
           - minor
           - patch
-    ignore:
-      # sprs 0.11.5 and later need Rust 1.88, above this crate's floor of
-      # 1.85 (`rust-version` in Cargo.toml; `mise run rust:msrv` checks it).
-      # Remove this entry when the floor is raised to 1.88 or beyond. An
-      # ignored version is held back for security updates too, so cargo-deny
-      # stays the check that reports an advisory against the held version.
-      - dependency-name: sprs
-        versions: [">= 0.11.5"]
     commit-message:
       prefix: "chore(deps)"
 

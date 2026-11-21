@@ -100,9 +100,7 @@
 //!
 //! ## Minimum Rust version
 //!
-//! Rust 1.85 for the workspace and for every feature of this crate except `cells3d` and
-//! `raster-png`. Those two, and so `all`, need Rust 1.87, because they use `h3o`, and `h3o`
-//! 0.10 needs it.
+//! Rust 1.90, for the workspace and for every feature of this crate.
 
 #[cfg(feature = "algorithms")]
 pub mod algorithms;

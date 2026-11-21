@@ -5,7 +5,7 @@ Thank you for helping. This guide says how to build, check and change the code.
 ## Set up
 
 You need [rustup](https://rustup.rs) and [mise](https://mise.jdx.dev). `rust-toolchain.toml`
-pins the toolchain (1.91.1), and rustup installs it the first time you run `cargo`. The
+pins the toolchain (1.100.0), and rustup installs it the first time you run `cargo`. The
 conformance gate also needs a Python 3.12 or newer virtual environment at `.venv`; the setup
 is in the `xgi-conformance` job of `.github/workflows/ci.yml`.
 
@@ -17,7 +17,7 @@ Run these before you open a pull request. CI runs the same mise tasks.
 | --- | --- |
 | `mise run rust:check` | format, clippy with warnings denied, tests and docs for the workspace; then clippy, tests and docs for the core crate with every feature on; then `mise run rust:features` |
 | `mise run rust:features` | the core crate builds with no feature, and with each feature alone, without the defaults |
-| `mise run rust:msrv` | the build at the two Rust floors: 1.85, and 1.87 for `cells3d` and `raster-png` |
+| `mise run rust:msrv` | the build at the minimum Rust version: the workspace, then the core crate with every feature on |
 | `mise run py:gate` | the XGI conformance gate (needs `.venv` and a built extension: `.venv/bin/maturin develop`) |
 | `cargo deny check` | advisories, licenses and sources |
 | `cargo package -p hypergraph-rs --locked` | the core crate packs. Nothing is published |
@@ -26,10 +26,11 @@ Run one cargo command at a time: they share one build directory and lock it.
 
 ## The minimum Rust version
 
-`rust-version` in `Cargo.toml` is 1.85. It holds for the workspace and for every feature of
-the core crate except `cells3d` and `raster-png`. Those two need Rust 1.87, because they use
-`h3o`, and `h3o` 0.10 needs it. Raising a floor is a promise to users, so it is a decision for
-the maintainers and not a side effect of a change.
+`rust-version` in `Cargo.toml` is 1.90. It holds for the workspace and for every feature of
+the core crate, and `mise run rust:msrv` checks it. It is the lowest version the newest
+dependencies allow. Dependencies are kept at their newest versions here, so the floor follows
+them: when a newer dependency needs a newer Rust, raise `rust-version` in the same change. Do
+not hold a dependency back to keep the floor.
 
 ## Tests
 
@@ -60,13 +61,16 @@ hide a bug that can be fixed. XGI is pinned at 0.10.2 on purpose.
 
 ## Updating dependencies
 
-Run `cargo update`. The workspace uses resolver 3, so it keeps the lockfile under the
-`rust-version` floor. Then run every check above. If a newer crate breaks one, put that crate
-back with `cargo update -p <crate> --precise <version>` and say why in the commit.
+Everything is kept at its newest version: the crates, the toolchain pinned in
+`rust-toolchain.toml`, and the actions in `.github/workflows/`. Security fixes arrive as
+ordinary releases, and a crate that is held back misses them.
 
-Dependabot does not read `rust-version`. `.github/dependabot.yml` therefore has an `ignore`
-entry that holds `sprs` under 0.11.5, which needs Rust 1.88. Remove that entry when the floor
-is raised to 1.88.
+Run `cargo update`. For a new major version, change the requirement in `Cargo.toml` first.
+Then run every check above. The workspace uses resolver 2 on purpose: an update takes the
+newest version of every crate, and if one needs a newer Rust than `rust-version`, the floor
+check fails. Raise the floor then. A newer toolchain brings new lints; fix what they find.
+
+Dependabot opens a pull request each week for the crates and for the actions.
 
 Do not add a direct dependency on `petgraph`: it comes through `rustworkx-core`, and a second
 copy would be a different, incompatible type.

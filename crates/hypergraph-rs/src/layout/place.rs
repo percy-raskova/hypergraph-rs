@@ -101,11 +101,7 @@ pub fn radial_layout<N, E, M>(h: &Hypergraph<N, E, M>, rings: usize) -> LayoutRe
         .iter()
         .enumerate()
         .map(|(i, id)| {
-            let ring = if max_deg == 0 {
-                0
-            } else {
-                degree(id) * (rings - 1) / max_deg
-            };
+            let ring = (degree(id) * (rings - 1)).checked_div(max_deg).unwrap_or(0);
             let radius = (ring as f64 + 1.0) / (rings as f64 + 1.0);
             let angle = if n == 0 {
                 0.0

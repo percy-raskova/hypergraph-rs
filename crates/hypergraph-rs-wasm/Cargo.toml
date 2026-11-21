@@ -12,6 +12,7 @@ description = "WASM bindings for hypergraph-rs"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# The stub does not call the core crate yet, and Cargo reports a dependency
+# that nothing uses. The real surface brings hypergraph-rs back with it.
 [dependencies]
-hypergraph-rs = { path = "../hypergraph-rs", version = "0.2.0" }
 wasm-bindgen = "0.2"

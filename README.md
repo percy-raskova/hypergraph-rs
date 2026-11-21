@@ -131,10 +131,10 @@ to PyPI.
 
 ## Rust version
 
-The minimum Rust version is 1.85 for the workspace and for every feature of the core crate
-except `cells3d` and `raster-png`. Those two, and so `all`, need Rust 1.87, because they use
-`h3o`, and `h3o` 0.10 needs it. `rust-toolchain.toml` pins the toolchain used for
-development, 1.91.1. `mise run rust:msrv` checks both floors.
+The minimum Rust version is 1.90, for the workspace and for every feature of the core crate.
+It is the lowest version the newest dependencies allow, and it rises when they need it.
+`rust-toolchain.toml` pins the toolchain used for development, 1.100.0. `mise run rust:msrv`
+checks the floor.
 
 ## Checks
 
@@ -142,7 +142,7 @@ Run these with [mise](https://mise.jdx.dev):
 
 - `mise run rust:check`: format, lint, tests and docs, then the same with every feature on,
   then every feature alone. CI runs the same task.
-- `mise run rust:msrv`: the two Rust floors above.
+- `mise run rust:msrv`: the build at the minimum Rust version.
 - `mise run py:gate`: the XGI conformance gate.
 - `cargo deny check`: advisories, licenses and sources.
 

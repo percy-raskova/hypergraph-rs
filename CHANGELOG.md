@@ -22,7 +22,8 @@ All notable changes to this project are written here. The format follows
 - cargo-deny, CodeQL, Dependabot and a security policy (`SECURITY.md`).
 - Checks: `mise run rust:check` now also lints, tests and documents the core crate with every
   feature on, and runs `mise run rust:features`, which builds every feature alone without the
-  defaults. `mise run rust:msrv` checks two floors.
+  defaults. `mise run rust:msrv` builds the workspace, and the core crate with every feature
+  on, at the minimum Rust version.
 
 ### Changed
 
@@ -30,10 +31,10 @@ All notable changes to this project are written here. The format follows
   scanning every id, so an edge of 100,000 members took billions of comparisons to read. A
   reverse map, kept in step with the forward one, replaces the scan. The order of the ids is
   the same as before.
-- The dependencies are updated to the latest versions the minimum Rust version allows. The
-  workspace uses resolver 3, so `cargo update` keeps the lockfile under that floor. `sprs` is
-  held at 0.11.4 (0.11.5 and later need Rust 1.88) and `ordered-float` at 5.4.0 (5.5.1 needs
-  Rust 1.90).
+- Everything is raised to its newest version: every crate (among them PyO3 and rust-numpy
+  0.30, h3o 0.11 and sprs 0.11.6), the pinned toolchain (Rust 1.100.0), and the Python that
+  the conformance gate runs on in CI (3.14). The code is changed where the newer lints asked.
+- The stub CLI and WASM crates no longer declare dependencies they do not use.
 - The yanked `chacha20` is replaced.
 - The package address is now https://github.com/percy-raskova/hypergraph-rs, and the
   `homepage` entry is gone.
@@ -47,9 +48,11 @@ All notable changes to this project are written here. The format follows
 
 ### Rust version
 
-- The minimum Rust version stays 1.85 for the workspace and for every feature of the core
-  crate except `cells3d` and `raster-png`. Those two need Rust 1.87, because they use `h3o`,
-  and `h3o` 0.10 needs it. That was already so in 0.1.0; it is now checked and written down.
+- The minimum Rust version is now 1.90, up from 1.85. It is the lowest version the newest
+  dependencies allow, and it holds for the workspace and for every feature.
+- In 0.1.0 the floor of 1.85 did not hold for `cells3d` and `raster-png`: `h3o` 0.10 needed
+  Rust 1.87, and nothing checked it. `mise run rust:msrv` now builds every feature at the
+  floor.
 
 ## [0.1.0]
 

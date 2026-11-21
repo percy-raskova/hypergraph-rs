@@ -13,7 +13,7 @@
 # NO publishing of any kind — PyPI is an owner decision (plans/EXECUTION-STATE.md).
 
 [build-system]
-requires = ["maturin>=1.14,<2.0"]
+requires = ["maturin>=1.16,<2.0"]
 build-backend = "maturin"
 
 [project]

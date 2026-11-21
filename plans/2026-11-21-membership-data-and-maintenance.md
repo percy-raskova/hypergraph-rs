@@ -296,3 +296,24 @@ pub fn add_node_to_edge_with_data(&mut self, edge_id: &str, node_id: &str, role:
 - [ ] **Step 6: Every gate:** the scoped gate, `cargo package -p hypergraph-rs --locked`,
   `mise run rust:msrv`. Expected: all pass.
 - [ ] **Step 7: Commit:** `docs: make the crate usable on its own (0.2.0)`.
+
+### Task 5: everything at its newest version
+
+Added after the owner's instruction, given while Task 4 was building: raise everything to the
+most up to date version, because of the security fixes released since July. It replaces Task
+3's rule of holding a crate back for the minimum Rust version.
+
+- The pinned toolchain goes to the newest stable Rust (1.100.0), and what its lints find is
+  fixed.
+- Every crate goes to its newest version, new major versions included (PyO3 and rust-numpy
+  0.30, h3o 0.11), and the two crates Task 3 held back are released (sprs, ordered-float).
+- `rust-version` becomes the lowest version at which the workspace and every feature build
+  with those crates: 1.90. `mise run rust:msrv` checks one floor again.
+- The Dependabot entry that held sprs back goes. Resolver 2 returns, so that an update takes
+  the newest crate and the floor check says when the floor must rise.
+- A dependency that nothing uses is removed (rayon; clap and the core crate in the two stub
+  crates): the newest Cargo reports them.
+- CI's Python goes to 3.14, on which the conformance gate passes unchanged.
+- Not raised: the XGI version the conformance gate measures against (0.10.2). It is the
+  specification of the port and is installed only in the test environment. XGI is at 1.1
+  now; following it means porting what changed upstream, which is a piece of work of its own.

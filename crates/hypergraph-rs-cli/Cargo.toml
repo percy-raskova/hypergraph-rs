@@ -11,7 +11,10 @@ description = "CLI for hypergraph-rs"
 [[bin]]
 name = "hypergraph-rs"
 path = "src/main.rs"
+# The binary shares its name with the library, so documenting both writes
+# the same file twice. The library's docs are the ones to keep.
+doc = false
 
+# The stub uses no crate yet, and Cargo reports a dependency that nothing
+# uses. The command surface brings hypergraph-rs and clap back with it.
 [dependencies]
-hypergraph-rs = { path = "../hypergraph-rs", version = "0.2.0" }
-clap = { version = "4", features = ["derive"] }

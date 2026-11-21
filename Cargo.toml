@@ -5,15 +5,15 @@ members = [
     "crates/hypergraph-rs-wasm",
     "crates/hypergraph-rs-cli",
 ]
-# Resolver 3 is resolver 2 plus one thing: `cargo update` prefers versions whose
-# own `rust-version` fits the floor declared below, so a routine update cannot
-# move the lockfile past it.
-resolver = "3"
+# Resolver 2 on purpose. An update takes the newest version of every crate. If
+# one needs a newer Rust than `rust-version` below, the floor check fails and
+# the floor is raised; resolver 3 would hold that crate back without a word.
+resolver = "2"
 
 [workspace.package]
 version = "0.2.0"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.90"
 license = "BSD-3-Clause"
 authors = ["Persephone Raskova <percy@percypedia.biz>"]
 repository = "https://github.com/percy-raskova/hypergraph-rs"
@@ -35,8 +35,7 @@ thiserror = "2"
 rand = "0.10.2"
 rand_pcg = "0.10.2"
 rand_core = "0.10.1"
-rayon = "1"
 ndarray = "0.17"
 sprs = "0.11"
-h3o = { version = "0.10", default-features = false }
+h3o = { version = "0.11", default-features = false }
 png = "0.18"
