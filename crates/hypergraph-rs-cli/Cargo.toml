@@ -6,7 +6,6 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-homepage.workspace = true
 description = "CLI for hypergraph-rs"
 
 [[bin]]
@@ -14,5 +13,5 @@ name = "hypergraph-rs"
 path = "src/main.rs"
 
 [dependencies]
-hypergraph-rs = { path = "../hypergraph-rs" }
+hypergraph-rs = { path = "../hypergraph-rs", version = "0.2.0" }
 clap = { version = "4", features = ["derive"] }

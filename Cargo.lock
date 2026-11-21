@@ -330,7 +330,7 @@ checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
 
 [[package]]
 name = "hypergraph-rs"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "h3o",
  "indexmap",
@@ -348,7 +348,7 @@ dependencies = [
 
 [[package]]
 name = "hypergraph-rs-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "hypergraph-rs",
@@ -356,7 +356,7 @@ dependencies = [
 
 [[package]]
 name = "hypergraph-rs-python"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "hypergraph-rs",
@@ -371,7 +371,7 @@ dependencies = [
 
 [[package]]
 name = "hypergraph-rs-wasm"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hypergraph-rs",
  "wasm-bindgen",
