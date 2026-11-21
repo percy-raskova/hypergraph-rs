@@ -61,8 +61,8 @@
 //! read and written with `member_data`, `set_member_data`, `members_with_data` and
 //! `add_node_to_edge_with_data` (on [`DiHypergraph`], `member_data`, `set_member_data` and
 //! `add_node_to_edge_with_data` also take the role, and `dimembers_with_data` lists the tail
-//! and the head together). A new membership carries `M::default()`. The XGI-compatible formats, the Python
-//! package and the WASM bindings do not carry the value.
+//! and the head together). A new membership carries `M::default()`. The XGI-compatible
+//! formats, the Python package and the WASM bindings do not carry the value.
 //!
 //! ```
 //! use hypergraph_rs::Hypergraph;
