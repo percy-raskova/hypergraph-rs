@@ -7,12 +7,12 @@
 //! (dihypergraph.py). Note XGI's `DiHypergraph` is NOT a subclass of
 //! `Hypergraph`, and neither is this.
 
-use indexmap::IndexMap;
 use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use rustworkx_core::petgraph::visit::EdgeRef;
 use rustworkx_core::petgraph::Direction;
 
 use super::error::{EdgeError, MembershipError, NodeError};
+use super::idmap::IdMap;
 use super::kinds::{DiMembershipEdge, DiRole, NodeKind};
 
 /// Deduplicate a Vec of ids, preserving first-seen order.
@@ -34,8 +34,8 @@ pub struct DiHypergraph<N = serde_json::Value, E = serde_json::Value, M = serde_
     /// Bipartite substrate. All membership edges are Agent -> Hyperedge with a
     /// DiRole flag. StableDiGraph preserves insertion order under removal.
     inner: StableDiGraph<NodeKind<N, E>, DiMembershipEdge<M>>,
-    agent_ids: IndexMap<String, NodeIndex>,
-    hyperedge_ids: IndexMap<String, NodeIndex>,
+    agent_ids: IdMap,
+    hyperedge_ids: IdMap,
     edge_uid_counter: u64,
     graph_attrs: serde_json::Map<String, serde_json::Value>,
     frozen: bool,
@@ -52,8 +52,8 @@ impl<N, E, M> DiHypergraph<N, E, M> {
     pub fn new() -> Self {
         Self {
             inner: StableDiGraph::new(),
-            agent_ids: IndexMap::new(),
-            hyperedge_ids: IndexMap::new(),
+            agent_ids: IdMap::new(),
+            hyperedge_ids: IdMap::new(),
             edge_uid_counter: 0,
             graph_attrs: serde_json::Map::new(),
             frozen: false,
@@ -228,20 +228,14 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         self.hyperedge_ids.keys().cloned().collect()
     }
 
-    /// Map a hyperedge NodeIndex back to its id (linear scan, Phase 1 pattern).
+    /// Map a hyperedge NodeIndex back to its id, in constant time.
     fn edge_id_of(&self, idx: NodeIndex) -> Option<String> {
-        self.hyperedge_ids
-            .iter()
-            .find(|(_, &i)| i == idx)
-            .map(|(k, _)| k.clone())
+        self.hyperedge_ids.id_of(idx).map(str::to_string)
     }
 
-    /// Map an agent NodeIndex back to its id (linear scan, Phase 1 pattern).
+    /// Map an agent NodeIndex back to its id, in constant time.
     fn node_id_of(&self, idx: NodeIndex) -> Option<String> {
-        self.agent_ids
-            .iter()
-            .find(|(_, &i)| i == idx)
-            .map(|(k, _)| k.clone())
+        self.agent_ids.id_of(idx).map(str::to_string)
     }
 
     /// (tail, head) node ids of an edge, in membership-add order (D5 owner

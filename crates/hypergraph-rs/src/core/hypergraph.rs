@@ -1,6 +1,5 @@
 //! The core `Hypergraph` data structure.
 
-use indexmap::IndexMap;
 #[cfg(feature = "generators")]
 use rand::RngExt;
 #[cfg(feature = "generators")]
@@ -13,6 +12,7 @@ use rustworkx_core::petgraph::visit::NodeIndexable;
 use serde_json::Value;
 
 use super::error::{EdgeError, MembershipError, NodeError, SwapError};
+use super::idmap::IdMap;
 use super::kinds::{MembershipEdge, NodeKind};
 
 /// A hypergraph, represented as a bipartite graph.
@@ -35,10 +35,10 @@ pub struct Hypergraph<N = serde_json::Value, E = serde_json::Value, M = serde_js
     inner: StableDiGraph<NodeKind<N, E>, MembershipEdge<M>>,
 
     /// Insertion-ordered bimap: agent_id -> NodeIndex in `inner`.
-    agent_ids: IndexMap<String, NodeIndex>,
+    agent_ids: IdMap,
 
     /// Insertion-ordered bimap: edge_id -> NodeIndex in `inner`.
-    hyperedge_ids: IndexMap<String, NodeIndex>,
+    hyperedge_ids: IdMap,
 
     /// Auto-incrementing counter for edges added without an explicit `idx`.
     edge_uid_counter: u64,
@@ -81,8 +81,8 @@ impl<N, E, M> Hypergraph<N, E, M> {
     pub fn new() -> Self {
         Self {
             inner: StableDiGraph::new(),
-            agent_ids: IndexMap::new(),
-            hyperedge_ids: IndexMap::new(),
+            agent_ids: IdMap::new(),
+            hyperedge_ids: IdMap::new(),
             edge_uid_counter: 0,
             graph_attrs: serde_json::Map::new(),
             frozen: false,
@@ -260,11 +260,8 @@ impl<N, E, M> Hypergraph<N, E, M> {
         let mut result: Vec<String> = Vec::new();
         for neighbor_idx in neighbor_idxs {
             if let Some(NodeKind::Hyperedge(_)) = self.inner.node_weight(neighbor_idx) {
-                for (eid, &idx) in &self.hyperedge_ids {
-                    if idx == neighbor_idx {
-                        result.push(eid.clone());
-                        break;
-                    }
+                if let Some(eid) = self.hyperedge_ids.id_of(neighbor_idx) {
+                    result.push(eid.to_string());
                 }
             }
         }
@@ -281,11 +278,8 @@ impl<N, E, M> Hypergraph<N, E, M> {
         let mut result: Vec<String> = Vec::new();
         for neighbor_idx in neighbor_idxs {
             if let Some(NodeKind::Agent(_)) = self.inner.node_weight(neighbor_idx) {
-                for (nid, &idx) in &self.agent_ids {
-                    if idx == neighbor_idx {
-                        result.push(nid.clone());
-                        break;
-                    }
+                if let Some(nid) = self.agent_ids.id_of(neighbor_idx) {
+                    result.push(nid.to_string());
                 }
             }
         }
@@ -851,7 +845,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
     pub fn skeleton(&self) -> UnGraph<String, f64> {
         let mut g = UnGraph::<String, f64>::new_undirected();
         let node_ids = self.node_ids();
-        let mut idx_of: IndexMap<String, GraphNodeIndex> = IndexMap::new();
+        let mut idx_of: indexmap::IndexMap<String, GraphNodeIndex> = indexmap::IndexMap::new();
         for n in &node_ids {
             let ix = g.add_node(n.clone());
             idx_of.insert(n.clone(), ix);
