@@ -634,10 +634,18 @@ impl<N, E, M> Hypergraph<N, E, M> {
         let mut result = Vec::new();
         for neighbor_idx in neighbor_idxs {
             if let Some(NodeKind::Agent(_)) = self.inner.node_weight(neighbor_idx) {
-                let id = self.agent_ids.id_of(neighbor_idx)?;
-                let edge = self.inner.find_edge(neighbor_idx, he_idx)?;
-                let data = &self.inner.edge_weight(edge)?.member_data;
-                result.push((id.to_string(), data));
+                // A neighbour that cannot be resolved is skipped, exactly as
+                // `members()` skips it, so the two listings never disagree.
+                let Some(id) = self.agent_ids.id_of(neighbor_idx) else {
+                    continue;
+                };
+                let Some(edge) = self.inner.find_edge(neighbor_idx, he_idx) else {
+                    continue;
+                };
+                let Some(weight) = self.inner.edge_weight(edge) else {
+                    continue;
+                };
+                result.push((id.to_string(), &weight.member_data));
             }
         }
         Some(result)
