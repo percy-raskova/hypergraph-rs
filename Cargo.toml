@@ -5,7 +5,10 @@ members = [
     "crates/hypergraph-rs-wasm",
     "crates/hypergraph-rs-cli",
 ]
-resolver = "2"
+# Resolver 3 is resolver 2 plus one thing: `cargo update` prefers versions whose
+# own `rust-version` fits the floor declared below, so a routine update cannot
+# move the lockfile past it.
+resolver = "3"
 
 [workspace.package]
 version = "0.1.0"
