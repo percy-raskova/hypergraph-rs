@@ -6,12 +6,13 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-homepage.workspace = true
+publish = false
 description = "WASM bindings for hypergraph-rs"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# The stub does not call the core crate yet, and Cargo reports a dependency
+# that nothing uses. The real surface brings hypergraph-rs back with it.
 [dependencies]
-hypergraph-rs = { path = "../hypergraph-rs" }
 wasm-bindgen = "0.2"

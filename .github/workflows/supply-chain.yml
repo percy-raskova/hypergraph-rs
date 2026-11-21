@@ -1,0 +1,42 @@
+name: Supply chain
+
+# cargo-deny reads deny.toml and checks the whole dependency graph:
+#   advisories — RustSec advisories and yanked crates;
+#   bans       — duplicate versions and wildcard requirements;
+#   licenses   — every crate's license against the allow list;
+#   sources    — crates.io only, no unknown registries or git sources.
+# It runs on every change, and weekly, because a new advisory lands without
+# any change in this repository.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cargo-deny:
+    name: cargo-deny (${{ matrix.checks }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        checks:
+          - advisories
+          - bans licenses sources
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: EmbarkStudios/cargo-deny-action@17aeb3c839e42274e2b8adf721c8c65edfdc74dd # v2
+        with:
+          command: check ${{ matrix.checks }}

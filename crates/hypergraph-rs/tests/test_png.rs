@@ -53,8 +53,10 @@ fn test_png_decodes_back_to_exact_pixelbuffer() {
     let bytes = &buf[..info.buffer_size()];
 
     let decoded: Vec<Rgb> = bytes
-        .chunks_exact(3)
-        .map(|c| Rgb(c[0], c[1], c[2]))
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .map(|&[r, g, b]| Rgb(r, g, b))
         .collect();
     assert_eq!(decoded, pb.px);
 }

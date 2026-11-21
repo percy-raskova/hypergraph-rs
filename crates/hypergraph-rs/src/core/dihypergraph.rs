@@ -7,12 +7,12 @@
 //! (dihypergraph.py). Note XGI's `DiHypergraph` is NOT a subclass of
 //! `Hypergraph`, and neither is this.
 
-use indexmap::IndexMap;
-use rustworkx_core::petgraph::stable_graph::{NodeIndex, StableDiGraph};
+use rustworkx_core::petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
 use rustworkx_core::petgraph::visit::EdgeRef;
 use rustworkx_core::petgraph::Direction;
 
 use super::error::{EdgeError, MembershipError, NodeError};
+use super::idmap::IdMap;
 use super::kinds::{DiMembershipEdge, DiRole, NodeKind};
 
 /// Deduplicate a Vec of ids, preserving first-seen order.
@@ -34,8 +34,8 @@ pub struct DiHypergraph<N = serde_json::Value, E = serde_json::Value, M = serde_
     /// Bipartite substrate. All membership edges are Agent -> Hyperedge with a
     /// DiRole flag. StableDiGraph preserves insertion order under removal.
     inner: StableDiGraph<NodeKind<N, E>, DiMembershipEdge<M>>,
-    agent_ids: IndexMap<String, NodeIndex>,
-    hyperedge_ids: IndexMap<String, NodeIndex>,
+    agent_ids: IdMap,
+    hyperedge_ids: IdMap,
     edge_uid_counter: u64,
     graph_attrs: serde_json::Map<String, serde_json::Value>,
     frozen: bool,
@@ -52,8 +52,8 @@ impl<N, E, M> DiHypergraph<N, E, M> {
     pub fn new() -> Self {
         Self {
             inner: StableDiGraph::new(),
-            agent_ids: IndexMap::new(),
-            hyperedge_ids: IndexMap::new(),
+            agent_ids: IdMap::new(),
+            hyperedge_ids: IdMap::new(),
             edge_uid_counter: 0,
             graph_attrs: serde_json::Map::new(),
             frozen: false,
@@ -228,20 +228,14 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         self.hyperedge_ids.keys().cloned().collect()
     }
 
-    /// Map a hyperedge NodeIndex back to its id (linear scan, Phase 1 pattern).
+    /// Map a hyperedge NodeIndex back to its id, in constant time.
     fn edge_id_of(&self, idx: NodeIndex) -> Option<String> {
-        self.hyperedge_ids
-            .iter()
-            .find(|(_, &i)| i == idx)
-            .map(|(k, _)| k.clone())
+        self.hyperedge_ids.id_of(idx).map(str::to_string)
     }
 
-    /// Map an agent NodeIndex back to its id (linear scan, Phase 1 pattern).
+    /// Map an agent NodeIndex back to its id, in constant time.
     fn node_id_of(&self, idx: NodeIndex) -> Option<String> {
-        self.agent_ids
-            .iter()
-            .find(|(_, &i)| i == idx)
-            .map(|(k, _)| k.clone())
+        self.agent_ids.id_of(idx).map(str::to_string)
     }
 
     /// (tail, head) node ids of an edge, in membership-add order (D5 owner
@@ -423,6 +417,183 @@ impl<N, E, M> DiHypergraph<N, E, M> {
                     role,
                 },
             );
+        }
+        Ok(())
+    }
+
+    /// Find the stored membership edge of `node_id` in `edge_id` with `role`,
+    /// naming what is missing.
+    fn resolve_membership(
+        &self,
+        edge_id: &str,
+        node_id: &str,
+        role: DiRole,
+    ) -> Result<EdgeIndex, MembershipError> {
+        let he = *self
+            .hyperedge_ids
+            .get(edge_id)
+            .ok_or_else(|| MembershipError::EdgeNotFound {
+                edge_id: edge_id.to_string(),
+            })?;
+        let a = *self
+            .agent_ids
+            .get(node_id)
+            .ok_or_else(|| MembershipError::NodeNotFound {
+                node_id: node_id.to_string(),
+            })?;
+        self.inner
+            .edges_directed(he, Direction::Incoming)
+            .find(|er| er.source() == a && er.weight().role == role)
+            .map(|er| er.id())
+            .ok_or_else(|| MembershipError::NotAMember {
+                node_id: node_id.to_string(),
+                edge_id: edge_id.to_string(),
+            })
+    }
+
+    /// The value the membership of `node_id` in `edge_id` in the given role
+    /// carries. `None` when the edge or the node does not exist, or the node
+    /// is not in that role of the edge. A node in both the tail and the head
+    /// has two memberships with separate values.
+    ///
+    /// A membership made by any constructor carries `M::default()` until a
+    /// value is written. XGI has no value on a membership, so the
+    /// XGI-compatible formats do not carry it.
+    ///
+    /// ```
+    /// use hypergraph_rs::{DiHypergraph, DiRole};
+    ///
+    /// let mut d: DiHypergraph<(), (), u64> = DiHypergraph::new();
+    /// d.add_edge(vec!["x".into()], vec!["y".into()], Some("e".into()), ()).unwrap();
+    /// assert_eq!(d.member_data("e", "x", DiRole::Tail), Some(&0));
+    /// assert_eq!(d.member_data("e", "x", DiRole::Head), None);
+    /// ```
+    pub fn member_data(&self, edge_id: &str, node_id: &str, role: DiRole) -> Option<&M> {
+        let e = self.resolve_membership(edge_id, node_id, role).ok()?;
+        self.inner.edge_weight(e).map(|m| &m.member_data)
+    }
+
+    /// Replace that value. Refuses an unknown edge, an unknown node, and a
+    /// node that is not in that role of the edge. Panics on a frozen
+    /// directed hypergraph, like every mutator.
+    ///
+    /// ```
+    /// use hypergraph_rs::{DiHypergraph, DiRole};
+    ///
+    /// let mut d: DiHypergraph<(), (), u64> = DiHypergraph::new();
+    /// d.add_edge(vec!["x".into()], vec!["y".into()], Some("e".into()), ()).unwrap();
+    /// d.set_member_data("e", "x", DiRole::Tail, 3).unwrap();
+    /// assert_eq!(d.member_data("e", "x", DiRole::Tail), Some(&3));
+    /// assert!(d.set_member_data("e", "x", DiRole::Head, 3).is_err());
+    /// ```
+    pub fn set_member_data(
+        &mut self,
+        edge_id: &str,
+        node_id: &str,
+        role: DiRole,
+        data: M,
+    ) -> Result<(), MembershipError> {
+        self.assert_not_frozen();
+        let e = self.resolve_membership(edge_id, node_id, role)?;
+        if let Some(w) = self.inner.edge_weight_mut(e) {
+            w.member_data = data;
+        }
+        Ok(())
+    }
+
+    /// (tail with values, head with values), each in the order of
+    /// [`Self::dimembers`]. `None` when the edge does not exist.
+    ///
+    /// ```
+    /// use hypergraph_rs::{DiHypergraph, DiRole};
+    ///
+    /// let mut d: DiHypergraph<(), (), u64> = DiHypergraph::new();
+    /// d.add_edge(vec!["x".into()], vec!["y".into()], Some("e".into()), ()).unwrap();
+    /// d.set_member_data("e", "y", DiRole::Head, 4).unwrap();
+    /// assert_eq!(
+    ///     d.dimembers_with_data("e"),
+    ///     Some((vec![("x".to_string(), &0)], vec![("y".to_string(), &4)]))
+    /// );
+    /// ```
+    #[allow(clippy::type_complexity)]
+    pub fn dimembers_with_data(
+        &self,
+        edge_id: &str,
+    ) -> Option<(Vec<(String, &M)>, Vec<(String, &M)>)> {
+        let he = *self.hyperedge_ids.get(edge_id)?;
+        let mut incoming: Vec<_> = self.inner.edges_directed(he, Direction::Incoming).collect();
+        incoming.reverse();
+        let mut tail = Vec::new();
+        let mut head = Vec::new();
+        for er in incoming {
+            if let Some(nid) = self.node_id_of(er.source()) {
+                let entry = (nid, &er.weight().member_data);
+                match er.weight().role {
+                    DiRole::Tail => tail.push(entry),
+                    DiRole::Head => head.push(entry),
+                }
+            }
+        }
+        Some((tail, head))
+    }
+
+    /// [`Self::add_node_to_edge`], with the value the new membership carries.
+    /// Auto-creates the edge and the node if missing. If the node is already
+    /// in that role of the edge, its value is replaced.
+    ///
+    /// ```
+    /// use hypergraph_rs::{DiHypergraph, DiRole};
+    ///
+    /// let mut d: DiHypergraph<(), (), u64> = DiHypergraph::new();
+    /// d.add_node_to_edge_with_data("e", "a", DiRole::Head, 5).unwrap();
+    /// d.add_node_to_edge_with_data("e", "a", DiRole::Head, 9).unwrap();
+    /// assert_eq!(d.member_data("e", "a", DiRole::Head), Some(&9));
+    /// ```
+    pub fn add_node_to_edge_with_data(
+        &mut self,
+        edge_id: &str,
+        node_id: &str,
+        role: DiRole,
+        data: M,
+    ) -> Result<(), EdgeError>
+    where
+        N: Default,
+        E: Default,
+    {
+        self.assert_not_frozen();
+        if !self.hyperedge_ids.contains_key(edge_id) {
+            let he = self.inner.add_node(NodeKind::Hyperedge(E::default()));
+            self.hyperedge_ids.insert(edge_id.to_string(), he);
+            if let Ok(n) = edge_id.parse::<u64>() {
+                if n >= self.edge_uid_counter {
+                    self.edge_uid_counter = n + 1;
+                }
+            }
+        }
+        self.ensure_agent(node_id);
+        let a = self.agent_ids[node_id];
+        let he = self.hyperedge_ids[edge_id];
+        let existing = self
+            .inner
+            .edges_directed(he, Direction::Incoming)
+            .find(|er| er.source() == a && er.weight().role == role)
+            .map(|er| er.id());
+        match existing {
+            Some(e) => {
+                if let Some(w) = self.inner.edge_weight_mut(e) {
+                    w.member_data = data;
+                }
+            }
+            None => {
+                self.inner.add_edge(
+                    a,
+                    he,
+                    DiMembershipEdge {
+                        member_data: data,
+                        role,
+                    },
+                );
+            }
         }
         Ok(())
     }

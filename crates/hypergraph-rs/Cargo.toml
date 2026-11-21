@@ -6,8 +6,11 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-homepage.workspace = true
-description = "A Rust port of XGI — hypergraph library built on rustworkx-core"
+description = "Hypergraphs for Rust: a port of XGI built on rustworkx-core, with a value on every membership"
+readme = "../../README.md"
+documentation = "https://docs.rs/hypergraph-rs"
+keywords = ["hypergraph", "graph", "network", "higher-order", "simplicial"]
+categories = ["data-structures", "science", "mathematics"]
 
 [dependencies]
 rustworkx-core.workspace = true
@@ -39,3 +42,6 @@ network = []
 raster = ["viz", "algorithms"]
 cells3d = ["raster", "communities", "dep:h3o"]
 raster-png = ["cells3d", "dep:png"]
+
+[package.metadata.docs.rs]
+all-features = true

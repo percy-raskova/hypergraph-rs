@@ -96,13 +96,9 @@ impl CellGrid {
         if cols == 0 {
             return;
         }
-        let mut i = row as usize * cols + col as usize;
-        for ch in text.chars() {
-            if i >= self.cells.len() {
-                return;
-            }
-            self.cells[i] = Cell { ch, fg, bg };
-            i += 1;
+        let start = row as usize * cols + col as usize;
+        for (cell, ch) in self.cells.iter_mut().skip(start).zip(text.chars()) {
+            *cell = Cell { ch, fg, bg };
         }
     }
 

@@ -1,0 +1,36 @@
+# Dependabot keeps the Rust dependencies and the pinned workflow actions
+# current. Security updates are raised at once; version updates come weekly.
+# Compatible (minor and patch) Rust updates arrive as one pull request, a new
+# major version as its own, because a major version usually needs code changes.
+#
+# The Python side has no pinned dependencies to update: the package declares
+# lower bounds only, and the XGI test oracle is pinned on purpose in the
+# conformance job.
+
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      rust-compatible:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(ci)"

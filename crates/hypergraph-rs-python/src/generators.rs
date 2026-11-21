@@ -102,7 +102,7 @@ fn ring_lattice(py: Python<'_>, n: usize, d: usize, k: i64, l: usize) -> PyResul
             "warn",
             ("This creates a completely disconnected hypergraph!",),
         )?;
-    } else if k % 2 != 0 {
+    } else if !k.is_multiple_of(2) {
         py.import("warnings")?
             .call_method1("warn", ("k should be a multiple of 2.",))?;
     }

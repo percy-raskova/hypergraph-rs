@@ -7,6 +7,6 @@
 # (`mise run rust:check`), commit. The MSRV floor lives in
 # Cargo.toml's rust-version and is tested by `mise run rust:msrv`.
 [toolchain]
-channel = "1.91.1"
+channel = "1.100.0"
 components = ["rustfmt", "clippy"]
 targets = ["wasm32-unknown-unknown"]

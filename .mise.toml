@@ -4,9 +4,10 @@
 # which now lives here): one invocation source of truth, CI runs what devs run,
 # loud failure, pinned everything.
 #
-# Toolchain: rust-toolchain.toml pins 1.91.1 (rustup selects it by cwd
+# Toolchain: rust-toolchain.toml pins 1.100.0 (rustup selects it by cwd
 # ancestry; a nix-provided cargo of the same version satisfies the pin
-# without rustup). MSRV floor 1.85 lives in Cargo.toml rust-version.
+# without rustup). The MSRV floor lives in Cargo.toml rust-version and covers
+# every feature; rust:msrv checks it.
 #
 # NOTE rust:fixtures regenerates crates/hypergraph-rs/conformance/xgi_ground_truth.json
 # from the live XGI 0.10.2 oracle in .venv (read-only reference install — NEVER
@@ -22,6 +23,31 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --locked
+# The core crate again with every feature on. `network`, `cells3d` and
+# `raster-png` are in no binding, so the workspace legs above never build them
+# and never run their tests.
+cargo clippy -p hypergraph-rs --all-features --all-targets --locked -- -D warnings
+cargo test -p hypergraph-rs --all-features --locked
+RUSTDOCFLAGS='-D warnings' cargo doc -p hypergraph-rs --all-features --no-deps --locked
+mise run rust:features
+"""
+
+[tasks."rust:features"]
+description = "Every feature of the core crate builds on its own, without the defaults: what a consumer with default-features = false gets. Part of rust:check."
+run = """
+set -e
+cargo check -p hypergraph-rs --no-default-features --locked
+FEATURES=$(cargo metadata --no-deps --format-version 1 --locked | python3 -c '
+import json, sys
+for package in json.load(sys.stdin)[\"packages\"]:
+    if package[\"name\"] == \"hypergraph-rs\":
+        print(\" \".join(sorted(f for f in package[\"features\"] if f != \"default\")))
+')
+test -n "$FEATURES"
+for feature in $FEATURES; do
+  echo "feature alone: $feature"
+  cargo check -p hypergraph-rs --no-default-features --features "$feature" --locked
+done
 """
 
 [tasks."rust:format"]
@@ -49,13 +75,17 @@ description = "Regenerate the XGI conformance fixture from the live XGI 0.10.2 o
 run = ".venv/bin/python crates/hypergraph-rs/conformance/generate_fixtures.py"
 
 [tasks."rust:msrv"]
-description = "MSRV floor check against the rust-version declared in Cargo.toml (currently 1.85)"
+description = "MSRV floor check against the rust-version declared in Cargo.toml: the workspace, then the core crate with every feature on"
 run = """
 set -e
 MSRV=$(grep '^rust-version' Cargo.toml | cut -d'"' -f2)
 echo "MSRV floor: $MSRV"
 rustup toolchain install "$MSRV" --profile minimal
 cargo +"$MSRV" check --workspace --locked
+# The workspace leg builds only the features a binding turns on. `network`,
+# `cells3d` and `raster-png` are in no binding, so the core crate is built
+# once more with every feature.
+cargo +"$MSRV" check -p hypergraph-rs --locked --all-features
 """
 
 [tasks."py:build"]
