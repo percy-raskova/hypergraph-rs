@@ -59,8 +59,9 @@
 //! A membership is the fact that one node belongs to one edge. XGI has no value on a
 //! membership. The membership value is this crate's own addition: the third type parameter,
 //! read and written with `member_data`, `set_member_data`, `members_with_data` and
-//! `add_node_to_edge_with_data` (and the same four on [`DiHypergraph`], which also take the
-//! role). A new membership carries `M::default()`. The XGI-compatible formats, the Python
+//! `add_node_to_edge_with_data` (on [`DiHypergraph`], `member_data`, `set_member_data` and
+//! `add_node_to_edge_with_data` also take the role, and `dimembers_with_data` lists the tail
+//! and the head together). A new membership carries `M::default()`. The XGI-compatible formats, the Python
 //! package and the WASM bindings do not carry the value.
 //!
 //! ```

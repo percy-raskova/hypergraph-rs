@@ -116,8 +116,9 @@ assert_eq!(h.member_data("union", "teachers"), Some(&40));
 assert_eq!(h.members_with_data("union").unwrap(), [("teachers".to_string(), &40)]);
 ```
 
-`DiHypergraph` has the same four methods, each taking the role (`DiRole::Tail` or
-`DiRole::Head`) as well. The XGI-compatible formats, the Python package and the WASM bindings
+On `DiHypergraph`, `member_data`, `set_member_data` and `add_node_to_edge_with_data` also take
+the role (`DiRole::Tail` or `DiRole::Head`), and `dimembers_with_data(edge_id)` returns the tail
+and the head lists together. The XGI-compatible formats, the Python package and the WASM bindings
 do not carry the value. See `cargo run -p hypergraph-rs --example membership_data`.
 
 ## Python

@@ -9,8 +9,10 @@ All notable changes to this project are written here. The format follows
 ### Added
 
 - A value on every membership. `Hypergraph` has `member_data`, `set_member_data`,
-  `members_with_data` and `add_node_to_edge_with_data`. `DiHypergraph` has the same four, each
-  taking the role (`DiRole::Tail` or `DiRole::Head`). A new membership carries `M::default()`;
+  `members_with_data` (in the same order as `members()`) and `add_node_to_edge_with_data`.
+  `DiHypergraph` has `member_data`, `set_member_data` and `add_node_to_edge_with_data`, which
+  take the role (`DiRole::Tail` or `DiRole::Head`), and `dimembers_with_data`, which returns the
+  tail and the head together. A new membership carries `M::default()`;
   a member that leaves and comes back starts from it again. XGI has no value on a membership,
   so the XGI-compatible formats, the Python package and the WASM bindings do not carry it.
 - Runnable examples: `quickstart` and `membership_data`.
@@ -39,7 +41,6 @@ All notable changes to this project are written here. The format follows
 
 ### Fixed
 
-- `members_with_data` lists members in the same order as `members()`.
 - The documentation of `EdgeError::EmptyMembers` no longer claims the opposite of what the
   code does.
 - The conformance jobs in CI work, and every action is pinned to a full commit.

@@ -80,7 +80,7 @@ crate carries the license text. If you change one, change the other.
 
 The history uses a short summary in the form `type(scope): what changed`, in the present tense
 and with no full stop. The types in use are `feat`, `fix`, `perf`, `refactor`, `docs`, `test`,
-`chore` and `ci`. The scope is the area, such as `core`, `deps` or `compat`. The body, when
+`build`, `chore` and `ci`. The scope is the area, such as `core`, `deps` or `compat`. The body, when
 there is one, says what changed and why, in plain sentences. Make one commit for each unit of
 work, and make sure the checks pass for it.
 
