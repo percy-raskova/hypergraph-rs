@@ -264,7 +264,8 @@ pub fn add_node_to_edge_with_data(&mut self, edge_id: &str, node_id: &str, role:
 
 **Decisions (the lead's, for the owner to check):**
 - `repository` becomes `https://github.com/percy-raskova/hypergraph-rs`, where the code is. The
-  address there today does not exist. `homepage` is removed unless the address it names answers.
+  address there today does not exist. `homepage` is removed, with the comment above it: the mirror
+  it names could not be confirmed, and the owner can restore it when the mirror exists.
 - Version `0.2.0` for the workspace: the API grew.
 - The core crate must pack: `cargo package -p hypergraph-rs --locked` passes. The Python and WASM
   binding crates are marked `publish = false`. The path dependencies on the core crate also name its
