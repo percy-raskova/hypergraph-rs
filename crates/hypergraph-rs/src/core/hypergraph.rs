@@ -497,22 +497,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
         M: Default + Clone,
     {
         self.assert_not_frozen();
-        // Auto-create edge if missing
-        if !self.hyperedge_ids.contains_key(edge_id) {
-            let he_idx = self.inner.add_node(NodeKind::Hyperedge(E::default()));
-            self.hyperedge_ids.insert(edge_id.to_string(), he_idx);
-            // Update uid counter if edge_id is numeric
-            if let Ok(n) = edge_id.parse::<u64>() {
-                if n >= self.edge_uid_counter {
-                    self.edge_uid_counter = n + 1;
-                }
-            }
-        }
-        // Auto-create node if missing
-        if !self.agent_ids.contains_key(node_id) {
-            let nidx = self.inner.add_node(NodeKind::Agent(N::default()));
-            self.agent_ids.insert(node_id.to_string(), nidx);
-        }
+        self.ensure_edge_and_node(edge_id, node_id);
         // Add the membership edges (both directions for undirected)
         let agent_idx = self.agent_ids[node_id];
         let he_idx = self.hyperedge_ids[edge_id];
@@ -525,6 +510,199 @@ impl<N, E, M> Hypergraph<N, E, M> {
             self.inner.add_edge(he_idx, agent_idx, membership);
         }
         Ok(())
+    }
+
+    /// Look up both ends of a membership, naming what is missing.
+    fn resolve_membership(
+        &self,
+        edge_id: &str,
+        node_id: &str,
+    ) -> Result<(NodeIndex, NodeIndex), MembershipError> {
+        let he_idx =
+            *self
+                .hyperedge_ids
+                .get(edge_id)
+                .ok_or_else(|| MembershipError::EdgeNotFound {
+                    edge_id: edge_id.to_string(),
+                })?;
+        let agent_idx =
+            *self
+                .agent_ids
+                .get(node_id)
+                .ok_or_else(|| MembershipError::NodeNotFound {
+                    node_id: node_id.to_string(),
+                })?;
+        if self.inner.find_edge(agent_idx, he_idx).is_none() {
+            return Err(MembershipError::NotAMember {
+                node_id: node_id.to_string(),
+                edge_id: edge_id.to_string(),
+            });
+        }
+        Ok((agent_idx, he_idx))
+    }
+
+    /// The value the membership of `node_id` in `edge_id` carries. `None` when
+    /// the edge or the node does not exist, or the node is not a member of the
+    /// edge.
+    ///
+    /// A membership made by any constructor carries `M::default()` until a
+    /// value is written with [`Self::set_member_data`] or
+    /// [`Self::add_node_to_edge_with_data`]. XGI has no value on a membership,
+    /// so the XGI-compatible formats do not carry it.
+    ///
+    /// ```
+    /// use hypergraph_rs::Hypergraph;
+    ///
+    /// let mut h: Hypergraph<(), (), u64> = Hypergraph::new();
+    /// h.add_edge(vec!["a".into(), "b".into()], Some("e".into()), ()).unwrap();
+    /// assert_eq!(h.member_data("e", "a"), Some(&0));
+    /// assert_eq!(h.member_data("e", "nobody"), None);
+    /// ```
+    pub fn member_data(&self, edge_id: &str, node_id: &str) -> Option<&M> {
+        let (agent_idx, he_idx) = self.resolve_membership(edge_id, node_id).ok()?;
+        let edge = self.inner.find_edge(agent_idx, he_idx)?;
+        self.inner.edge_weight(edge).map(|m| &m.member_data)
+    }
+
+    /// Replace that value. Refuses an unknown edge, an unknown node, and a
+    /// node that is not a member. Both stored directions of the membership
+    /// receive the value. Panics on a frozen hypergraph, like every mutator.
+    ///
+    /// ```
+    /// use hypergraph_rs::{Hypergraph, MembershipError};
+    ///
+    /// let mut h: Hypergraph<(), (), u64> = Hypergraph::new();
+    /// h.add_edge(vec!["a".into(), "b".into()], Some("e".into()), ()).unwrap();
+    /// h.set_member_data("e", "a", 7).unwrap();
+    /// assert_eq!(h.member_data("e", "a"), Some(&7));
+    /// assert_eq!(h.member_data("e", "b"), Some(&0));
+    /// assert!(matches!(
+    ///     h.set_member_data("e", "zed", 1),
+    ///     Err(MembershipError::NodeNotFound { .. })
+    /// ));
+    /// ```
+    pub fn set_member_data(
+        &mut self,
+        edge_id: &str,
+        node_id: &str,
+        data: M,
+    ) -> Result<(), MembershipError>
+    where
+        M: Clone,
+    {
+        self.assert_not_frozen();
+        let (agent_idx, he_idx) = self.resolve_membership(edge_id, node_id)?;
+        self.write_member_data(agent_idx, he_idx, data);
+        Ok(())
+    }
+
+    /// Write `data` to both stored directions of an existing membership.
+    fn write_member_data(&mut self, agent_idx: NodeIndex, he_idx: NodeIndex, data: M)
+    where
+        M: Clone,
+    {
+        if let Some(e) = self.inner.find_edge(he_idx, agent_idx) {
+            if let Some(w) = self.inner.edge_weight_mut(e) {
+                w.member_data = data.clone();
+            }
+        }
+        if let Some(e) = self.inner.find_edge(agent_idx, he_idx) {
+            if let Some(w) = self.inner.edge_weight_mut(e) {
+                w.member_data = data;
+            }
+        }
+    }
+
+    /// The members of an edge with their values, in the order of
+    /// [`Self::members`]. `None` when the edge does not exist.
+    ///
+    /// ```
+    /// use hypergraph_rs::Hypergraph;
+    ///
+    /// let mut h: Hypergraph<(), (), u64> = Hypergraph::new();
+    /// h.add_edge(vec!["a".into(), "b".into()], Some("e".into()), ()).unwrap();
+    /// h.set_member_data("e", "b", 2).unwrap();
+    /// assert_eq!(
+    ///     h.members_with_data("e"),
+    ///     Some(vec![("a".to_string(), &0), ("b".to_string(), &2)])
+    /// );
+    /// ```
+    pub fn members_with_data(&self, edge_id: &str) -> Option<Vec<(String, &M)>> {
+        let he_idx = *self.hyperedge_ids.get(edge_id)?;
+        let mut neighbor_idxs: Vec<_> = self.inner.neighbors(he_idx).collect();
+        neighbor_idxs.reverse();
+        let mut result = Vec::new();
+        for neighbor_idx in neighbor_idxs {
+            if let Some(NodeKind::Agent(_)) = self.inner.node_weight(neighbor_idx) {
+                let id = self.agent_ids.id_of(neighbor_idx)?;
+                let edge = self.inner.find_edge(neighbor_idx, he_idx)?;
+                let data = &self.inner.edge_weight(edge)?.member_data;
+                result.push((id.to_string(), data));
+            }
+        }
+        Some(result)
+    }
+
+    /// [`Self::add_node_to_edge`], with the value the new membership carries.
+    /// Auto-creates the edge and the node if missing. If the node is already a
+    /// member, its value is replaced.
+    ///
+    /// ```
+    /// use hypergraph_rs::Hypergraph;
+    ///
+    /// let mut h: Hypergraph<(), (), u64> = Hypergraph::new();
+    /// h.add_node_to_edge_with_data("e", "a", 5).unwrap();
+    /// assert_eq!(h.member_data("e", "a"), Some(&5));
+    /// h.add_node_to_edge_with_data("e", "a", 9).unwrap();
+    /// assert_eq!(h.member_data("e", "a"), Some(&9));
+    /// ```
+    pub fn add_node_to_edge_with_data(
+        &mut self,
+        edge_id: &str,
+        node_id: &str,
+        data: M,
+    ) -> Result<(), EdgeError>
+    where
+        N: Default,
+        E: Default,
+        M: Clone,
+    {
+        self.assert_not_frozen();
+        self.ensure_edge_and_node(edge_id, node_id);
+        let agent_idx = self.agent_ids[node_id];
+        let he_idx = self.hyperedge_ids[edge_id];
+        if self.inner.find_edge(agent_idx, he_idx).is_none() {
+            let membership = MembershipEdge {
+                member_data: data.clone(),
+            };
+            self.inner.add_edge(agent_idx, he_idx, membership.clone());
+            self.inner.add_edge(he_idx, agent_idx, membership);
+        } else {
+            self.write_member_data(agent_idx, he_idx, data);
+        }
+        Ok(())
+    }
+
+    /// Create the edge and the node when missing (default attributes), and
+    /// keep the auto-id counter ahead of a numeric edge id.
+    fn ensure_edge_and_node(&mut self, edge_id: &str, node_id: &str)
+    where
+        N: Default,
+        E: Default,
+    {
+        if !self.hyperedge_ids.contains_key(edge_id) {
+            let he_idx = self.inner.add_node(NodeKind::Hyperedge(E::default()));
+            self.hyperedge_ids.insert(edge_id.to_string(), he_idx);
+            if let Ok(n) = edge_id.parse::<u64>() {
+                if n >= self.edge_uid_counter {
+                    self.edge_uid_counter = n + 1;
+                }
+            }
+        }
+        if !self.agent_ids.contains_key(node_id) {
+            let nidx = self.inner.add_node(NodeKind::Agent(N::default()));
+            self.agent_ids.insert(node_id.to_string(), nidx);
+        }
     }
 
     /// Remove a node from an existing edge.
