@@ -4,6 +4,8 @@
 //! separate the nodes above a threshold from the rest. One virtual ring of nodes around the grid is always below the
 //! threshold, so every path closes.
 
+use std::collections::HashMap;
+
 use super::{GeometryError, Point};
 
 /// A closed path: its first vertex is not repeated at the end.
@@ -34,7 +36,7 @@ impl ScalarGrid {
     /// # Errors
     ///
     /// [`GeometryError::BadParameter`] for a `cell` that is not finite and above zero, an `origin` that is not
-    /// finite, or `cols` or `rows` of zero; [`GeometryError::GridTooLarge`] when `cols * rows` overflows.
+    /// finite, or `cols` or `rows` of zero, or a `cols * rows` that overflows (named `cols`).
     pub fn zeros(
         origin: Point,
         cell: f64,
@@ -275,7 +277,8 @@ fn cell_segments(
 /// saddle is joined when the mean of its four corners is above `threshold`.
 ///
 /// Each path has the inside on its left: outer boundaries run counter-clockwise (positive [`signed_area`]), holes
-/// clockwise. No vertex repeats (a node outside the line that holds exactly `threshold` is one vertex) and no path has fewer than three vertices or zero area. Paths start at the vertex that comes
+/// clockwise. No vertex repeats within a path and no path has fewer than three vertices or zero area: where a line
+/// touches itself at a node holding exactly `threshold`, it is cut there into separate loops. Paths start at the vertex that comes
 /// first in row-major order of the crossing edges (horizontal edges of a row before its vertical edges) and are
 /// listed in that order. The cost is linear in the count of nodes.
 ///
@@ -297,27 +300,40 @@ pub fn iso_lines(grid: &ScalarGrid, threshold: f64) -> Vec<ClosedPath> {
         if next[start] == NONE {
             continue;
         }
-        let mut path = Vec::new();
+        let mut path: Vec<Point> = Vec::new();
+        let mut seen: HashMap<(u64, u64), usize> = HashMap::new();
         let mut edge = start;
         while next[edge] != NONE {
             let vertex = edge_vertex(grid, threshold, &edges, edge);
+            // `+ 0.0` turns a negative zero into zero, so equal points have equal keys.
+            let key = ((vertex.0 + 0.0).to_bits(), (vertex.1 + 0.0).to_bits());
             // A node outside the line that holds exactly `threshold` is met by several crossing edges, all
-            // placed on it: keep one vertex.
-            if path.last() != Some(&vertex) {
+            // placed on it. When the walk comes back to a vertex it already holds, the path touches itself
+            // there: the part walked since is cut off as a loop of its own.
+            if let Some(&at) = seen.get(&key) {
+                let cut = path.split_off(at + 1);
+                for dropped in &cut {
+                    seen.remove(&((dropped.0 + 0.0).to_bits(), (dropped.1 + 0.0).to_bits()));
+                }
+                keep_loop(&mut paths, std::iter::once(vertex).chain(cut).collect());
+            } else {
+                seen.insert(key, path.len());
                 path.push(vertex);
             }
             let following = next[edge];
             next[edge] = NONE;
             edge = following;
         }
-        while path.len() > 1 && path.first() == path.last() {
-            path.pop();
-        }
-        if path.len() >= 3 && signed_area(&path) != 0.0 {
-            paths.push(path);
-        }
+        keep_loop(&mut paths, path);
     }
     paths
+}
+
+/// Keeps `path` as a closed path when it has three vertices and a non-zero area.
+fn keep_loop(paths: &mut Vec<ClosedPath>, path: Vec<Point>) {
+    if path.len() >= 3 && signed_area(&path) != 0.0 {
+        paths.push(path);
+    }
 }
 
 /// The signed area of a closed path by the shoelace formula: positive when it runs counter-clockwise.

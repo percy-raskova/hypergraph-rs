@@ -122,6 +122,26 @@ fn a_node_outside_exactly_at_the_threshold_gives_no_repeated_vertex() {
 }
 
 #[test]
+fn a_line_touching_itself_at_a_node_at_the_threshold_is_cut_there() {
+    let values = [
+        1.0, 1.0, 1.0, //
+        1.0, 0.0, 1.0, //
+        1.0, 0.5, 1.0, //
+        1.0, 0.0, 1.0,
+    ];
+    let g = grid(3, 4, 1.0, &values);
+    let paths = iso_lines(&g, 0.5);
+    assert!(paths.len() >= 2, "{paths:?}");
+    for path in &paths {
+        assert!(path.len() >= 3);
+        assert!(signed_area(path) != 0.0);
+        for (i, p) in path.iter().enumerate() {
+            assert!(!path[i + 1..].contains(p), "{path:?}");
+        }
+    }
+}
+
+#[test]
 fn sample_on_a_grid_without_nodes_is_none() {
     let g = ScalarGrid {
         origin: (0.0, 0.0),

@@ -510,7 +510,8 @@ unreleased section. Whichever branch lands second rebases and keeps both sides' 
 - *Output order and orientation:* segments are joined into closed paths; each path starts at its vertex that comes
   first in row-major order of crossing edges (horizontal edges of a row before its vertical edges); paths are listed
   in that order. Each path is turned so that the inside is on its left: outer boundaries counter-clockwise (positive
-  `signed_area`), holes clockwise. No vertex repeats; no path has fewer than three vertices.
+  `signed_area`), holes clockwise. No vertex repeats within a path (where a line touches itself at a node holding exactly
+  `threshold` it is cut there into separate loops); no path has fewer than three vertices or zero area.
 - *Joining cost:* segment ends are matched through a `Vec` indexed by crossing-edge number (each edge of the grid,
   virtual ring included, has a fixed number), never by searching the segments, so `iso_lines` is linear in the
   number of grid nodes.
