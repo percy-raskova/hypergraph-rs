@@ -23,11 +23,13 @@
 //! assert_eq!(at, Some((1.0, 0.0)));
 //! ```
 
+mod contour;
 mod error;
 mod place;
 mod positions;
 mod spread;
 
+pub use contour::{contains, iso_lines, signed_area, ClosedPath, ScalarGrid};
 pub use error::GeometryError;
 pub use place::{anchored_placement, barycentre, corner_mix};
 pub use positions::{Placement, Positions};
