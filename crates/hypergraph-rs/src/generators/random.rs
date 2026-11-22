@@ -1,10 +1,12 @@
 //! Random (non-uniform) hypergraph generators (XGI `generators/random.py`).
 
+use std::collections::HashSet;
+
 use indexmap::IndexMap;
 use serde_json::Value;
 
 use super::classic::GeneratorError;
-use super::lattice::ring_lattice;
+use super::lattice::{ring_lattice, ring_lattice_edges};
 use super::rng::{comb, geometric, index_to_edge_comb, random_below, seeded_rng, uniform_f64};
 use crate::Hypergraph;
 
@@ -193,8 +195,18 @@ fn k2_cmp(a: f64, b: f64) -> std::cmp::Ordering {
     a.partial_cmp(&b).unwrap_or(std::cmp::Ordering::Equal)
 }
 
-/// Watts–Strogatz hypergraph: a ring lattice with each edge rewired with prob `p`.
-/// XGI `watts_strogatz_hypergraph(n, d, k, l, p)`.
+/// Watts–Strogatz hypergraph: a ring lattice with each edge rewired with prob `p`,
+/// as XGI 1.1 rewrote `watts_strogatz_hypergraph(n, d, k, l, p)`.
+///
+/// Each edge of the lattice is visited in order. With probability `p`, its farthest node (the last
+/// one) is replaced by a node chosen uniformly among the nodes that do not share an edge with the
+/// originating node (the first member of the lattice edge) in the current, partly rewired hypergraph.
+/// The edge keeps its id and its size; it is left alone when no such node exists. The same seed gives
+/// the same hypergraph; the draws are not XGI's.
+///
+/// # Errors
+///
+/// `GeneratorError::InvalidParameter` when `n == 0` or `d == 0`.
 pub fn watts_strogatz_hypergraph(
     n: usize,
     d: usize,
@@ -203,38 +215,50 @@ pub fn watts_strogatz_hypergraph(
     p: f64,
     seed: Option<u64>,
 ) -> Result<Hypergraph, GeneratorError> {
+    /// Rejection sampling gives up after this many draws and picks from the explicit candidates.
+    const MAX_DRAWS: usize = 64;
+
     let mut rng = seeded_rng(seed);
     let mut h = ring_lattice(n, d, k, l, false)?;
+    let lattice = ring_lattice_edges(n, d, k, l);
 
-    let mut to_remove: Vec<String> = Vec::new();
-    let mut to_add: Vec<Vec<String>> = Vec::new();
-
-    for e in h.edge_ids() {
-        if uniform_f64(&mut rng) < p {
-            let members = h.members(&e).unwrap();
-            // Keep the numeric-min member (node ids are decimal integers here),
-            // matching XGI's `min(H.edges.members(e))` over integer node ids.
-            // A lexicographic `str` min would diverge for n >= 11 (e.g. "10" < "2").
-            let keep = members
-                .iter()
-                .min_by_key(|s| s.parse::<u64>().unwrap_or(u64::MAX))
-                .cloned()
-                .unwrap();
-            let mut new_edge: Vec<String> = Vec::with_capacity(d);
-            for _ in 0..(d - 1) {
-                let idx = random_below(&mut rng, n as u64) as usize;
-                new_edge.push(idx.to_string());
-            }
-            new_edge.push(keep);
-            to_remove.push(e);
-            to_add.push(new_edge);
+    for (e, members) in lattice.iter().enumerate() {
+        if uniform_f64(&mut rng) >= p {
+            continue;
         }
-    }
-    for e in to_remove {
-        let _ = h.remove_edge(&e);
-    }
-    for members in to_add {
-        let _ = h.add_edge(members, None, Value::Null);
+        let node = members[0];
+        let node_id = node.to_string();
+        let neighbors: HashSet<usize> = h
+            .node_neighbors(&node_id)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|s| s.parse::<usize>().ok())
+            .collect();
+        let candidates = n.saturating_sub(neighbors.len() + 1);
+        if candidates == 0 {
+            continue;
+        }
+        let mut chosen: Option<usize> = None;
+        if 2 * candidates >= n {
+            for _ in 0..MAX_DRAWS {
+                let z = random_below(&mut rng, n as u64) as usize;
+                if z != node && !neighbors.contains(&z) {
+                    chosen = Some(z);
+                    break;
+                }
+            }
+        }
+        let z = chosen.unwrap_or_else(|| {
+            let pool: Vec<usize> = (0..n)
+                .filter(|z| *z != node && !neighbors.contains(z))
+                .collect();
+            pool[random_below(&mut rng, pool.len() as u64) as usize]
+        });
+        let id = e.to_string();
+        let mut new_edge: Vec<String> = members[..d - 1].iter().map(ToString::to_string).collect();
+        new_edge.push(z.to_string());
+        let _ = h.remove_edge(&id);
+        let _ = h.add_edge(new_edge, Some(id), Value::Null);
     }
     Ok(h)
 }

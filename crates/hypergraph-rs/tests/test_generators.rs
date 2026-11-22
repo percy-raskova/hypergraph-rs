@@ -359,6 +359,47 @@ fn test_watts_strogatz_preserves_node_count() {
 }
 
 #[test]
+fn watts_strogatz_keeps_the_originating_node_and_edge_ids() {
+    let (n, d, k, l) = (20usize, 3usize, 4usize, 2usize);
+    let lattice = ring_lattice_edges(n, d, k, l);
+    for seed in 0..20u64 {
+        let h = watts_strogatz_hypergraph(n, d, k, l, 1.0, Some(seed)).unwrap();
+        for (e, original) in lattice.iter().enumerate() {
+            let members = h
+                .members(&e.to_string())
+                .unwrap_or_else(|| panic!("edge {e} is missing for seed {seed}"));
+            assert_eq!(members.len(), d, "edge {e} lost a member for seed {seed}");
+            let expected: Vec<String> = original[..d - 1].iter().map(ToString::to_string).collect();
+            assert_eq!(members[..d - 1], expected[..], "edge {e} for seed {seed}");
+        }
+        assert_eq!(h.num_edges(), lattice.len());
+        for node in 0..n {
+            let degree = h.node_degree(&node.to_string(), None).unwrap();
+            assert!(
+                degree >= k / 2,
+                "node {node} has degree {degree} for seed {seed}"
+            );
+        }
+    }
+}
+
+#[test]
+fn watts_strogatz_p_one_rewires() {
+    let lattice = ring_lattice_edges(20, 3, 4, 2);
+    for seed in 0..20u64 {
+        let h = watts_strogatz_hypergraph(20, 3, 4, 2, 1.0, Some(seed)).unwrap();
+        let differs = lattice.iter().enumerate().any(|(e, original)| {
+            let mut a: Vec<String> = h.members(&e.to_string()).unwrap();
+            let mut b: Vec<String> = original.iter().map(ToString::to_string).collect();
+            a.sort();
+            b.sort();
+            a != b
+        });
+        assert!(differs, "no edge was rewired for seed {seed}");
+    }
+}
+
+#[test]
 fn test_watts_strogatz_is_deterministic() {
     let a = watts_strogatz_hypergraph(12, 3, 4, 1, 0.3, Some(11)).unwrap();
     let b = watts_strogatz_hypergraph(12, 3, 4, 1, 0.3, Some(11)).unwrap();

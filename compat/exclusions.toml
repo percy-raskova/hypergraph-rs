@@ -538,13 +538,6 @@ class = "deferred-symbol"
 reason = "deferred: edge_positions_from_barycenters (drawing/layout, no Phase-5 analogue, Task 13 note)."
 
 [[test_exclusion]]
-path = "generators/test_random.py"
-test = "test_watts_strogatz_hypergraph"
-class = "core-gap"
-owner = "xgi-1-1-raise:T16"
-reason = "XGI 1.1 rewrote watts_strogatz_hypergraph. The test first fails on the list-shaped members() (cleared by T10), then on the old algorithm; T16 clears it last."
-
-[[test_exclusion]]
 path = "generators/test_growth.py"
 test = "test_pseudofractal"
 class = "deferred-symbol"

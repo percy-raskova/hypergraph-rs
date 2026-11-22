@@ -841,13 +841,6 @@
         "test": "test_edge_positions_from_barycenters"
       },
       {
-        "class": "core-gap",
-        "owner": "xgi-1-1-raise:T16",
-        "path": "generators/test_random.py",
-        "reason": "XGI 1.1 rewrote watts_strogatz_hypergraph. The test first fails on the list-shaped members() (cleared by T10), then on the old algorithm; T16 clears it last.",
-        "test": "test_watts_strogatz_hypergraph"
-      },
-      {
         "class": "deferred-symbol",
         "owner": "xgi-1-1-raise:T18",
         "path": "generators/test_growth.py",
