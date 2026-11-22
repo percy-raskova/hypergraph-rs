@@ -539,20 +539,6 @@ reason = "deferred: edge_positions_from_barycenters (drawing/layout, no Phase-5 
 
 [[test_exclusion]]
 path = "core/test_hypergraph.py"
-test = "test_add_nodes_from"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T12"
-reason = "XGI 1.1 add_nodes_from takes a dict and reads a 2-tuple as (node, attributes); the binding does not."
-
-[[test_exclusion]]
-path = "core/test_dihypergraph.py"
-test = "test_add_nodes_from"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T12"
-reason = "XGI 1.1 add_nodes_from takes a dict and reads a 2-tuple as (node, attributes); the binding does not."
-
-[[test_exclusion]]
-path = "core/test_hypergraph.py"
 test = "test_fix_720"
 class = "core-gap"
 owner = "xgi-1-1-raise:T13"

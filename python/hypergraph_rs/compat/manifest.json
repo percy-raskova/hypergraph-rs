@@ -841,20 +841,6 @@
         "test": "test_edge_positions_from_barycenters"
       },
       {
-        "class": "binding-gap",
-        "owner": "xgi-1-1-raise:T12",
-        "path": "core/test_hypergraph.py",
-        "reason": "XGI 1.1 add_nodes_from takes a dict and reads a 2-tuple as (node, attributes); the binding does not.",
-        "test": "test_add_nodes_from"
-      },
-      {
-        "class": "binding-gap",
-        "owner": "xgi-1-1-raise:T12",
-        "path": "core/test_dihypergraph.py",
-        "reason": "XGI 1.1 add_nodes_from takes a dict and reads a 2-tuple as (node, attributes); the binding does not.",
-        "test": "test_add_nodes_from"
-      },
-      {
         "class": "core-gap",
         "owner": "xgi-1-1-raise:T13",
         "path": "core/test_hypergraph.py",

@@ -461,3 +461,49 @@ def test_simplex_exception_types_are_not_xgi_errors():
     with pytest.raises(TypeError) as info:
         xgi.SimplicialComplex().add_simplex(None)
     assert not isinstance(info.value, xgi.exception.XGIError)
+
+
+_NODE_CLASSES = [xgi.Hypergraph, xgi.DiHypergraph, xgi.SimplicialComplex]
+
+
+def _node_attrs(H):
+    """Node attributes as {node: dict}; a SimplicialComplex has no Python read path for them yet."""
+    if isinstance(H, xgi.Hypergraph):
+        return H.nodes.attrs.asdict()
+    if isinstance(H, xgi.DiHypergraph):
+        return {n: H.nodes[n] for n in H.nodes}
+    return None
+
+
+def _check_attrs(H, expected):
+    got = _node_attrs(H)
+    if got is not None:
+        assert got == expected
+
+
+@pytest.mark.parametrize("cls", _NODE_CLASSES)
+def test_add_nodes_from_dict_with_global_attrs(cls):
+    H = cls()
+    H.add_nodes_from({1: {"color": "red"}, 2: {"color": "blue", "weight": 5}}, weight=1)
+    assert list(H.nodes) == [1, 2]
+    _check_attrs(H, {1: {"color": "red", "weight": 1}, 2: {"color": "blue", "weight": 5}})
+
+
+@pytest.mark.parametrize("cls", _NODE_CLASSES)
+def test_two_tuple_is_node_and_attrs(cls):
+    H = cls()
+    H.add_nodes_from([(1, None), (2, {}), (3, {"a": 1})])
+    assert list(H.nodes) == [1, 2, 3]
+    _check_attrs(H, {1: {}, 2: {}, 3: {"a": 1}})
+    with pytest.raises(TypeError, match="the second element must be a dictionary or None"):
+        H.add_nodes_from([(1, 2)])
+    H.add_nodes_from([(7, 8, 9)])  # a 3-tuple is a node id
+    assert (7, 8, 9) in H.nodes
+
+
+@pytest.mark.parametrize("cls", _NODE_CLASSES)
+def test_add_nodes_from_updates_an_existing_node(cls):
+    H = cls()
+    H.add_nodes_from([(1, {"a": 1, "b": 2})])
+    H.add_nodes_from([(1, {"b": 3})], c=4)
+    _check_attrs(H, {1: {"a": 1, "b": 3, "c": 4}})

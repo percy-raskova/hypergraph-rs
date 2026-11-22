@@ -11,7 +11,7 @@ use pyo3::types::{PyDict, PyList, PySet, PyString, PyTuple};
 use serde_json::Value;
 
 use crate::errors::{id_not_found, xgi_error};
-use crate::pyid::{json_to_py, py_any_to_json, PyIdMap};
+use crate::pyid::{json_to_py, node_items, py_any_to_json, split_node_item, PyIdMap};
 
 #[pyclass(name = "Hypergraph", module = "hypergraph_rs")]
 pub struct PyHypergraph {
@@ -506,15 +506,8 @@ impl PyHypergraph {
         attr: Option<Bound<'_, PyDict>>,
     ) -> PyResult<()> {
         self.frozen_check()?;
-        for item in nodes_for_adding.try_iter()? {
-            let item = item?;
-            let (id_obj, item_attr) = match item.cast::<PyTuple>() {
-                Ok(t) if t.len() == 2 && t.get_item(1)?.cast::<PyDict>().is_ok() => {
-                    let d = t.get_item(1)?.cast::<PyDict>().unwrap().clone();
-                    (t.get_item(0)?, Some(d))
-                }
-                _ => (item.clone(), None),
-            };
+        for item in node_items(&nodes_for_adding)? {
+            let (id_obj, item_attr) = split_node_item(item?)?;
             let core_id = self.node_ids.intern(&id_obj)?;
             let mut merged = match self.inner.node_attrs(&core_id) {
                 Some(Value::Object(m)) => m.clone(),

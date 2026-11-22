@@ -238,6 +238,42 @@ pub fn json_to_py<'py>(py: Python<'py>, v: &Value) -> PyResult<Bound<'py, PyAny>
     })
 }
 
+/// The items `add_nodes_from` reads: a dict is read as its `.items()` (XGI 1.1), anything
+/// else as the iterable it is.
+pub fn node_items<'py>(nodes: &Bound<'py, PyAny>) -> PyResult<Bound<'py, pyo3::types::PyIterator>> {
+    if nodes.cast::<PyDict>().is_ok() {
+        nodes.call_method0("items")?.try_iter()
+    } else {
+        nodes.try_iter()
+    }
+}
+
+/// One element of `add_nodes_from`, with XGI 1.1's rule: a tuple of length 2 is
+/// `(node, attrs)` where a falsy `attrs` means no attributes, a dict is used, and anything
+/// else is a `TypeError`; every other element is a node id.
+pub fn split_node_item<'py>(
+    item: Bound<'py, PyAny>,
+) -> PyResult<(Bound<'py, PyAny>, Option<Bound<'py, PyDict>>)> {
+    let Ok(t) = item.cast::<PyTuple>() else {
+        return Ok((item, None));
+    };
+    if t.len() != 2 {
+        return Ok((item, None));
+    }
+    let node = t.get_item(0)?;
+    let attrs = t.get_item(1)?;
+    if !attrs.is_truthy()? {
+        return Ok((node, None));
+    }
+    match attrs.cast::<PyDict>() {
+        Ok(d) => Ok((node, Some(d.clone()))),
+        Err(_) => Err(pyo3::exceptions::PyTypeError::new_err(
+            "If nodes are specified as (node, attribute dict) tuples, \
+             the second element must be a dictionary or None.",
+        )),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
