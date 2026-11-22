@@ -16,6 +16,13 @@ All notable changes to this project are written here. The format follows
   a member that leaves and comes back starts from it again. XGI has no value on a membership,
   so the XGI-compatible formats, the Python package and the WASM bindings do not carry it.
 - Runnable examples: `quickstart` and `membership_data`.
+- A `geometry` feature, on by default, with the module `geometry`: the outline of a weighted set of
+  points or of a hyperedge (`weighted_outline`, `edge_outline`, shaped as `Outline::Ring`,
+  `Outline::Capsule` or `Outline::Membrane`), iso-lines of a scalar grid (`ScalarGrid`, `iso_lines`,
+  `signed_area`, `contains`), placement at a weighted mix of fixed points (`barycentre`,
+  `corner_mix`, `anchored_placement`, with `Positions` and `Placement`), and spreading of
+  overlapping points in fixed steps (`spread`, `SpreadParams`, `SpreadReport`). Errors are
+  `GeometryError`. Every result is the same bits on every machine.
 - A crate-level guide in the API docs, a README, a contributing guide, and this changelog.
 - Package metadata (keywords, categories, readme, documentation) and the license text in the
   packed crate, so the crate can be packed with `cargo package`.

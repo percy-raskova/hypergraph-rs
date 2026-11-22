@@ -78,8 +78,8 @@ membership. The algorithms work on any type.
 
 ## Feature flags
 
-The default features are `algorithms`, `generators`, `stats`, `readwrite`, `layout`, `viz` and
-`raster`. Every feature builds on its own, without the defaults.
+The default features are `algorithms`, `generators`, `stats`, `readwrite`, `layout`, `viz`,
+`raster` and `geometry`. Every feature builds on its own, without the defaults.
 
 | Feature | Turns on |
 | --- | --- |
@@ -96,6 +96,7 @@ The default features are `algorithms`, `generators`, `stats`, `readwrite`, `layo
 | `network` | declares `readwrite::bigg::load_bigg_data`, which is not implemented and always returns an error |
 | `cells3d` | hexagonal-cell scenes and instruments for the rasterizer (needs `raster`, `communities` and the `h3o` crate) |
 | `raster-png` | PNG output for the rasterizer (needs `cells3d` and the `png` crate) |
+| `geometry` | outlines of a weighted set (ring, capsule, membrane), placement at a weighted mix of fixed points, spreading in fixed steps; the same bits on every machine |
 | `all` | every feature above |
 
 ## A value on a membership
