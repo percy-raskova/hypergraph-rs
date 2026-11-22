@@ -842,13 +842,6 @@
       },
       {
         "class": "core-gap",
-        "owner": "xgi-1-1-raise:T13",
-        "path": "core/test_hypergraph.py",
-        "reason": "XGI 1.1 add_edge(idx=0) advances the edge-id counter; the Rust core still reproduces the 0.10.2 falsy-idx behaviour.",
-        "test": "test_fix_720"
-      },
-      {
-        "class": "core-gap",
         "owner": "xgi-1-1-raise:T16",
         "path": "generators/test_random.py",
         "reason": "XGI 1.1 rewrote watts_strogatz_hypergraph. The test first fails on the list-shaped members() (cleared by T10), then on the old algorithm; T16 clears it last.",
