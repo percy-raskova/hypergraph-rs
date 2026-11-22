@@ -4,6 +4,7 @@ members = [
     "crates/hypergraph-rs-python",
     "crates/hypergraph-rs-wasm",
     "crates/hypergraph-rs-cli",
+    "crates/hypergraph-rs-bevy",
 ]
 # Resolver 2 on purpose. An update takes the newest version of every crate. If
 # one needs a newer Rust than `rust-version` below, the floor check fails and

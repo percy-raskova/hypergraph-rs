@@ -1,0 +1,18 @@
+[package]
+name = "hypergraph-rs-bevy"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.97.1"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+description = "Bevy integration for hypergraph-rs: a ground of regions, hatched hyperedge outlines, particles and marks moving in beats"
+
+[dependencies]
+bevy = { version = "0.20.1", default-features = false, features = ["std", "bevy_pbr"] }
+hypergraph-rs = { path = "../hypergraph-rs", default-features = false, features = ["geometry"] }
+thiserror.workspace = true
+
+[dev-dependencies]
+bevy = { version = "0.20.1", default-features = false, features = ["std", "bevy_pbr", "bevy_winit", "x11", "multi_threaded"] }

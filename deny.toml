@@ -22,7 +22,14 @@ allow = [
     "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",
     "BSD-3-Clause",
+    # ISC: libloading (loads the graphics driver at run time), a dependency of
+    # Bevy's renderer. Permissive, and compatible with shipping under BSD-3-Clause.
+    "ISC",
     "MIT",
+    # MIT-0 (MIT No Attribution): encase, encase_derive and encase_derive_impl
+    # (Bevy's GPU buffer layout). Permissive, and compatible with shipping under
+    # BSD-3-Clause.
+    "MIT-0",
     "Unicode-3.0",
     "Zlib",
 ]

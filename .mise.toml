@@ -20,9 +20,9 @@ description = "Rust full gate: format:check + lint (clippy -D warnings) + test +
 run = """
 set -e
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --locked -- -D warnings
-cargo test --workspace --locked
-RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --locked
+cargo clippy --workspace --exclude hypergraph-rs-bevy --all-targets --locked -- -D warnings
+cargo test --workspace --exclude hypergraph-rs-bevy --locked
+RUSTDOCFLAGS='-D warnings' cargo doc --workspace --exclude hypergraph-rs-bevy --no-deps --locked
 # The core crate again with every feature on. `network`, `cells3d` and
 # `raster-png` are in no binding, so the workspace legs above never build them
 # and never run their tests.
@@ -81,11 +81,25 @@ set -e
 MSRV=$(grep '^rust-version' Cargo.toml | cut -d'"' -f2)
 echo "MSRV floor: $MSRV"
 rustup toolchain install "$MSRV" --profile minimal
-cargo +"$MSRV" check --workspace --locked
+cargo +"$MSRV" check --workspace --exclude hypergraph-rs-bevy --locked
 # The workspace leg builds only the features a binding turns on. `network`,
 # `cells3d` and `raster-png` are in no binding, so the core crate is built
 # once more with every feature.
 cargo +"$MSRV" check -p hypergraph-rs --locked --all-features
+"""
+
+[tasks."rust:bevy"]
+description = "The Bevy crate, in its own job: its lib with only its own Bevy features, clippy -D warnings, tests, docs, then its own floor (rust-version in its Cargo.toml). Sequential."
+run = """
+set -e
+cargo check -p hypergraph-rs-bevy --lib --locked
+cargo clippy -p hypergraph-rs-bevy --all-targets --locked -- -D warnings
+cargo test -p hypergraph-rs-bevy --locked
+RUSTDOCFLAGS='-D warnings' cargo doc -p hypergraph-rs-bevy --no-deps --locked
+FLOOR=$(grep '^rust-version' crates/hypergraph-rs-bevy/Cargo.toml | cut -d'"' -f2)
+echo "Bevy crate floor: $FLOOR"
+rustup toolchain install "$FLOOR" --profile minimal
+cargo +"$FLOOR" check -p hypergraph-rs-bevy --all-targets --locked
 """
 
 [tasks."py:build"]
