@@ -28,7 +28,7 @@ mod place;
 mod positions;
 
 pub use error::GeometryError;
-pub use place::{barycentre, corner_mix};
+pub use place::{anchored_placement, barycentre, corner_mix};
 pub use positions::{Placement, Positions};
 
 /// A point `(x, y)`.
