@@ -100,8 +100,37 @@ fn the_same_grid_gives_the_same_bits_twice() {
 fn every_path_has_three_vertices_and_no_repeat() {
     for path in iso_lines(&lcg_grid(40, 30), 0.5) {
         assert!(path.len() >= 3);
-        assert_ne!(path.first(), path.last());
+        for (i, p) in path.iter().enumerate() {
+            assert!(!path[i + 1..].contains(p), "repeated vertex {p:?}");
+        }
     }
+}
+
+#[test]
+fn a_node_outside_exactly_at_the_threshold_gives_no_repeated_vertex() {
+    let mut values = vec![1.0; 9];
+    values[4] = 0.5;
+    let g = grid(3, 3, 1.0, &values);
+    let paths = iso_lines(&g, 0.5);
+    assert_eq!(paths.len(), 1);
+    assert!(signed_area(&paths[0]) > 0.0);
+    for path in &paths {
+        for (i, p) in path.iter().enumerate() {
+            assert!(!path[i + 1..].contains(p));
+        }
+    }
+}
+
+#[test]
+fn sample_on_a_grid_without_nodes_is_none() {
+    let g = ScalarGrid {
+        origin: (0.0, 0.0),
+        cell: 1.0,
+        cols: 0,
+        rows: 0,
+        values: vec![],
+    };
+    assert_eq!(g.sample((0.0, 0.0)), None);
 }
 
 #[test]

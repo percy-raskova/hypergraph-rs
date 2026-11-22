@@ -67,9 +67,9 @@ impl ScalarGrid {
                 value: 0.0,
             });
         }
-        let nodes = cols.checked_mul(rows).ok_or(GeometryError::GridTooLarge {
-            nodes: usize::MAX,
-            limit: usize::MAX,
+        let nodes = cols.checked_mul(rows).ok_or(GeometryError::BadParameter {
+            name: "cols",
+            value: cols as f64,
         })?;
         Ok(Self {
             origin,
@@ -92,7 +92,7 @@ impl ScalarGrid {
         self.values[row * self.cols + col]
     }
 
-    /// The bilinear value at `at`, or `None` outside the extent of the nodes (or for a position that is `NaN`).
+    /// The bilinear value at `at`, or `None` outside the extent of the nodes (or for a position that is `NaN`, or on a grid without nodes).
     ///
     /// # Panics
     ///
@@ -100,6 +100,9 @@ impl ScalarGrid {
     #[must_use]
     pub fn sample(&self, at: Point) -> Option<f64> {
         self.check();
+        if self.cols == 0 || self.rows == 0 {
+            return None;
+        }
         let u = (at.0 - self.origin.0) / self.cell;
         let v = (at.1 - self.origin.1) / self.cell;
         if !(u >= 0.0 && u <= (self.cols - 1) as f64 && v >= 0.0 && v <= (self.rows - 1) as f64) {
@@ -272,7 +275,7 @@ fn cell_segments(
 /// saddle is joined when the mean of its four corners is above `threshold`.
 ///
 /// Each path has the inside on its left: outer boundaries run counter-clockwise (positive [`signed_area`]), holes
-/// clockwise. No vertex repeats and no path has fewer than three vertices. Paths start at the vertex that comes
+/// clockwise. No vertex repeats (a node outside the line that holds exactly `threshold` is one vertex) and no path has fewer than three vertices or zero area. Paths start at the vertex that comes
 /// first in row-major order of the crossing edges (horizontal edges of a row before its vertical edges) and are
 /// listed in that order. The cost is linear in the count of nodes.
 ///
@@ -297,12 +300,20 @@ pub fn iso_lines(grid: &ScalarGrid, threshold: f64) -> Vec<ClosedPath> {
         let mut path = Vec::new();
         let mut edge = start;
         while next[edge] != NONE {
-            path.push(edge_vertex(grid, threshold, &edges, edge));
+            let vertex = edge_vertex(grid, threshold, &edges, edge);
+            // A node outside the line that holds exactly `threshold` is met by several crossing edges, all
+            // placed on it: keep one vertex.
+            if path.last() != Some(&vertex) {
+                path.push(vertex);
+            }
             let following = next[edge];
             next[edge] = NONE;
             edge = following;
         }
-        if path.len() >= 3 {
+        while path.len() > 1 && path.first() == path.last() {
+            path.pop();
+        }
+        if path.len() >= 3 && signed_area(&path) != 0.0 {
             paths.push(path);
         }
     }

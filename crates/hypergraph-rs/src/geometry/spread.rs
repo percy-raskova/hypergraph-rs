@@ -16,7 +16,8 @@ pub struct SpreadParams {
     pub min_distance: f64,
     /// The number of steps. Zero changes nothing.
     pub steps: u32,
-    /// The most candidate partners one point examines in a step. At least 1.
+    /// The most candidate partners one point examines in a step, points and obstacles together (the first ones in
+    /// cell order). At least 1.
     pub max_neighbours: usize,
     /// When set, every point is clamped into this rectangle after each step. Its minimum must not exceed its
     /// maximum on either axis.
