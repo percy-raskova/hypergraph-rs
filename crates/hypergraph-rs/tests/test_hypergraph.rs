@@ -1188,3 +1188,10 @@ fn update_uid_counter_is_allowed_on_a_frozen_hypergraph() {
     h.update_uid_counter(4);
     assert_eq!(h.next_edge_id(), 5);
 }
+
+#[test]
+fn update_uid_counter_saturates_at_u64_max() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.update_uid_counter(u64::MAX);
+    assert_eq!(h.next_edge_id(), u64::MAX);
+}

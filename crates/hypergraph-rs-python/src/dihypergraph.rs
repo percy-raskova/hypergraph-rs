@@ -1226,14 +1226,7 @@ fn reconstruct_dihypergraph(py: Python<'_>, state: Bound<'_, PyDict>) -> PyResul
         dh.net_attr
             .insert(k.str()?.to_string(), py_any_to_json(&v)?);
     }
-    if let Some(v) = state.get_item("edge_uid")? {
-        let edge_uid: u64 = v
-            .extract()
-            .map_err(|_| xgi_error("'edge_uid' must be a non-negative int"))?;
-        if edge_uid > 0 {
-            dh.inner.update_uid_counter(edge_uid - 1);
-        }
-    }
+    crate::hypergraph::restore_edge_uid(&state, |i| dh.inner.update_uid_counter(i))?;
     Ok(dh)
 }
 

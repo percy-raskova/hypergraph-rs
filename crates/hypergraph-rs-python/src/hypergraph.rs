@@ -1679,15 +1679,16 @@ pub(crate) fn int_or_str_pyobj<'py>(py: Python<'py>, core_id: &str) -> PyResult<
     Ok(core_id.into_pyobject(py)?.into_any())
 }
 
-/// Put the pickled edge-id counter back: `update_uid_counter(edge_uid - 1)` when `edge_uid > 0`.
-/// A state without `edge_uid` (pickled by an older version) keeps the counter the re-adds left.
-fn restore_edge_uid(state: &Bound<'_, PyDict>, inner: &mut CoreHg) -> PyResult<()> {
+/// Put the pickled edge-id counter back: `raise(edge_uid - 1)` when `edge_uid > 0`, where `raise` is the
+/// core type's `update_uid_counter`. A state without `edge_uid` (pickled by an older version) keeps the
+/// counter the re-adds left. One helper serves the three classes.
+pub(crate) fn restore_edge_uid(state: &Bound<'_, PyDict>, raise: impl FnOnce(u64)) -> PyResult<()> {
     if let Some(v) = state.get_item("edge_uid")? {
         let edge_uid: u64 = v
             .extract()
             .map_err(|_| xgi_error("'edge_uid' must be a non-negative int"))?;
         if edge_uid > 0 {
-            inner.update_uid_counter(edge_uid - 1);
+            raise(edge_uid - 1);
         }
     }
     Ok(())
@@ -1744,7 +1745,7 @@ fn reconstruct_hypergraph(py: Python<'_>, state: Bound<'_, PyDict>) -> PyResult<
         hg.net_attr
             .insert(k.str()?.to_string(), py_any_to_json(&v)?);
     }
-    restore_edge_uid(&state, &mut hg.inner)?;
+    restore_edge_uid(&state, |i| hg.inner.update_uid_counter(i))?;
     Ok(hg)
 }
 

@@ -276,3 +276,19 @@ fn from_closed_simplices_refuses_a_missing_face() {
         SimplicialComplex::from_closed_simplices(nodes, simplices);
     assert_eq!(r.err(), Some(SimplexError::NotClosed { idx: "t".into() }));
 }
+
+#[test]
+fn from_closed_simplices_keeps_the_first_of_a_repeated_id_or_member_set() {
+    let nodes = vec![("a".to_string(), v()), ("b".to_string(), v())];
+    let ab = || vec!["a".to_string(), "b".to_string()];
+    let simplices = vec![
+        ("x".to_string(), ab(), v()),
+        // same member set, another id: skipped
+        ("y".to_string(), vec!["b".to_string(), "a".to_string()], v()),
+        // same id as the first, other members: skipped
+        ("x".to_string(), vec!["a".to_string()], v()),
+    ];
+    let s: SimplicialComplex = SimplicialComplex::from_closed_simplices(nodes, simplices).unwrap();
+    assert_eq!(s.edge_ids(), vec!["x".to_string()]);
+    assert_eq!(s.members("x"), Some(ab()));
+}

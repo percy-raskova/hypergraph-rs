@@ -441,10 +441,11 @@ impl<N, E, M> Hypergraph<N, E, M> {
 
     /// Raise the counter past `idx`: if `next_edge_id() <= idx`, it becomes
     /// `idx + 1`. XGI parity: `update_uid_counter`. Not a structural change,
-    /// so it is allowed on a frozen hypergraph.
+    /// so it is allowed on a frozen hypergraph. At `idx == u64::MAX` the
+    /// counter saturates there instead of overflowing.
     pub fn update_uid_counter(&mut self, idx: u64) {
         if self.edge_uid_counter <= idx {
-            self.edge_uid_counter = idx + 1;
+            self.edge_uid_counter = idx.saturating_add(1);
         }
     }
 

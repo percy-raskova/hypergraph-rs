@@ -538,3 +538,10 @@ fn next_edge_id_follows_auto_ids_and_explicit_numeric_ids() {
     dh.update_uid_counter(10);
     assert_eq!(dh.next_edge_id(), 11);
 }
+
+#[test]
+fn update_uid_counter_saturates_at_u64_max() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.update_uid_counter(u64::MAX);
+    assert_eq!(dh.next_edge_id(), u64::MAX);
+}

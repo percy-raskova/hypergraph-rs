@@ -127,8 +127,13 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
     /// Rebuild a complex from its nodes and its simplices in id order, as
     /// `node_ids()` and `edge_ids()` list them, adding no face: every subface
     /// of size >= 2 of each simplex must be in the list. The first simplex
-    /// with a face missing gives `SimplexError::NotClosed { idx }`. A repeated
-    /// simplex id keeps its first entry, as `add_simplex` does.
+    /// with a face missing gives `SimplexError::NotClosed { idx }`.
+    ///
+    /// An entry is skipped, and the first one kept, when its id is already
+    /// taken or when its member set is already in the complex: the two cases
+    /// in which `add_simplex` is a no-op. No complex built by `add_simplex`
+    /// can list such an entry, so a state pickled from a real complex never
+    /// loses one here; only a hand-made list can.
     pub fn from_closed_simplices(
         nodes: Vec<(String, N)>,
         simplices: Vec<(String, Vec<String>, E)>,
@@ -154,9 +159,14 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         let mut complex = Self::new();
         complex.add_nodes_from(nodes);
         for (id, members, attrs) in simplices {
-            let _ = complex
+            let set = as_sorted_set(&members);
+            if complex.has_simplex(&set) || complex.inner.has_edge(&id) {
+                continue;
+            }
+            complex
                 .inner
-                .add_edge(as_sorted_set(&members), Some(id), attrs);
+                .add_edge(set, Some(id), attrs)
+                .expect("the id was checked free just above");
         }
         Ok(complex)
     }
