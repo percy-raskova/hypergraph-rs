@@ -1187,8 +1187,8 @@ fn diverge_d2_add_edges_from_dup_errors_continues() {
 #[test]
 fn conform_repr_format() {
     // XGI 1.1's __repr__ is f"{cls}({self.edges.members()})" — the class name
-    // wrapping the edge-members DICT ({id: members}); XGI 0.10.2 wrapped a list. The Rust core's Debug produces the
-    // same SHAPE (Hypergraph([{...}, ...])) with members in INSERTION
+    // wrapping the edge-members DICT ({id: members}); XGI 0.10.2 wrapped a list. The Rust core's Debug still
+    // prints a LIST (Hypergraph([{...}, ...])), so the shapes differ; the check compares literals. Members in INSERTION
     // order — cited divergence D5 (XGI's member sets are unordered; their
     // repr order is hash-randomized across runs, so the fixture records
     // members SORTED and the stable projections only). Rust is strictly
@@ -1915,8 +1915,8 @@ fn diverge_d2_di_remove_edge_missing_errors() {
 fn conform_di_repr_format() {
     // XGI 1.1's DiHypergraph.__repr__ is f"{cls}({self.edges.dimembers()})" —
     // the class name wrapping a dict {id: (tail, head)} of set-tuples, edges
-    // in insertion order (XGI 0.10.2 wrapped a list). The Rust core's Debug produces the same SHAPE
-    // (DiHypergraph([({tail}, {head}), ...])) with members in INSERTION
+    // in insertion order (XGI 0.10.2 wrapped a list). The Rust core's Debug still prints a
+    // LIST (DiHypergraph([({tail}, {head}), ...])), so the shapes differ; the check compares literals. Members in INSERTION
     // order and uniform braces — cited divergence D5 (XGI's member sets
     // are hash-ordered; the fixture records sorted projections only).
     // XGI renders an empty side as "set()"; Rust formats "{}" — same D5

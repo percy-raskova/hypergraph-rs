@@ -452,7 +452,7 @@
       {
         "class": "divergence",
         "path": "generators/test_uniform.py",
-        "reason": "core deviation, degree-sequence PARITY gap (documented in `uniform.rs::uniform_hypergraph_configuration_model (XGI 1.0 renamed it uniform_configuration_model)`): remainder stubs are dropped and within-edge stub picks are deduplicated so the loop terminates deterministically (Power-of-10 rule 2) \u2014 the resulting degree sequence is close to but not always bit-exact with the requested `k`, so `dict(H.degree()) == k` does not hold in general. Documented core-level deviation from an earlier phase; not reopened here (Task 15 triage bucket 2 \u2014 not pre-approved for this pass; reviewed again at Task 19 and left as-is, exact parity with XGI's configuration model is unattainable under the bounded-loop policy, not a fixable binding bug).",
+        "reason": "divergence D30: core deviation, degree-sequence PARITY gap (documented in `uniform.rs::uniform_hypergraph_configuration_model`; XGI 1.0 renamed it uniform_configuration_model): remainder stubs are dropped and within-edge stub picks are deduplicated so the loop terminates deterministically (Power-of-10 rule 2) \u2014 the resulting degree sequence is close to but not always bit-exact with the requested `k`, so `dict(H.degree()) == k` does not hold in general. Documented core-level deviation from an earlier phase; not reopened here (Task 15 triage bucket 2 \u2014 not pre-approved for this pass; reviewed again at Task 19 and left as-is, exact parity with XGI's configuration model is unattainable under the bounded-loop policy, not a fixable binding bug).",
         "test": "test_uniform_configuration_model"
       },
       {

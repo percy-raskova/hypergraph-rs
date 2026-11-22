@@ -285,7 +285,10 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         M: Default + Clone,
     {
         let set = as_sorted_set(&members);
-        self.add_simplex_without_faces(members, idx, attrs)?;
+        // A no-op add (duplicate members or duplicate idx) adds no faces either.
+        if !self.add_top_simplex(members, idx, attrs) {
+            return Ok(());
+        }
         // Missing subfaces (size >= 2), attribute-free.
         for face in subfaces(&set) {
             if face.is_empty() || self.has_simplex(&face) {
@@ -313,16 +316,27 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         E: Default,
         M: Default + Clone,
     {
+        self.add_top_simplex(members, idx, attrs);
+        Ok(())
+    }
+
+    /// Adds the top simplex; returns whether it was added (false for a no-op).
+    fn add_top_simplex(&mut self, members: Vec<String>, idx: Option<String>, attrs: E) -> bool
+    where
+        N: Default,
+        E: Default,
+        M: Default + Clone,
+    {
         let set = as_sorted_set(&members);
         // D1: XGI's docstring claims empty simplices cannot be added; the
         // runtime CREATES one. A repeat empty add is a no-op via the
         // has_simplex check below (an empty set is a member of itself).
         if self.has_simplex(&set) {
-            return Ok(());
+            return false;
         }
         if let Some(id) = &idx {
             if self.inner.has_edge(id) {
-                return Ok(()); // duplicate idx -> no-op (XGI warns+returns)
+                return false; // duplicate idx -> no-op (XGI warns+returns)
             }
         }
         // Top simplex. `add_edge` has no member-count floor to pass — it
@@ -332,7 +346,7 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         // an empty `set` here (the empty-simplex case) succeeds the same way.
         let _ = self.inner.add_edge(set, idx, attrs);
         self.invalidate();
-        Ok(())
+        true
     }
 
     /// `add_edge` is not available on a simplicial complex.
