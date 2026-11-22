@@ -48,6 +48,6 @@ strip = true
 # files that import tools.* at module scope (measured 2026-08-04).
 pythonpath = ["."]
 markers = [
-    "slow: upstream XGI's marker for network- or compute-heavy tests. Registered here only to silence PytestUnknownMarkWarning; the ported files that use it are byte-verbatim upstream copies and must not be edited.",
+    "slow: upstream XGI's marker for network- or compute-heavy tests. Registered here only to silence PytestUnknownMarkWarning; the ported files that use it are importer-written copies and must not be edited by hand.",
     "webtest: upstream XGI's marker for tests that need the network. Registered here only to silence PytestUnknownMarkWarning; the ported files that use it are importer-written copies and must not be edited.",
 ]

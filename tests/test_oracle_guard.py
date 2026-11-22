@@ -20,11 +20,14 @@ from tools.import_tests import read_lock
 def test_oracle_import_inside_the_guard_raises():
     import xgi  # the real oracle, loaded outside the guard
 
-    with oracle_hidden("t"):
-        with pytest.raises(OracleImportError, match="xgi"):
-            importlib.import_module("xgi")
-    assert sys.modules["xgi"] is xgi
-    del VIOLATIONS[:]
+    before = len(VIOLATIONS)
+    try:
+        with oracle_hidden("t"):
+            with pytest.raises(OracleImportError, match="xgi"):
+                importlib.import_module("xgi")
+        assert sys.modules["xgi"] is xgi
+    finally:
+        del VIOLATIONS[before:]
 
 
 def test_patch_of_the_oracle_inside_the_guard_raises():

@@ -113,7 +113,8 @@ def rewrite(source: str) -> str:
         edits.append((row - 1, col + len(prefix) + quote_len))
     for index, col in sorted(edits, reverse=True):
         line = out[index]
-        assert line[col : col + 3] == "xgi", (index, col, line)
+        if line[col : col + 3] != "xgi":
+            raise UpstreamImportError(f"rewrite offset misses xgi at line {index + 1}: {line!r}")
         out[index] = line[:col] + "hypergraph_rs" + line[col + 3 :]
     return "".join(out)
 

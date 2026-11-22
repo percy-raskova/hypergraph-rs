@@ -32,6 +32,21 @@ def test_compare_tree_reports_a_ported_file_left_unrewritten(tmp_path: pathlib.P
     assert drifted == ["test_y.py"]
 
 
+def test_compare_tree_reports_a_changed_body(tmp_path: pathlib.Path) -> None:
+    upstream = tmp_path / "up"
+    ported = tmp_path / "ported"
+    upstream.mkdir()
+    ported.mkdir()
+    (upstream / "test_w.py").write_text("import xgi\n\n\ndef test_a():\n    assert 1 == 1\n")
+    (ported / "test_w.py").write_text(
+        "import hypergraph_rs as xgi\n\n\ndef test_a():\n    assert 1 == 2\n"
+    )
+
+    missing, drifted = _compare_tree(upstream, ported)
+
+    assert (missing, drifted) == ([], ["test_w.py"])
+
+
 def test_compare_tree_accepts_the_rewrite(tmp_path: pathlib.Path) -> None:
     upstream = tmp_path / "up"
     ported = tmp_path / "ported"
