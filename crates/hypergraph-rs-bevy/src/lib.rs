@@ -8,18 +8,21 @@
 //! caller supplies every colour and every style.
 //!
 //! This crate holds the palette, the styles, the config, the error type and
-//! the pure line functions (paths, hatching, dashes and ribbons).
+//! the pure line functions (paths, hatching, dashes and ribbons) and the glyph
+//! meshes.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 mod config;
 mod error;
+mod glyph;
 mod lines;
 mod palette;
 mod style;
 
 pub use config::{FieldConfig, Motion};
 pub use error::FieldError;
+pub use glyph::glyph_mesh;
 pub use lines::{dashed, hatch_segments, outline_paths, plan_to_scene, ribbon_mesh};
 pub use palette::Palette;
 pub use style::{
