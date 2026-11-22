@@ -1,0 +1,957 @@
+# compat/method_gaps.toml
+#
+# Public names XGI 1.1 has on a class, view or stat that the library's counterpart lacks,
+# found by tools/audit_methods.py. tests/test_method_audit.py is strict both ways: a missing
+# name with no entry fails, and an entry whose name now exists fails. When a gap is closed,
+# delete its entry in the same commit. Schema, one table per gap:
+#
+#   [[gap]]
+#   subject = "Hypergraph.nodes"  # the audited object (tools/audit_methods.py subjects())
+#   name    = "get"               # the missing public name
+#   class   = "binding-gap"        # one of tools/taxonomy.py CLASSES
+#   reason  = "..."
+#   owner   = "xgi-1-1-raise:T14" # optional; the task or plan that closes it
+
+[[gap]]
+subject = "DiHypergraph"
+name = "clear"
+class = "binding-gap"
+reason = "The core has this method; the Python class does not bind it."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "attrs"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "duplicate_groups"
+class = "divergence"
+reason = "XGI 1.1's inherited duplicate_groups on the directed views groups by the keys of each {in, out} dict, so every id lands in one group (an upstream defect); the library leaves the method out. Task 21 registers it in compat/divergences.toml."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "duplicates"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "empty"
+class = "binding-gap"
+reason = "XGI's DiEdgeView.empty (edges whose tail and head are both empty) is not bound; the core can express it."
+owner = "xgi-1-1-raise:T14"
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "get"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "ids"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "isdisjoint"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "items"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "keys"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "lookup"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "multi"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "neighbors"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.edges"
+name = "values"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "attrs"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "duplicate_groups"
+class = "divergence"
+reason = "XGI 1.1's inherited duplicate_groups on the directed views groups by the keys of each {in, out} dict, so every id lands in one group (an upstream defect); the library leaves the method out. Task 21 registers it in compat/divergences.toml."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "duplicates"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "get"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "ids"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "isdisjoint"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "items"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "keys"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "lookup"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "multi"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "neighbors"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "DiHypergraph.nodes"
+name = "values"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph"
+name = "clear"
+class = "binding-gap"
+reason = "The core has this method; the Python class does not bind it."
+
+[[gap]]
+subject = "Hypergraph"
+name = "update"
+class = "binding-gap"
+reason = "The core has this method; the Python class does not bind it."
+
+[[gap]]
+subject = "Hypergraph.edges"
+name = "get"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.edges"
+name = "isdisjoint"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.edges"
+name = "items"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.edges"
+name = "keys"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.edges"
+name = "multi"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.edges"
+name = "node_edge_centrality"
+class = "deferred-symbol"
+reason = "XGI's view reaches this statistic through its stat registry; the library does not bind it on the view."
+
+[[gap]]
+subject = "Hypergraph.edges"
+name = "values"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "argmax"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "argmin"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "args"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "argsort"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "ashist"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "aspandas"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "func"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "items"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "kwargs"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "mean"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "median"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "mode"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "moment"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "name"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "net"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "std"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "sum"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "unique"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "var"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.edges.order"
+name = "view"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "get"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "h_eigenvector_centrality"
+class = "deferred-symbol"
+reason = "XGI's view reaches this statistic through its stat registry; the library does not bind it on the view."
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "isdisjoint"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "items"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "katz_centrality"
+class = "deferred-symbol"
+reason = "XGI's view reaches this statistic through its stat registry; the library does not bind it on the view."
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "keys"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "multi"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "node_edge_centrality"
+class = "deferred-symbol"
+reason = "XGI's view reaches this statistic through its stat registry; the library does not bind it on the view."
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "values"
+class = "binding-gap"
+reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."
+
+[[gap]]
+subject = "Hypergraph.nodes"
+name = "z_eigenvector_centrality"
+class = "deferred-symbol"
+reason = "XGI's view reaches this statistic through its stat registry; the library does not bind it on the view."
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "argmax"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "argmin"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "args"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "argsort"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "ashist"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "aspandas"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "func"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "items"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "kwargs"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "max"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "mean"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "median"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "min"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "mode"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "moment"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "name"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "net"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "std"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "sum"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "unique"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "var"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "Hypergraph.nodes.degree"
+name = "view"
+class = "deferred-symbol"
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+owner = "later:stat-functions"
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "add_edges_from"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "add_node_to_edge"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "add_weighted_edges_from"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "cleanup"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "clear"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "clear_edges"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "double_edge_swap"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "dual"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "merge_duplicate_edges"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "random_edge_shuffle"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "remove_edges_from"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "remove_node"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "remove_node_from_edge"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "remove_nodes_from"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "set_edge_attributes"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "set_node_attributes"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex"
+name = "update"
+class = "core-gap"
+reason = "The core has no simplicial-complex counterpart of this mutator or transform; SimplicialComplex is a smaller type than XGI's."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "attrs"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "empty"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "filterby"
+class = "binding-gap"
+reason = "XGI's SimplicialComplex edge view filters by stat; the binding of SCEdgeView has no filterby."
+owner = "xgi-1-1-raise:T18"
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "filterby_attr"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "from_view"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "get"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "ids"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "isdisjoint"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "items"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "keys"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "lookup"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "multi"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "neighbors"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "node_edge_centrality"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "order"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "singletons"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "size"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.edges"
+name = "values"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "attrs"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "average_neighbor_degree"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "clique_eigenvector_centrality"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "clustering_coefficient"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "degree"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "filterby"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "filterby_attr"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "from_view"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "get"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "h_eigenvector_centrality"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "ids"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "isdisjoint"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "isolates"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "items"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "katz_centrality"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "keys"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "local_clustering_coefficient"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "local_edit_simpliciality"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "local_face_edit_simpliciality"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "local_simplicial_fraction"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "lookup"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "multi"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "neighbors"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "node_edge_centrality"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "pos"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "two_node_clustering_coefficient"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "values"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
+
+[[gap]]
+subject = "SimplicialComplex.nodes"
+name = "z_eigenvector_centrality"
+class = "core-gap"
+reason = "The simplicial-complex views are narrower than XGI's: the stat methods and the dict-like surface of IDView are not on them."
