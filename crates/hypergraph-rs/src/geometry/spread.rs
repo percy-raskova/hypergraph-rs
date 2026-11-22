@@ -18,7 +18,7 @@ pub struct SpreadParams {
     pub steps: u32,
     /// The most candidate partners one point examines in a step. At least 1.
     pub max_neighbours: usize,
-    /// When set, every point is clamped into this rectangle after each step.
+    /// When set, every point is clamped into this rectangle after each step. Its minimum must not exceed its maximum on either axis.
     pub bounds: Option<Rect>,
 }
 
@@ -105,11 +105,8 @@ fn sorted_cells(points: &[Point], side: f64) -> Vec<Cell> {
 /// The entries of `cells` in the cell `(row, col)`, in index order.
 fn in_cell(cells: &[Cell], row: i64, col: i64) -> &[Cell] {
     let start = cells.partition_point(|&(r, c, _)| (r, c) < (row, col));
-    let len = cells[start..]
-        .iter()
-        .take_while(|&&(r, c, _)| (r, c) == (row, col))
-        .count();
-    &cells[start..start + len]
+    let end = cells.partition_point(|&(r, c, _)| (r, c) <= (row, col));
+    &cells[start..end]
 }
 
 /// Visits, for each point in index order, the points `j > i` of the nine cells around its own (rows first, then
@@ -128,10 +125,14 @@ fn scan_pairs(
         let mut examined = 0usize;
         'cells: for dr in -1i64..=1 {
             for dc in -1i64..=1 {
-                for &(_, _, j) in in_cell(cells, row.saturating_add(dr), col.saturating_add(dc)) {
-                    if j <= i {
-                        continue;
-                    }
+                // Past the last representable cell there is no neighbour; never revisit the edge cell.
+                let (Some(r), Some(c)) = (row.checked_add(dr), col.checked_add(dc)) else {
+                    continue;
+                };
+                let cell = in_cell(cells, r, c);
+                // Entries of a cell are sorted by index: skip straight to the first `j > i`.
+                let cell = &cell[cell.partition_point(|&(_, _, j)| j <= i)..];
+                for &(_, _, j) in cell {
                     if examined >= max_neighbours {
                         break 'cells;
                     }
@@ -259,11 +260,10 @@ fn step(
             let (row, col) = cell_of(*at, d);
             for dr in -1i64..=1 {
                 for dc in -1i64..=1 {
-                    for &(_, _, k) in in_cell(
-                        obstacle_cells,
-                        row.saturating_add(dr),
-                        col.saturating_add(dc),
-                    ) {
+                    let (Some(r), Some(c)) = (row.checked_add(dr), col.checked_add(dc)) else {
+                        continue;
+                    };
+                    for &(_, _, k) in in_cell(obstacle_cells, r, c) {
                         comparisons += 1;
                         let (dx, dy) = (at.0 - obstacles[k].0, at.1 - obstacles[k].1);
                         let dist = (dx * dx + dy * dy).sqrt();
