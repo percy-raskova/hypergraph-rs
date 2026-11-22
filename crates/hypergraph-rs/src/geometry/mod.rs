@@ -25,12 +25,17 @@
 
 mod contour;
 mod error;
+mod outline;
 mod place;
 mod positions;
 mod spread;
 
 pub use contour::{contains, iso_lines, signed_area, ClosedPath, ScalarGrid};
 pub use error::GeometryError;
+pub use outline::{
+    weighted_outline, Outline, OutlineParams, WeightedOutline, DEFAULT_LEVEL_FRACTION,
+    DEFAULT_MAX_GRID_NODES,
+};
 pub use place::{anchored_placement, barycentre, corner_mix};
 pub use positions::{Placement, Positions};
 pub use spread::{spread, SpreadParams, SpreadReport, DEFAULT_MAX_NEIGHBOURS};

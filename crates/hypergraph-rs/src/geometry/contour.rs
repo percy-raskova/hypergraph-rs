@@ -4,7 +4,7 @@
 //! separate the nodes above a threshold from the rest. One virtual ring of nodes around the grid is always below the
 //! threshold, so every path closes.
 
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use super::{GeometryError, Point};
 
@@ -301,7 +301,7 @@ pub fn iso_lines(grid: &ScalarGrid, threshold: f64) -> Vec<ClosedPath> {
             continue;
         }
         let mut path: Vec<Point> = Vec::new();
-        let mut seen: HashMap<(u64, u64), usize> = HashMap::new();
+        let mut seen: IndexMap<(u64, u64), usize> = IndexMap::new();
         let mut edge = start;
         while next[edge] != NONE {
             let vertex = edge_vertex(grid, threshold, &edges, edge);
@@ -313,7 +313,7 @@ pub fn iso_lines(grid: &ScalarGrid, threshold: f64) -> Vec<ClosedPath> {
             if let Some(&at) = seen.get(&key) {
                 let cut = path.split_off(at + 1);
                 for dropped in &cut {
-                    seen.remove(&((dropped.0 + 0.0).to_bits(), (dropped.1 + 0.0).to_bits()));
+                    seen.swap_remove(&((dropped.0 + 0.0).to_bits(), (dropped.1 + 0.0).to_bits()));
                 }
                 keep_loop(&mut paths, std::iter::once(vertex).chain(cut).collect());
             } else {
@@ -380,8 +380,6 @@ pub fn contains(paths: &[ClosedPath], at: Point) -> bool {
 /// # Panics
 ///
 /// When `grid.values.len() != grid.cols * grid.rows`.
-// Kept for the weighted outline; until that lands only the unit test calls it.
-#[allow(dead_code)]
 pub(crate) fn inside_cell(grid: &ScalarGrid, threshold: f64, at: Point) -> bool {
     grid.check();
     let u = ((at.0 - grid.origin.0) / grid.cell).floor();
