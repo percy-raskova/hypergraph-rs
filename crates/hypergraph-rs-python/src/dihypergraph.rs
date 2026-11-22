@@ -654,12 +654,13 @@ impl PyDiHypergraph {
         self.copy(py)
     }
 
-    /// `DH.cleanup(isolates=False, relabel=True, in_place=True)` (dihypergraph.py:1044-1058).
-    #[pyo3(signature = (isolates=false, relabel=true, in_place=true))]
+    /// `DH.cleanup(isolates=False, empties=False, relabel=True, in_place=True)` (XGI 1.1).
+    #[pyo3(signature = (isolates=false, empties=false, relabel=true, in_place=true))]
     fn cleanup(
         &mut self,
         py: Python<'_>,
         isolates: bool,
+        empties: bool,
         relabel: bool,
         in_place: bool,
     ) -> PyResult<Option<Py<PyDiHypergraph>>> {
@@ -672,6 +673,18 @@ impl PyDiHypergraph {
             edge_ids: self.edge_ids.clone_via_py(py),
             net_attr: self.net_attr.clone(),
         };
+        if !empties {
+            let e: Vec<String> = work
+                .inner
+                .edge_ids()
+                .into_iter()
+                .filter(|id| work.inner.size(id) == 0)
+                .collect();
+            for id in &e {
+                let _ = work.inner.remove_edge(id);
+                work.edge_ids.forget(id);
+            }
+        }
         if !isolates {
             let i = work.inner.isolate_node_ids();
             for n in &i {
@@ -1742,6 +1755,19 @@ impl PyDiEdgeView {
 
 #[pymethods]
 impl PyDiEdgeView {
+    /// `DH.edges.empty()` — the sub-view of edges whose tail and head are both empty
+    /// (XGI: `filterby("size", 0)`).
+    fn empty(&self, py: Python<'_>) -> PyDiEdgeView {
+        let dh = self.dh.borrow(py);
+        let ids: Vec<String> = self
+            .effective_ids(&dh)
+            .into_iter()
+            .filter(|e| dh.inner.size(e) == 0)
+            .collect();
+        drop(dh);
+        self.sub(py, ids)
+    }
+
     fn __len__(&self, py: Python<'_>) -> usize {
         let dh = self.dh.borrow(py);
         self.effective_ids(&dh).len()

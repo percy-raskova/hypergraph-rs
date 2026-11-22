@@ -1230,3 +1230,35 @@ fn an_explicit_id_zero_advances_the_counter() {
     g.add_empty_edge(Some("0".into()), serde_json::Value::Null);
     assert_eq!(g.next_edge_id(), 1);
 }
+
+#[test]
+fn cleanup_removes_empty_edges_unless_kept() {
+    use hypergraph_rs::CleanupOptions;
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(
+        vec!["1".into(), "2".into()],
+        Some("0".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.add_edge(
+        vec!["3".into(), "4".into()],
+        Some("1".into()),
+        serde_json::Value::Null,
+    )
+    .unwrap();
+    h.remove_node_from_edge("1", "3", false).unwrap();
+    h.remove_node_from_edge("1", "4", false).unwrap();
+    assert_eq!(h.members("1").unwrap().len(), 0);
+
+    let kept = h.cleaned(CleanupOptions {
+        empties: true,
+        isolates: true,
+        ..Default::default()
+    });
+    assert!(kept.has_edge("1"));
+    let mut removed = h.copy();
+    removed.cleanup(CleanupOptions::default());
+    assert!(!removed.has_edge("1"));
+    assert!(removed.has_edge("0"));
+}

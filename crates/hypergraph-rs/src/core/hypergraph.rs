@@ -70,6 +70,19 @@ pub enum MergeRule {
     Intersection,
 }
 
+/// What `cleanup` keeps. `true` keeps that kind; the default (all false) removes all of them, as XGI's defaults do.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CleanupOptions {
+    /// Keep isolated nodes.
+    pub isolates: bool,
+    /// Keep edges of size one.
+    pub singletons: bool,
+    /// Keep edges of size zero.
+    pub empties: bool,
+    /// Keep duplicate edges.
+    pub multiedges: bool,
+}
+
 impl<N, E, M> Default for Hypergraph<N, E, M> {
     fn default() -> Self {
         Self::new()
@@ -1295,28 +1308,38 @@ impl Hypergraph<Value, Value, Value> {
     }
 
     /// Remove undesirable artifacts in place. XGI parity: `H.cleanup(...)`
-    /// (hypergraph.py:1468-1518). `connected` and `relabel` are deferred
-    /// (need Phase 3 algorithms + a utils module — deviation #6). Boolean
-    /// params mean *allow*: `isolates=false` removes isolate nodes.
-    pub fn cleanup(&mut self, isolates: bool, singletons: bool, multiedges: bool) {
+    /// (hypergraph.py). `connected` and `relabel` are not part of the core
+    /// (the Python binding does them). In order: merge duplicate edges,
+    /// remove singleton edges, remove empty edges, remove isolated nodes.
+    /// Each flag in [`CleanupOptions`] keeps that kind; the default removes
+    /// all of them.
+    pub fn cleanup(&mut self, options: CleanupOptions) {
         self.assert_not_frozen();
-        if !multiedges {
+        if !options.multiedges {
             self.merge_duplicate_edges(MergeRename::First, MergeRule::First, None);
         }
-        if !singletons {
+        if !options.singletons {
             let s = self.singleton_edge_ids();
             let _ = self.remove_edges_from(&s);
         }
-        if !isolates {
+        if !options.empties {
+            let e: Vec<String> = self
+                .edge_ids()
+                .into_iter()
+                .filter(|id| self.members(id).is_some_and(|m| m.is_empty()))
+                .collect();
+            let _ = self.remove_edges_from(&e);
+        }
+        if !options.isolates {
             let i = self.isolate_node_ids();
             let _ = self.remove_nodes_from(&i, false, true);
         }
     }
 
     /// Return a cleaned copy, leaving `self` untouched.
-    pub fn cleaned(&self, isolates: bool, singletons: bool, multiedges: bool) -> Self {
+    pub fn cleaned(&self, options: CleanupOptions) -> Self {
         let mut c = self.copy();
-        c.cleanup(isolates, singletons, multiedges);
+        c.cleanup(options);
         c
     }
 }

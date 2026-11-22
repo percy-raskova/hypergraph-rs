@@ -368,7 +368,7 @@ fn test_cleanup_removes_isolates_singletons_and_multiedges() {
         .unwrap(); // duplicate
     h.add_edge(vec!["3".into()], Some("2".into()), v()).unwrap(); // singleton
     h.add_node("lonely", v()); // isolate
-    h.cleanup(false, false, false);
+    h.cleanup(hypergraph_rs::CleanupOptions::default());
     assert!(!h.has_node("lonely")); // isolate removed
     assert!(!h.has_edge("2")); // singleton removed
     assert_eq!(h.num_edges(), 1); // duplicate merged
@@ -380,7 +380,12 @@ fn test_cleaned_leaves_original_untouched() {
     h.add_edge(vec!["1".into(), "2".into()], Some("0".into()), v())
         .unwrap();
     h.add_node("lonely", v());
-    let c = h.cleaned(false, true, true); // remove isolates only
+    let c = h.cleaned(hypergraph_rs::CleanupOptions {
+        singletons: true,
+        multiedges: true,
+        empties: true,
+        ..Default::default()
+    }); // remove isolates only
     assert!(!c.has_node("lonely"));
     assert!(h.has_node("lonely")); // original unchanged
 }

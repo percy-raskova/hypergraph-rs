@@ -620,3 +620,30 @@ def test_none_cannot_be_a_new_node_of_add_simplex_or_the_dict_form():
     # None is a node now: add_simplex raises nothing
     S.add_simplex([None, 2])
     assert 2 in S.nodes
+
+
+def _with_empty_edge(cls):
+    if cls is xgi.Hypergraph:
+        H = xgi.Hypergraph([[1, 2], [3, 4]])
+        H.remove_node_from_edge(1, 3, remove_empty=False)
+        H.remove_node_from_edge(1, 4, remove_empty=False)
+    else:
+        H = xgi.DiHypergraph([([1], [2]), ([3], [4])])
+        H.remove_node_from_edge(1, 3, "in", remove_empty=False)
+        H.remove_node_from_edge(1, 4, "out", remove_empty=False)
+    return H
+
+
+@pytest.mark.parametrize("cls", [xgi.Hypergraph, xgi.DiHypergraph])
+def test_cleanup_removes_empty_edges_by_default(cls):
+    H = _with_empty_edge(cls)
+    assert len(H.edges.empty()) == 1
+    assert len(H.cleanup(in_place=False, relabel=False).edges.empty()) == 0
+    assert len(H.cleanup(empties=True, in_place=False, relabel=False).edges.empty()) == 1
+
+
+def test_cleanup_positional_empties():
+    H = _with_empty_edge(xgi.Hypergraph)
+    # isolates, singletons, empties, multiedges, connected, relabel, in_place
+    K = H.cleanup(False, False, True, False, False, False, False)
+    assert len(K.edges.empty()) == 1

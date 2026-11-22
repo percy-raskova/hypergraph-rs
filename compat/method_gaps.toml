@@ -38,13 +38,6 @@ reason = "XGI's IDView is a dict-like view with this method; the library's view 
 
 [[gap]]
 subject = "DiHypergraph.edges"
-name = "empty"
-class = "binding-gap"
-reason = "XGI's DiEdgeView.empty (edges whose tail and head are both empty) is not bound; the core can express it."
-owner = "xgi-1-1-raise:T14"
-
-[[gap]]
-subject = "DiHypergraph.edges"
 name = "get"
 class = "binding-gap"
 reason = "XGI's IDView is a dict-like view with this method; the library's view has the narrower surface the ported tests use."

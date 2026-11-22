@@ -1084,15 +1084,16 @@ impl PyHypergraph {
         self.merge_duplicate_edges_impl(py, &rename, &merge_rule, multiplicity.as_deref())
     }
 
-    /// `H.cleanup(isolates=False, singletons=False, multiedges=False, connected=True,
-    /// relabel=True, in_place=True)` (hypergraph.py:1468-1518).
-    #[pyo3(signature = (isolates=false, singletons=false, multiedges=false, connected=true, relabel=true, in_place=true))]
+    /// `H.cleanup(isolates=False, singletons=False, empties=False, multiedges=False,
+    /// connected=True, relabel=True, in_place=True)` (XGI 1.1: `empties` sits before `multiedges`).
+    #[pyo3(signature = (isolates=false, singletons=false, empties=false, multiedges=false, connected=true, relabel=true, in_place=true))]
     #[allow(clippy::too_many_arguments)]
     fn cleanup(
         &mut self,
         py: Python<'_>,
         isolates: bool,
         singletons: bool,
+        empties: bool,
         multiedges: bool,
         connected: bool,
         relabel: bool,
@@ -1101,8 +1102,9 @@ impl PyHypergraph {
         if in_place {
             self.frozen_check()?;
         }
-        let cleaned =
-            self.cleanup_computed(py, isolates, singletons, multiedges, connected, relabel)?;
+        let cleaned = self.cleanup_computed(
+            py, isolates, singletons, empties, multiedges, connected, relabel,
+        )?;
         if in_place {
             self.inner = cleaned.inner;
             self.node_ids = cleaned.node_ids;
@@ -1619,11 +1621,13 @@ impl PyHypergraph {
 
     /// Compute a cleaned-up COPY (never mutates `self`); `cleanup()` decides whether to swap it
     /// back into `self` (`in_place=True`) or return it fresh.
+    #[allow(clippy::too_many_arguments)]
     fn cleanup_computed(
         &self,
         py: Python<'_>,
         isolates: bool,
         singletons: bool,
+        empties: bool,
         multiedges: bool,
         connected: bool,
         relabel: bool,
@@ -1642,6 +1646,18 @@ impl PyHypergraph {
             let _ = work.inner.remove_edges_from(&s);
             for e in &s {
                 work.edge_ids.forget(e);
+            }
+        }
+        if !empties {
+            let e: Vec<String> = work
+                .inner
+                .edge_ids()
+                .into_iter()
+                .filter(|id| work.inner.members(id).is_some_and(|m| m.is_empty()))
+                .collect();
+            let _ = work.inner.remove_edges_from(&e);
+            for id in &e {
+                work.edge_ids.forget(id);
             }
         }
         if !isolates {
