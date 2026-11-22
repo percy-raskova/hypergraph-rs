@@ -80,6 +80,23 @@ pub(crate) fn eval_mode(
 // NodeView
 // ---------------------------------------------------------------------------------------------
 
+/// The `dtype` of a node view's `memberships`-like method: `None` and `dict` give a dict (`true`),
+/// `list` a list (`false`), anything else raises `XGIError("Unrecognized dtype ...")`.
+pub(crate) fn node_dtype_is_dict(
+    py: Python<'_>,
+    dtype: Option<&Bound<'_, PyAny>>,
+) -> PyResult<bool> {
+    match dtype {
+        None => Ok(true),
+        Some(d) if d.is_none() || d.is(py.get_type::<PyDict>()) => Ok(true),
+        Some(d) if d.is(py.get_type::<PyList>()) => Ok(false),
+        Some(d) => Err(crate::errors::xgi_error(format!(
+            "Unrecognized dtype {}",
+            d.str()?
+        ))),
+    }
+}
+
 #[pyclass(name = "NodeView", module = "hypergraph_rs")]
 pub struct PyNodeView {
     pub hg: Py<PyHypergraph>,
@@ -266,10 +283,16 @@ impl PyNodeView {
         self.sub(py, ids)
     }
 
-    /// `H.nodes.memberships(n=None)` -> a SET of edge ids for `n`, or a dict of sets for all
-    /// nodes in this view when `n` is omitted (views.py:604-629).
-    #[pyo3(signature = (n=None))]
-    fn memberships(&self, py: Python<'_>, n: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+    /// `H.nodes.memberships(n=None, dtype=dict)` -> a SET of edge ids for `n`, or, when `n` is
+    /// omitted, the sets of all nodes in this view as a dict (`dtype=dict`, the default) or a list
+    /// in view order (`dtype=list`). Anything else raises `XGIError`.
+    #[pyo3(signature = (n=None, dtype=None))]
+    fn memberships(
+        &self,
+        py: Python<'_>,
+        n: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         let hg = self.hg.borrow(py);
         match n {
             Some(n) => {
@@ -284,6 +307,7 @@ impl PyNodeView {
                 Ok(set.into_any().unbind())
             }
             None => {
+                let as_dict = node_dtype_is_dict(py, dtype)?;
                 let d = PyDict::new(py);
                 for nid in self.effective_ids(&hg) {
                     let Some(obj) = hg.node_ids.get_obj(py, &nid) else {
@@ -297,7 +321,11 @@ impl PyNodeView {
                     }
                     d.set_item(obj, set)?;
                 }
-                Ok(d.into_any().unbind())
+                if as_dict {
+                    Ok(d.into_any().unbind())
+                } else {
+                    Ok(d.values().into_any().unbind())
+                }
             }
         }
     }

@@ -13,6 +13,7 @@ use serde_json::Value;
 
 use crate::errors::{id_not_found, xgi_error};
 use crate::pyid::{json_to_py, py_any_to_json, PyIdMap};
+use crate::views::node_dtype_is_dict;
 
 fn warn_user(py: Python<'_>, msg: &str) -> PyResult<()> {
     py.import("warnings")?.call_method1(
@@ -1368,10 +1369,16 @@ impl PyDiNodeView {
         Ok(d.unbind())
     }
 
-    /// `DH.nodes.memberships(n=None)` -> a SET of edge ids the node belongs to (head or tail),
-    /// or a dict of sets for all nodes in this view when `n` is omitted.
-    #[pyo3(signature = (n=None))]
-    fn memberships(&self, py: Python<'_>, n: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+    /// `DH.nodes.memberships(n=None, dtype=dict)` -> a SET of edge ids the node belongs to (head or
+    /// tail), or, when `n` is omitted, the sets of all nodes in this view as a dict (the default) or
+    /// a list in view order (`dtype=list`).
+    #[pyo3(signature = (n=None, dtype=None))]
+    fn memberships(
+        &self,
+        py: Python<'_>,
+        n: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         let dh = self.dh.borrow(py);
         match n {
             Some(n) => {
@@ -1386,6 +1393,7 @@ impl PyDiNodeView {
                 Ok(set.into_any().unbind())
             }
             None => {
+                let as_dict = node_dtype_is_dict(py, dtype)?;
                 let d = PyDict::new(py);
                 for nid in self.effective_ids(&dh) {
                     let Some(obj) = dh.node_ids.get_obj(py, &nid) else {
@@ -1399,15 +1407,25 @@ impl PyDiNodeView {
                     }
                     d.set_item(obj, set)?;
                 }
-                Ok(d.into_any().unbind())
+                if as_dict {
+                    Ok(d.into_any().unbind())
+                } else {
+                    Ok(d.values().into_any().unbind())
+                }
             }
         }
     }
 
-    /// `DH.nodes.dimemberships(n=None)` -> `(in_edges, out_edges)` as a pair of SETs, or a dict
-    /// of pairs for all nodes in this view when `n` is omitted.
-    #[pyo3(signature = (n=None))]
-    fn dimemberships(&self, py: Python<'_>, n: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+    /// `DH.nodes.dimemberships(n=None, dtype=dict)` -> `(in_edges, out_edges)` as a pair of SETs, or,
+    /// when `n` is omitted, the pairs of all nodes in this view as a dict (the default) or a list in
+    /// view order (`dtype=list`).
+    #[pyo3(signature = (n=None, dtype=None))]
+    fn dimemberships(
+        &self,
+        py: Python<'_>,
+        n: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         let dh = self.dh.borrow(py);
         let pair_for = |py: Python<'_>, core: &str| -> PyResult<Py<PyTuple>> {
             let (in_e, out_e) = dh.inner.dimemberships(core).unwrap_or_default();
@@ -1432,6 +1450,7 @@ impl PyDiNodeView {
                 Ok(pair_for(py, &core)?.into_any())
             }
             None => {
+                let as_dict = node_dtype_is_dict(py, dtype)?;
                 let d = PyDict::new(py);
                 for nid in self.effective_ids(&dh) {
                     let Some(obj) = dh.node_ids.get_obj(py, &nid) else {
@@ -1439,7 +1458,11 @@ impl PyDiNodeView {
                     };
                     d.set_item(obj, pair_for(py, &nid)?)?;
                 }
-                Ok(d.into_any().unbind())
+                if as_dict {
+                    Ok(d.into_any().unbind())
+                } else {
+                    Ok(d.values().into_any().unbind())
+                }
             }
         }
     }
@@ -1584,6 +1607,21 @@ impl PyDiNodeView {
 // ---------------------------------------------------------------------------------------------
 // DiEdgeView
 // ---------------------------------------------------------------------------------------------
+
+/// `warnings.warn("DiEdgeView.<old> is deprecated ... Use DiEdgeView.<new> instead.",
+/// DeprecationWarning, stacklevel=2)`: the warning points at the caller of the alias.
+fn warn_deprecated(py: Python<'_>, old: &str, new: &str) -> PyResult<()> {
+    let msg = format!(
+        "DiEdgeView.{old} is deprecated and will be removed in a future release. \
+         Use DiEdgeView.{new} instead."
+    );
+    PyErr::warn(
+        py,
+        &py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
+        &std::ffi::CString::new(msg).expect("no NUL in the message"),
+        2,
+    )
+}
 
 #[pyclass(name = "DiEdgeView", module = "hypergraph_rs")]
 pub struct PyDiEdgeView {
@@ -1878,6 +1916,30 @@ impl PyDiEdgeView {
                 }
             }
         }
+    }
+
+    /// Deprecated alias of [`Self::tail`]: warns, then returns exactly `tail(e, dtype)`.
+    #[pyo3(signature = (e=None, dtype=None))]
+    fn sources(
+        &self,
+        py: Python<'_>,
+        e: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        warn_deprecated(py, "sources", "tail")?;
+        self.tail(py, e, dtype)
+    }
+
+    /// Deprecated alias of [`Self::head`]: warns, then returns exactly `head(e, dtype)`.
+    #[pyo3(signature = (e=None, dtype=None))]
+    fn targets(
+        &self,
+        py: Python<'_>,
+        e: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        warn_deprecated(py, "targets", "head")?;
+        self.head(py, e, dtype)
     }
 
     /// `DH.edges.head(e=None, dtype=list)` -> the head (receiver) node ids.

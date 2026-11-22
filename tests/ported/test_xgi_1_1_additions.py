@@ -42,3 +42,26 @@ def test_simplicial_complex_pickles_every_simplex():
 def test_edge_uid_is_read_only():
     with pytest.raises(AttributeError):
         xgi.Hypergraph()._edge_uid = 5
+
+
+def test_memberships_dtype(edgelist1):
+    H = xgi.Hypergraph(edgelist1)
+    assert H.nodes.memberships(dtype=dict) == H.nodes.memberships()
+    assert H.nodes.memberships(dtype=list) == [H.nodes.memberships(n) for n in H.nodes]
+    assert H.nodes([1, 2]).memberships(dtype=list) == [H.nodes.memberships(1), H.nodes.memberships(2)]
+    with pytest.raises(xgi.exception.XGIError, match="Unrecognized dtype"):
+        H.nodes.memberships(dtype=tuple)
+
+
+def test_di_memberships_dtype(diedgelist2):
+    D = xgi.DiHypergraph(diedgelist2)
+    assert D.nodes.dimemberships(dtype=list) == [D.nodes.dimemberships(n) for n in D.nodes]
+    assert D.nodes.memberships(dtype=list) == [D.nodes.memberships(n) for n in D.nodes]
+
+
+def test_sources_targets_warn_and_delegate(diedgelist2):
+    D = xgi.DiHypergraph(diedgelist2)
+    with pytest.warns(DeprecationWarning, match="DiEdgeView.sources is deprecated"):
+        assert D.edges.sources(0) == D.edges.tail(0)
+    with pytest.warns(DeprecationWarning, match="DiEdgeView.targets is deprecated"):
+        assert D.edges.targets(dtype=list) == D.edges.head(dtype=list)
