@@ -200,16 +200,19 @@ fn build_big() -> (H, Positions) {
     let mut s = 20_261_121_u64;
     let mut h = H::new();
     let mut anc = Positions::new();
-    for e in 0..12 {
-        anc.insert(format!("e{e}"), (e as f64 * 1.5, (e * e) as f64 / 3.0));
-    }
+    let mut used = [false; 12];
     for n in 0..200 {
         let k = 1 + lcg(&mut s) % 4;
         for _ in 0..k {
             let e = lcg(&mut s) % 12;
             let w = (lcg(&mut s) % 20) as f64 / 7.0;
             link(&mut h, &format!("e{e}"), &format!("n{n}"), w);
+            used[e as usize] = true;
         }
+    }
+    // Only the edges the generator chose exist; anchors are inserted in ascending order, as before.
+    for (e, _) in used.iter().enumerate().filter(|(_, u)| **u) {
+        anc.insert(format!("e{e}"), (e as f64 * 1.5, (e * e) as f64 / 3.0));
     }
     (h, anc)
 }
@@ -230,4 +233,53 @@ fn the_same_input_gives_the_same_bits_twice() {
         assert_eq!(a.0.to_bits(), b.0.to_bits());
         assert_eq!(a.1.to_bits(), b.1.to_bits());
     }
+}
+
+#[test]
+fn barycentre_refuses_sums_that_overflow() {
+    assert_eq!(
+        barycentre(&[(1.0, 1.0), (1.0, 1.0)], &[1e308, 1e308]),
+        Err(GeometryError::NonFinitePosition {
+            item: "barycentre".to_string()
+        })
+    );
+    assert!(matches!(
+        barycentre(&[(1e200, 0.0), (1e200, 0.0)], &[1e200, 1e200]),
+        Err(GeometryError::NonFinitePosition { .. })
+    ));
+    // Weights alone overflow, though the positions sit at zero: a finite zero would be a wrong answer.
+    assert!(matches!(
+        barycentre(&[(0.0, 0.0), (0.0, 0.0)], &[1e308, 1e308]),
+        Err(GeometryError::NonFinitePosition { .. })
+    ));
+}
+
+#[test]
+fn corner_mix_names_the_row_whose_sums_overflow() {
+    let corners = [(1.0, 1.0), (1.0, 1.0)];
+    let shares = vec![
+        ("fine".to_string(), vec![1.0, 1.0]),
+        ("big".to_string(), vec![1e308, 1e308]),
+    ];
+    assert_eq!(
+        corner_mix(&corners, &shares),
+        Err(GeometryError::NonFinitePosition {
+            item: "big".to_string()
+        })
+    );
+}
+
+#[test]
+fn anchored_placement_names_the_node_whose_sums_overflow() {
+    let mut h = H::new();
+    link(&mut h, "top", "a", 1.0);
+    link(&mut h, "top", "huge", 1e308);
+    link(&mut h, "bottom", "huge", 1e308);
+    let anc = anchors(&[("top", (1.0, 1.0)), ("bottom", (1.0, 1.0))]);
+    assert_eq!(
+        anchored_placement(&h, &anc, |w| *w),
+        Err(GeometryError::NonFinitePosition {
+            item: "huge".to_string()
+        })
+    );
 }

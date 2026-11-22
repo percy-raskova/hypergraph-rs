@@ -18,7 +18,8 @@ pub struct SpreadParams {
     pub steps: u32,
     /// The most candidate partners one point examines in a step. At least 1.
     pub max_neighbours: usize,
-    /// When set, every point is clamped into this rectangle after each step. Its minimum must not exceed its maximum on either axis.
+    /// When set, every point is clamped into this rectangle after each step. Its minimum must not exceed its
+    /// maximum on either axis.
     pub bounds: Option<Rect>,
 }
 
@@ -258,12 +259,18 @@ fn step(
     if !obstacles.is_empty() {
         for (i, at) in points.iter().enumerate() {
             let (row, col) = cell_of(*at, d);
-            for dr in -1i64..=1 {
+            let mut examined = 0usize;
+            'cells: for dr in -1i64..=1 {
                 for dc in -1i64..=1 {
                     let (Some(r), Some(c)) = (row.checked_add(dr), col.checked_add(dc)) else {
                         continue;
                     };
-                    for &(_, _, k) in in_cell(obstacle_cells, r, c) {
+                    // Only the first `max_neighbours` obstacles are examined, so a pile of obstacles on one spot
+                    // costs no more per point than a pile of points.
+                    let cell = in_cell(obstacle_cells, r, c);
+                    let room = params.max_neighbours - examined;
+                    for &(_, _, k) in &cell[..cell.len().min(room)] {
+                        examined += 1;
                         comparisons += 1;
                         let (dx, dy) = (at.0 - obstacles[k].0, at.1 - obstacles[k].1);
                         let dist = (dx * dx + dy * dy).sqrt();
@@ -279,6 +286,9 @@ fn step(
                             shift[i].0 += dx / dist * amount;
                             shift[i].1 += dy / dist * amount;
                         }
+                    }
+                    if examined >= params.max_neighbours {
+                        break 'cells;
                     }
                 }
             }
@@ -318,6 +328,16 @@ pub fn spread(
     obstacles: &[Point],
     params: &SpreadParams,
 ) -> Result<SpreadReport, GeometryError> {
+    spread_counted(positions, obstacles, params).map(|(report, _)| report)
+}
+
+/// [`spread`], also returning every pair and obstacle examined, the final overlap count's included (which
+/// `SpreadReport::comparisons` leaves out). Tests read it to bound the cost.
+fn spread_counted(
+    positions: &mut Positions,
+    obstacles: &[Point],
+    params: &SpreadParams,
+) -> Result<(SpreadReport, u64), GeometryError> {
     validate(positions, obstacles, params)?;
     let hashes: Vec<u64> = (0..positions.len())
         .map(|i| fnv1a(positions.id_at(i).as_bytes()))
@@ -332,13 +352,48 @@ pub fn spread(
     let points: Vec<Point> = positions.iter().map(|(_, at)| at).collect();
     let cells = sorted_cells(&points, d);
     let mut overlaps_left = 0usize;
-    scan_pairs(&points, &cells, d, params.max_neighbours, |_, _, dist| {
+    let final_scan = scan_pairs(&points, &cells, d, params.max_neighbours, |_, _, dist| {
         if dist < d * (1.0 - 1e-9) {
             overlaps_left += 1;
         }
     });
-    Ok(SpreadReport {
-        comparisons,
-        overlaps_left,
-    })
+    Ok((
+        SpreadReport {
+            comparisons,
+            overlaps_left,
+        },
+        comparisons + final_scan,
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn twenty_five_thousand_points_on_one_spot_examine_a_bounded_count_of_pairs() {
+        let mut p = Positions::new();
+        for k in 0..25_000usize {
+            p.insert(format!("n{k:05}"), (1.0, 1.0));
+        }
+        let (_, examined) = spread_counted(&mut p, &[], &SpreadParams::new(0.1, 2)).unwrap();
+        // Two steps and the final count, each at most `max_neighbours` pairs per point; a pass over the whole pile
+        // for each point would be over 600 million pairs.
+        assert!(examined <= 25_000 * 32 * 3, "{examined} pairs");
+    }
+
+    #[test]
+    fn a_pile_of_obstacles_on_one_spot_examines_a_bounded_count() {
+        let mut p = Positions::new();
+        for k in 0..500usize {
+            p.insert(format!("n{k:03}"), (1.0 + k as f64 * 1e-3, 1.0));
+        }
+        let obstacles = vec![(1.0, 1.0); 20_000];
+        let (_, examined) = spread_counted(&mut p, &obstacles, &SpreadParams::new(1.0, 2)).unwrap();
+        // Per point and step: at most 32 obstacles and 32 pairs; the final count adds at most 32 pairs.
+        assert!(
+            examined <= 500 * 32 * 2 * 2 + 500 * 32,
+            "{examined} examined"
+        );
+    }
 }

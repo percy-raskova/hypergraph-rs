@@ -16,32 +16,65 @@ fn check_anchors(anchors: &[Point]) -> Result<(), GeometryError> {
     Ok(())
 }
 
+/// The running sums of a weighted mean: total weight, weighted x, weighted y.
+#[derive(Clone, Copy, Default)]
+struct Sums {
+    total: f64,
+    x: f64,
+    y: f64,
+}
+
+impl Sums {
+    /// Checks the weight `w` of the item `name` and adds it, with its position `at`, to the sums.
+    fn add(
+        &mut self,
+        w: f64,
+        at: Point,
+        name: impl FnOnce() -> String,
+    ) -> Result<(), GeometryError> {
+        if !(w.is_finite() && w >= 0.0) {
+            return Err(GeometryError::BadWeight {
+                item: name(),
+                value: w,
+            });
+        }
+        self.total += w;
+        self.x += w * at.0;
+        self.y += w * at.1;
+        Ok(())
+    }
+
+    /// The mean, or `None` when the weights sum to zero. A sum or a result that is not finite (finite inputs can
+    /// overflow) is an error naming `name`, never an infinite or NaN point.
+    fn finish(self, name: impl FnOnce() -> String) -> Result<Option<Point>, GeometryError> {
+        if !(self.total.is_finite() && self.x.is_finite() && self.y.is_finite()) {
+            return Err(GeometryError::NonFinitePosition { item: name() });
+        }
+        if self.total > 0.0 {
+            let at = (self.x / self.total, self.y / self.total);
+            if !(at.0.is_finite() && at.1.is_finite()) {
+                return Err(GeometryError::NonFinitePosition { item: name() });
+            }
+            Ok(Some(at))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 /// Weighted mean of `anchors`, with `weights` already counted and anchors already checked.
-/// `name` gives the item named in a weight error.
+/// `name` gives the item named in a weight error; `whole` the item named when the result is not finite.
 fn mix(
     anchors: &[Point],
     weights: &[f64],
     name: &dyn Fn(usize) -> String,
+    whole: &dyn Fn() -> String,
 ) -> Result<Option<Point>, GeometryError> {
-    let mut total = 0.0_f64;
-    let mut sx = 0.0_f64;
-    let mut sy = 0.0_f64;
+    let mut sums = Sums::default();
     for (k, (&w, a)) in weights.iter().zip(anchors).enumerate() {
-        if !(w.is_finite() && w >= 0.0) {
-            return Err(GeometryError::BadWeight {
-                item: name(k),
-                value: w,
-            });
-        }
-        total += w;
-        sx += w * a.0;
-        sy += w * a.1;
+        sums.add(w, *a, || name(k))?;
     }
-    if total > 0.0 {
-        Ok(Some((sx / total, sy / total)))
-    } else {
-        Ok(None)
-    }
+    sums.finish(whole)
 }
 
 /// The weighted mean of `anchors`: `(Σ wᵢ·xᵢ / Σ wᵢ, Σ wᵢ·yᵢ / Σ wᵢ)`, summed in index order.
@@ -61,7 +94,9 @@ pub fn barycentre(anchors: &[Point], weights: &[f64]) -> Result<Option<Point>, G
         });
     }
     check_anchors(anchors)?;
-    mix(anchors, weights, &|k| format!("#{k}"))
+    mix(anchors, weights, &|k| format!("#{k}"), &|| {
+        "barycentre".to_string()
+    })
 }
 
 /// Places each item at the mix of `corners` given by its row of shares.
@@ -73,7 +108,7 @@ pub fn barycentre(anchors: &[Point], weights: &[f64]) -> Result<Option<Point>, G
 ///
 /// `NonFinitePosition` (item `#<k>`) for a corner that is not finite, `CountMismatch` (item: the row's id) for a row
 /// whose length is not the count of corners, `BadWeight` (item: the row's id) for a share that is negative or not
-/// finite.
+/// finite. A row whose sums overflow gives `NonFinitePosition` (item: the row's id).
 pub fn corner_mix(
     corners: &[Point],
     shares: &[(String, Vec<f64>)],
@@ -91,7 +126,7 @@ pub fn corner_mix(
                 found: row.len(),
             });
         }
-        match mix(corners, row, &|_| id.clone())? {
+        match mix(corners, row, &|_| id.clone(), &|| id.clone())? {
             Some(at) => {
                 placement.positions.insert(id.clone(), at);
             }
@@ -113,7 +148,8 @@ pub fn corner_mix(
 /// # Errors
 ///
 /// `UnknownEdge` for an anchor id not in `h`, `NonFinitePosition` (item: the edge id) for an anchor position that is
-/// not finite, `BadWeight` (item: the node id) for a weight that is negative or not finite.
+/// not finite, `BadWeight` (item: the node id) for a weight that is negative or not finite, `NonFinitePosition`
+/// (item: the node id) for a node whose sums overflow.
 pub fn anchored_placement<N, E, M>(
     h: &Hypergraph<N, E, M>,
     anchors: &Positions,
@@ -126,7 +162,7 @@ pub fn anchored_placement<N, E, M>(
         .map(|(k, id)| (id.as_str(), k))
         .collect();
     // total weight, weighted x, weighted y, per node in node order
-    let mut sums = vec![(0.0_f64, 0.0_f64, 0.0_f64); ids.len()];
+    let mut sums = vec![Sums::default(); ids.len()];
     for (edge, at) in anchors.iter() {
         let Some(members) = h.members_with_data(edge) else {
             return Err(GeometryError::UnknownEdge(edge.to_string()));
@@ -138,27 +174,21 @@ pub fn anchored_placement<N, E, M>(
         }
         for (node, data) in members {
             let w = weight(data);
-            if !(w.is_finite() && w >= 0.0) {
-                return Err(GeometryError::BadWeight {
-                    item: node,
-                    value: w,
-                });
+            let slot = index.get(node.as_str()).copied();
+            match slot {
+                Some(k) => sums[k].add(w, at, || node)?,
+                // A member that is not a node still has its weight checked.
+                None => Sums::default().add(w, at, || node)?,
             }
-            let Some(&k) = index.get(node.as_str()) else {
-                continue;
-            };
-            let s = &mut sums[k];
-            s.0 += w;
-            s.1 += w * at.0;
-            s.2 += w * at.1;
         }
     }
     let mut placement = Placement::default();
-    for (id, (total, sx, sy)) in ids.into_iter().zip(sums) {
-        if total > 0.0 {
-            placement.positions.insert(id, (sx / total, sy / total));
-        } else {
-            placement.unplaced.push(id);
+    for (id, s) in ids.into_iter().zip(sums) {
+        match s.finish(|| id.clone())? {
+            Some(at) => {
+                placement.positions.insert(id, at);
+            }
+            None => placement.unplaced.push(id),
         }
     }
     Ok(placement)

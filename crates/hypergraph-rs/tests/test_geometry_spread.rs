@@ -205,9 +205,7 @@ fn twenty_five_thousand_points_on_one_spot_cost_no_square_of_the_pile() {
     for k in 0..25_000usize {
         p.insert(format!("n{k:05}"), (1.0, 1.0));
     }
-    let started = std::time::Instant::now();
     let report = spread(&mut p, &[], &SpreadParams::new(0.1, 2)).unwrap();
     assert!(report.comparisons <= 25_000 * 32 * 2);
-    // A pass over the whole pile for each point would be over a billion iterations a step; this takes well under a second.
-    assert!(started.elapsed() < std::time::Duration::from_secs(20));
+    // The cost is bounded by the count of pairs examined (also pinned in the unit tests of `spread.rs`), not a clock.
 }
