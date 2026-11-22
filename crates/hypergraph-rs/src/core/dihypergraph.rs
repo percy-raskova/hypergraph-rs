@@ -196,11 +196,11 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         if let Some(id) = &idx {
             if let Ok(n) = id.parse::<u64>() {
                 if n >= self.edge_uid_counter {
-                    self.edge_uid_counter = n + 1;
+                    self.edge_uid_counter = n.saturating_add(1);
                 }
             }
         } else {
-            self.edge_uid_counter += 1;
+            self.edge_uid_counter = self.edge_uid_counter.saturating_add(1);
         }
 
         let he = self.inner.add_node(NodeKind::Hyperedge(attrs));
@@ -413,7 +413,7 @@ impl<N, E, M> DiHypergraph<N, E, M> {
             self.hyperedge_ids.insert(edge_id.to_string(), he);
             if let Ok(n) = edge_id.parse::<u64>() {
                 if n >= self.edge_uid_counter {
-                    self.edge_uid_counter = n + 1;
+                    self.edge_uid_counter = n.saturating_add(1);
                 }
             }
         }
@@ -582,7 +582,7 @@ impl<N, E, M> DiHypergraph<N, E, M> {
             self.hyperedge_ids.insert(edge_id.to_string(), he);
             if let Ok(n) = edge_id.parse::<u64>() {
                 if n >= self.edge_uid_counter {
-                    self.edge_uid_counter = n + 1;
+                    self.edge_uid_counter = n.saturating_add(1);
                 }
             }
         }

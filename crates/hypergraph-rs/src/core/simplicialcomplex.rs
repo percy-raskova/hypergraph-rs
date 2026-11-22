@@ -237,6 +237,24 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         self.inner.edge_ids()
     }
 
+    /// The ids of the simplices a node is a member of, in insertion order. XGI parity:
+    /// `S.nodes.memberships(n)`.
+    pub fn memberships(&self, node_id: &str) -> Option<Vec<String>> {
+        self.inner.memberships(node_id)
+    }
+
+    /// Node ids with the same simplex-membership set, grouped over the whole complex: groups of two
+    /// or more, in order of first occurrence. XGI parity: `S.nodes.duplicate_groups()`.
+    pub fn node_duplicate_groups(&self) -> Vec<Vec<String>> {
+        self.inner.nodes().duplicate_groups()
+    }
+
+    /// Simplex ids with the same member set, grouped over the whole complex (empty for a valid
+    /// complex). XGI parity: `S.edges.duplicate_groups()`.
+    pub fn edge_duplicate_groups(&self) -> Vec<Vec<String>> {
+        self.inner.edges().duplicate_groups()
+    }
+
     /// Whether a simplex with exactly these members is present (by member-set,
     /// not id). XGI parity: `S.has_simplex(simplex)` (simplicialcomplex.py:783-806).
     pub fn has_simplex(&self, members: &[String]) -> bool {
@@ -267,6 +285,35 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         M: Default + Clone,
     {
         let set = as_sorted_set(&members);
+        self.add_simplex_without_faces(members, idx, attrs)?;
+        // Missing subfaces (size >= 2), attribute-free.
+        for face in subfaces(&set) {
+            if face.is_empty() || self.has_simplex(&face) {
+                continue;
+            }
+            let _ = self.inner.add_edge(face, None, E::default());
+        }
+        self.invalidate();
+        Ok(())
+    }
+
+    /// Add only the top simplex, leaving its subfaces out: the complex is not closed until
+    /// [`close`](Self::close) runs. XGI does this by accident: `add_simplices_from` collects the
+    /// subfaces and adds them after its loop, so an error inside the loop leaves the simplices read
+    /// so far without their faces; the Python bindings mirror that state. Same no-op rules as
+    /// [`add_simplex`](Self::add_simplex).
+    pub fn add_simplex_without_faces(
+        &mut self,
+        members: Vec<String>,
+        idx: Option<String>,
+        attrs: E,
+    ) -> Result<(), SimplexError>
+    where
+        N: Default,
+        E: Default,
+        M: Default + Clone,
+    {
+        let set = as_sorted_set(&members);
         // D1: XGI's docstring claims empty simplices cannot be added; the
         // runtime CREATES one. A repeat empty add is a no-op via the
         // has_simplex check below (an empty set is a member of itself).
@@ -283,14 +330,7 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         // the documentation-defect fix on `Hypergraph::add_empty_edge`,
         // same D1 register entry this function's own comment above cites);
         // an empty `set` here (the empty-simplex case) succeeds the same way.
-        let _ = self.inner.add_edge(set.clone(), idx, attrs);
-        // Missing subfaces (size >= 2), attribute-free.
-        for face in subfaces(&set) {
-            if face.is_empty() || self.has_simplex(&face) {
-                continue;
-            }
-            let _ = self.inner.add_edge(face, None, E::default());
-        }
+        let _ = self.inner.add_edge(set, idx, attrs);
         self.invalidate();
         Ok(())
     }

@@ -409,7 +409,7 @@ impl PyNodeView {
         let hg = self.hg.borrow(py);
         let ids = self.effective_ids(&hg);
         drop(hg);
-        crate::stats::PyNodeStat::attr(py, self.hg.clone_ref(py), ids, "pos".to_string())
+        crate::stats::PyNodeStat::pos(py, self.hg.clone_ref(py), ids)
     }
 
     /// `H.nodes.average_neighbor_degree` (bare/called) — XGI parity:

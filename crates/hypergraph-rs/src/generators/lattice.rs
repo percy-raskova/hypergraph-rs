@@ -8,7 +8,8 @@ use crate::Hypergraph;
 /// The edges of `ring_lattice(n, d, k, l, ..)` in id order: node i, then the d-1 nodes
 /// (start + l + j) % n for j in 0..d-1, for start in i+1 ..= i + k/2. XGI's `_ring_lattice_edges`.
 ///
-/// `n` must be positive (`ring_lattice` checks it); the result has `n * (k / 2)` edges of `d` entries.
+/// The result has `n * (k / 2)` edges of `d` entries; it is empty for `n == 0` (the loop over the nodes never
+/// runs, so the `% n` is never reached). `ring_lattice` itself refuses `n == 0`.
 #[must_use]
 pub fn ring_lattice_edges(n: usize, d: usize, k: usize, l: usize) -> Vec<Vec<usize>> {
     let mut edges: Vec<Vec<usize>> = Vec::with_capacity(n * (k / 2));

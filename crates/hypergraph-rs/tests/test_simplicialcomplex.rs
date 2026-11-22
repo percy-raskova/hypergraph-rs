@@ -292,3 +292,15 @@ fn from_closed_simplices_keeps_the_first_of_a_repeated_id_or_member_set() {
     assert_eq!(s.edge_ids(), vec!["x".to_string()]);
     assert_eq!(s.members("x"), Some(ab()));
 }
+
+#[test]
+fn an_explicit_simplex_id_of_u64_max_does_not_overflow_the_counter() {
+    let mut s: SimplicialComplex = SimplicialComplex::new();
+    s.add_simplex(
+        vec!["a".into(), "b".into()],
+        Some(u64::MAX.to_string()),
+        v(),
+    )
+    .unwrap();
+    assert_eq!(s.next_edge_id(), u64::MAX);
+}

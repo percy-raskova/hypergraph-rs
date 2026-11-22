@@ -388,13 +388,30 @@ impl PySimplicialComplex {
             Some(w) => w,
             None => pyo3::types::PyString::new(py, "weight").into_any(),
         };
-        let bunch = crate::hypergraph::weighted_bunch(
+        // XGI's frozen complex replaces the method itself: the refusal comes before the bunch is read.
+        slf.borrow().frozen_check()?;
+        let (bunch, stopped) = crate::hypergraph::weighted_bunch(
             py,
             &ebunch_to_add,
             &weight,
             "Empty or invalid simplices specified.",
         )?;
-        slf.call_method("add_simplices_from", (bunch,), attr.as_ref())
+        let Some(stopped) = stopped else {
+            return slf
+                .call_method("add_simplices_from", (bunch,), attr.as_ref())
+                .map(|_| ())
+                .map_err(|e| {
+                    crate::hypergraph::index_key_to_value_error(
+                        py,
+                        e,
+                        "Empty or invalid simplices specified.",
+                    )
+                });
+        };
+        // XGI feeds a generator to `add_simplices_from`, which adds the subfaces only after its loop:
+        // an error inside the loop leaves the simplices read so far WITHOUT their faces, then raises.
+        slf.borrow_mut()
+            .add_simplices_impl(py, bunch.as_any(), attr.as_ref(), false)
             .map_err(|e| {
                 crate::hypergraph::index_key_to_value_error(
                     py,
@@ -402,7 +419,7 @@ impl PySimplicialComplex {
                     "Empty or invalid simplices specified.",
                 )
             })?;
-        Ok(())
+        Err(stopped)
     }
 
     /// `S.add_simplices_from(ebunch, **attr)` — Formats 1-5, mirroring
@@ -415,132 +432,7 @@ impl PySimplicialComplex {
         ebunch_to_add: Bound<'_, PyAny>,
         attr: Option<Bound<'_, PyDict>>,
     ) -> PyResult<()> {
-        let mut base_attr = serde_json::Map::new();
-        if let Some(a) = &attr {
-            for (k, v) in a.iter() {
-                base_attr.insert(k.str()?.to_string(), py_any_to_json(&v)?);
-            }
-        }
-
-        if let Ok(dict) = ebunch_to_add.cast::<PyDict>() {
-            for (idx, members) in dict.iter() {
-                self.add_simplex_impl_attrs(py, &members, Some(&idx), base_attr.clone())?;
-            }
-            return Ok(());
-        }
-
-        let mut iter = ebunch_to_add.try_iter()?;
-        let Some(first_res) = iter.next() else {
-            return Ok(());
-        };
-        let first = first_res?;
-
-        let elem: Option<Bound<PyAny>> = match first.try_iter() {
-            Ok(mut it) => match it.next() {
-                Some(r) => Some(r?),
-                None => None,
-            },
-            Err(_) => None,
-        };
-        let elem_is_iterable = match &elem {
-            Some(e) => e.try_iter().is_ok(),
-            None => false,
-        };
-
-        #[derive(Clone, Copy, PartialEq)]
-        enum Fmt {
-            One,
-            Two,
-            Three,
-            Four,
-        }
-        let fmt = if elem_is_iterable {
-            let mut all_str = true;
-            for it in first.try_iter()? {
-                if it?.cast::<pyo3::types::PyString>().is_err() {
-                    all_str = false;
-                    break;
-                }
-            }
-            if all_str {
-                Fmt::One
-            } else {
-                let len = first.len()?;
-                if len == 2 {
-                    let second = first.get_item(1)?;
-                    if second.cast::<PyDict>().is_ok() {
-                        Fmt::Three
-                    } else {
-                        Fmt::Two
-                    }
-                } else if len == 3 {
-                    Fmt::Four
-                } else {
-                    return Err(xgi_error("Invalid ebunch format"));
-                }
-            }
-        } else {
-            Fmt::One
-        };
-
-        let elem_is_str = elem
-            .as_ref()
-            .map(|e| e.cast::<pyo3::types::PyString>().is_ok())
-            .unwrap_or(false);
-        if (fmt == Fmt::One && first.cast::<pyo3::types::PyString>().is_ok())
-            || (fmt != Fmt::One && elem_is_str)
-        {
-            return Err(xgi_error("Members cannot be specified as a string"));
-        }
-
-        let mut current = first;
-        loop {
-            let (members, idx, extra_attrs): (
-                Bound<PyAny>,
-                Option<Bound<PyAny>>,
-                serde_json::Map<String, Value>,
-            ) = match fmt {
-                Fmt::One => (current.clone(), None, serde_json::Map::new()),
-                Fmt::Two => (
-                    current.get_item(0)?,
-                    Some(current.get_item(1)?),
-                    serde_json::Map::new(),
-                ),
-                Fmt::Three => {
-                    let d = current
-                        .get_item(1)?
-                        .cast_into::<PyDict>()
-                        .map_err(|_| xgi_error("Invalid ebunch format"))?;
-                    let mut m = serde_json::Map::new();
-                    for (k, v) in d.iter() {
-                        m.insert(k.str()?.to_string(), py_any_to_json(&v)?);
-                    }
-                    (current.get_item(0)?, None, m)
-                }
-                Fmt::Four => {
-                    let d = current
-                        .get_item(2)?
-                        .cast_into::<PyDict>()
-                        .map_err(|_| xgi_error("Invalid ebunch format"))?;
-                    let mut m = serde_json::Map::new();
-                    for (k, v) in d.iter() {
-                        m.insert(k.str()?.to_string(), py_any_to_json(&v)?);
-                    }
-                    (current.get_item(0)?, Some(current.get_item(1)?), m)
-                }
-            };
-            let mut merged = base_attr.clone();
-            for (k, v) in extra_attrs {
-                merged.insert(k, v);
-            }
-            self.add_simplex_impl_attrs(py, &members, idx.as_ref(), merged)?;
-
-            match iter.next() {
-                Some(r) => current = r?,
-                None => break,
-            }
-        }
-        Ok(())
+        self.add_simplices_impl(py, &ebunch_to_add, attr.as_ref(), true)
     }
 
     /// `S.close()` — adds every missing subface of every existing simplex.
@@ -705,7 +597,7 @@ impl PySimplicialComplex {
                 e_attrs.insert(k.str()?.to_string(), py_any_to_json(&v)?);
             }
         }
-        self.add_simplex_impl_attrs2(py, members, idx, e_attrs, false)
+        self.add_simplex_impl_attrs2(py, members, idx, e_attrs, false, true)
     }
 
     /// `add_simplices_from`'s per-item entry point: `attr` is already a merged JSON map (base
@@ -717,8 +609,9 @@ impl PySimplicialComplex {
         members: &Bound<'_, PyAny>,
         idx: Option<&Bound<'_, PyAny>>,
         attr: serde_json::Map<String, Value>,
+        with_faces: bool,
     ) -> PyResult<()> {
-        self.add_simplex_impl_attrs2(py, members, idx, attr, true)
+        self.add_simplex_impl_attrs2(py, members, idx, attr, true, with_faces)
     }
 
     fn add_simplex_impl_attrs2(
@@ -728,6 +621,7 @@ impl PySimplicialComplex {
         idx: Option<&Bound<'_, PyAny>>,
         e_attrs: serde_json::Map<String, Value>,
         warn_with_period: bool,
+        with_faces: bool,
     ) -> PyResult<()> {
         self.frozen_check()?;
         let mut member_objs: Vec<Bound<PyAny>> = Vec::new();
@@ -775,10 +669,161 @@ impl PySimplicialComplex {
             None => None,
         };
 
-        self.inner
-            .add_simplex(core_members, requested_core, Value::Object(e_attrs))
-            .map_err(|e| xgi_error(format!("{e:?}")))?;
+        let added = if with_faces {
+            self.inner
+                .add_simplex(core_members, requested_core, Value::Object(e_attrs))
+        } else {
+            self.inner.add_simplex_without_faces(
+                core_members,
+                requested_core,
+                Value::Object(e_attrs),
+            )
+        };
+        added.map_err(|e| xgi_error(format!("{e:?}")))?;
         self.register_new_edge_ids(py)
+    }
+
+    /// The body of `add_simplices_from`. `with_faces` is false only for a weighted bunch that ended in
+    /// an error: XGI adds the subfaces after its loop, so the simplices read so far are left without them.
+    fn add_simplices_impl(
+        &mut self,
+        py: Python<'_>,
+        ebunch_to_add: &Bound<'_, PyAny>,
+        attr: Option<&Bound<'_, PyDict>>,
+        with_faces: bool,
+    ) -> PyResult<()> {
+        let mut base_attr = serde_json::Map::new();
+        if let Some(a) = &attr {
+            for (k, v) in a.iter() {
+                base_attr.insert(k.str()?.to_string(), py_any_to_json(&v)?);
+            }
+        }
+
+        if let Ok(dict) = ebunch_to_add.cast::<PyDict>() {
+            for (idx, members) in dict.iter() {
+                self.add_simplex_impl_attrs(
+                    py,
+                    &members,
+                    Some(&idx),
+                    base_attr.clone(),
+                    with_faces,
+                )?;
+            }
+            return Ok(());
+        }
+
+        let mut iter = ebunch_to_add.try_iter()?;
+        let Some(first_res) = iter.next() else {
+            return Ok(());
+        };
+        let first = first_res?;
+
+        let elem: Option<Bound<PyAny>> = match first.try_iter() {
+            Ok(mut it) => match it.next() {
+                Some(r) => Some(r?),
+                None => None,
+            },
+            Err(_) => None,
+        };
+        let elem_is_iterable = match &elem {
+            Some(e) => e.try_iter().is_ok(),
+            None => false,
+        };
+
+        #[derive(Clone, Copy, PartialEq)]
+        enum Fmt {
+            One,
+            Two,
+            Three,
+            Four,
+        }
+        let fmt = if elem_is_iterable {
+            let mut all_str = true;
+            for it in first.try_iter()? {
+                if it?.cast::<pyo3::types::PyString>().is_err() {
+                    all_str = false;
+                    break;
+                }
+            }
+            if all_str {
+                Fmt::One
+            } else {
+                let len = first.len()?;
+                if len == 2 {
+                    let second = first.get_item(1)?;
+                    if second.cast::<PyDict>().is_ok() {
+                        Fmt::Three
+                    } else {
+                        Fmt::Two
+                    }
+                } else if len == 3 {
+                    Fmt::Four
+                } else {
+                    return Err(xgi_error("Invalid ebunch format"));
+                }
+            }
+        } else {
+            Fmt::One
+        };
+
+        let elem_is_str = elem
+            .as_ref()
+            .map(|e| e.cast::<pyo3::types::PyString>().is_ok())
+            .unwrap_or(false);
+        if (fmt == Fmt::One && first.cast::<pyo3::types::PyString>().is_ok())
+            || (fmt != Fmt::One && elem_is_str)
+        {
+            return Err(xgi_error("Members cannot be specified as a string"));
+        }
+
+        let mut current = first;
+        loop {
+            let (members, idx, extra_attrs): (
+                Bound<PyAny>,
+                Option<Bound<PyAny>>,
+                serde_json::Map<String, Value>,
+            ) = match fmt {
+                Fmt::One => (current.clone(), None, serde_json::Map::new()),
+                Fmt::Two => (
+                    current.get_item(0)?,
+                    Some(current.get_item(1)?),
+                    serde_json::Map::new(),
+                ),
+                Fmt::Three => {
+                    let d = current
+                        .get_item(1)?
+                        .cast_into::<PyDict>()
+                        .map_err(|_| xgi_error("Invalid ebunch format"))?;
+                    let mut m = serde_json::Map::new();
+                    for (k, v) in d.iter() {
+                        m.insert(k.str()?.to_string(), py_any_to_json(&v)?);
+                    }
+                    (current.get_item(0)?, None, m)
+                }
+                Fmt::Four => {
+                    let d = current
+                        .get_item(2)?
+                        .cast_into::<PyDict>()
+                        .map_err(|_| xgi_error("Invalid ebunch format"))?;
+                    let mut m = serde_json::Map::new();
+                    for (k, v) in d.iter() {
+                        m.insert(k.str()?.to_string(), py_any_to_json(&v)?);
+                    }
+                    (current.get_item(0)?, Some(current.get_item(1)?), m)
+                }
+            };
+            let mut merged = base_attr.clone();
+            for (k, v) in extra_attrs {
+                merged.insert(k, v);
+            }
+            self.add_simplex_impl_attrs(py, &members, idx.as_ref(), merged, with_faces)?;
+
+            match iter.next() {
+                Some(r) => current = r?,
+                None => break,
+            }
+        }
+        Ok(())
     }
 
     /// Register every core edge id not yet known to `self.edge_ids` as a fresh Python `int` id —
@@ -811,26 +856,6 @@ impl PySCNodeView {
     }
 }
 
-/// Group ids by key; keep groups of two or more, in order of first occurrence.
-fn group_ids_by_key(
-    items: impl Iterator<Item = (String, std::collections::BTreeSet<String>)>,
-) -> Vec<Vec<String>> {
-    let mut index: std::collections::HashMap<std::collections::BTreeSet<String>, usize> =
-        std::collections::HashMap::new();
-    let mut groups: Vec<Vec<String>> = Vec::new();
-    for (id, key) in items {
-        match index.get(&key) {
-            Some(&i) => groups[i].push(id),
-            None => {
-                index.insert(key, groups.len());
-                groups.push(vec![id]);
-            }
-        }
-    }
-    groups.retain(|g| g.len() > 1);
-    groups
-}
-
 #[pymethods]
 impl PySCNodeView {
     fn __len__(&self, py: Python<'_>) -> usize {
@@ -857,26 +882,56 @@ impl PySCNodeView {
         }
     }
 
-    /// `S.nodes.duplicate_groups()`: groups of nodes with the same edge memberships.
+    /// `S.nodes.memberships(n=None, dtype=dict)`: the SET of simplex ids of `n`, or, without `n`, the
+    /// sets of every node of this view as a dict (the default) or a list in view order; any other
+    /// `dtype` raises `XGIError("Unrecognized dtype ...")`, as on a hypergraph's node view.
+    #[pyo3(signature = (n=None, dtype=None))]
+    fn memberships(
+        &self,
+        py: Python<'_>,
+        n: Option<&Bound<'_, PyAny>>,
+        dtype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
+        let sc = self.sc.borrow(py);
+        let set_of = |nid: &str| -> PyResult<Bound<'_, PySet>> {
+            let set = PySet::empty(py)?;
+            for e in sc.inner.memberships(nid).unwrap_or_default() {
+                if let Some(o) = sc.edge_ids.get_obj(py, &e) {
+                    set.add(o)?;
+                }
+            }
+            Ok(set)
+        };
+        match n {
+            Some(n) => {
+                let repr = n.repr().map(|r| r.to_string()).unwrap_or_default();
+                let core = sc.node_ids.get_key(n)?.ok_or_else(|| id_not_found(&repr))?;
+                Ok(set_of(&core)?.into_any().unbind())
+            }
+            None => {
+                let as_dict = crate::views::node_dtype_is_dict(py, dtype)?;
+                let d = PyDict::new(py);
+                for nid in self.effective_ids(&sc) {
+                    let Some(obj) = sc.node_ids.get_obj(py, &nid) else {
+                        continue;
+                    };
+                    d.set_item(obj, set_of(&nid)?)?;
+                }
+                if as_dict {
+                    Ok(d.into_any().unbind())
+                } else {
+                    Ok(d.values().into_any().unbind())
+                }
+            }
+        }
+    }
+
+    /// `S.nodes.duplicate_groups()`: groups of nodes with the same edge memberships. Like XGI's
+    /// `IDView.duplicate_groups` (xgi/core/views.py), which iterates the whole network's ids
+    /// (`self._id_dict`), it groups the whole complex whatever this view is scoped to.
     fn duplicate_groups(&self, py: Python<'_>) -> Vec<PySCNodeView> {
         let sc = self.sc.borrow(py);
-        let edges: Vec<(String, Vec<String>)> = sc
-            .inner
-            .edge_ids()
-            .into_iter()
-            .map(|e| {
-                let m = sc.inner.members(&e).unwrap_or_default();
-                (e, m)
-            })
-            .collect();
-        let groups = group_ids_by_key(sc.inner.node_ids().into_iter().map(|n| {
-            let key = edges
-                .iter()
-                .filter(|(_, m)| m.contains(&n))
-                .map(|(e, _)| e.clone())
-                .collect();
-            (n, key)
-        }));
+        let groups = sc.inner.node_duplicate_groups();
         drop(sc);
         groups
             .into_iter()
@@ -1040,18 +1095,11 @@ impl PySCEdgeView {
     }
 
     /// `S.edges.duplicate_groups()`: groups of simplices with the same members (always empty for
-    /// a valid complex). Groups the whole complex whatever this view filters.
+    /// a valid complex). Like XGI's `IDView.duplicate_groups` (xgi/core/views.py), which iterates the
+    /// whole network's ids (`self._id_dict`), it groups the whole complex whatever this view filters.
     fn duplicate_groups(&self, py: Python<'_>) -> Vec<PySCEdgeView> {
         let sc = self.sc.borrow(py);
-        let groups = group_ids_by_key(sc.inner.edge_ids().into_iter().map(|e| {
-            let key = sc
-                .inner
-                .members(&e)
-                .unwrap_or_default()
-                .into_iter()
-                .collect();
-            (e, key)
-        }));
+        let groups = sc.inner.edge_duplicate_groups();
         drop(sc);
         groups
             .into_iter()

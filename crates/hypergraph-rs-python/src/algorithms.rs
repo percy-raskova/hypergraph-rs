@@ -159,7 +159,10 @@ fn degree_assortativity(
     seed: Option<Bound<'_, PyAny>>,
 ) -> PyResult<f64> {
     let _ = num_samples; // only the exact path is ported (see module doc)
-    let _ = crate::seed::extract_seed(seed.as_ref())?;
+                         // Neither path draws today (the sampling path is not ported): the seed is checked, and a Generator
+                         // is left as it was. XGI's exact path never draws either (`default_rng(gen)` hands the same
+                         // Generator back and nothing uses it).
+    crate::seed::check_seed(seed.as_ref())?;
     if !exact {
         return Err(PyNotImplementedError::new_err(
             "degree_assortativity(exact=False) (random sampling) is not ported; call with exact=True",

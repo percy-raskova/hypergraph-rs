@@ -172,12 +172,12 @@ impl<N, E, M> Hypergraph<N, E, M> {
             if id != "0" {
                 if let Ok(n) = id.parse::<u64>() {
                     if n >= self.edge_uid_counter {
-                        self.edge_uid_counter = n + 1;
+                        self.edge_uid_counter = n.saturating_add(1);
                     }
                 }
             }
         } else {
-            self.edge_uid_counter += 1;
+            self.edge_uid_counter = self.edge_uid_counter.saturating_add(1);
         }
 
         let mut seen = std::collections::HashSet::new();
@@ -230,12 +230,12 @@ impl<N, E, M> Hypergraph<N, E, M> {
             if id != "0" {
                 if let Ok(n) = id.parse::<u64>() {
                     if n >= self.edge_uid_counter {
-                        self.edge_uid_counter = n + 1;
+                        self.edge_uid_counter = n.saturating_add(1);
                     }
                 }
             }
         } else {
-            self.edge_uid_counter += 1;
+            self.edge_uid_counter = self.edge_uid_counter.saturating_add(1);
         }
         let he_idx = self.inner.add_node(NodeKind::Hyperedge(attrs));
         self.hyperedge_ids.insert(edge_id.clone(), he_idx);
@@ -719,7 +719,7 @@ impl<N, E, M> Hypergraph<N, E, M> {
             self.hyperedge_ids.insert(edge_id.to_string(), he_idx);
             if let Ok(n) = edge_id.parse::<u64>() {
                 if n >= self.edge_uid_counter {
-                    self.edge_uid_counter = n + 1;
+                    self.edge_uid_counter = n.saturating_add(1);
                 }
             }
         }
@@ -1226,7 +1226,7 @@ impl Hypergraph<Value, Value, Value> {
                 }
                 MergeRename::New => {
                     let id = self.edge_uid_counter.to_string();
-                    self.edge_uid_counter += 1;
+                    self.edge_uid_counter = self.edge_uid_counter.saturating_add(1);
                     id
                 }
             };

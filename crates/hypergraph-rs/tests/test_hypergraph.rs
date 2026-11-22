@@ -1195,3 +1195,17 @@ fn update_uid_counter_saturates_at_u64_max() {
     h.update_uid_counter(u64::MAX);
     assert_eq!(h.next_edge_id(), u64::MAX);
 }
+
+#[test]
+fn an_explicit_edge_id_of_u64_max_does_not_overflow_the_counter() {
+    let max = u64::MAX.to_string();
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into()], Some(max.clone()), Default::default())
+        .unwrap();
+    assert_eq!(h.next_edge_id(), u64::MAX);
+    h.add_empty_edge(Some(max), Default::default());
+    assert_eq!(h.next_edge_id(), u64::MAX);
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_node_to_edge(&u64::MAX.to_string(), "a").unwrap();
+    assert_eq!(h.next_edge_id(), u64::MAX);
+}

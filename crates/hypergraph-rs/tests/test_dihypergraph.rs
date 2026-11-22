@@ -545,3 +545,20 @@ fn update_uid_counter_saturates_at_u64_max() {
     dh.update_uid_counter(u64::MAX);
     assert_eq!(dh.next_edge_id(), u64::MAX);
 }
+
+#[test]
+fn an_explicit_edge_id_of_u64_max_does_not_overflow_the_counter() {
+    let max = u64::MAX.to_string();
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_edge(
+        vec!["a".into()],
+        vec!["b".into()],
+        Some(max.clone()),
+        Default::default(),
+    )
+    .unwrap();
+    assert_eq!(dh.next_edge_id(), u64::MAX);
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    dh.add_node_to_edge(&max, "a", DiRole::Tail).unwrap();
+    assert_eq!(dh.next_edge_id(), u64::MAX);
+}

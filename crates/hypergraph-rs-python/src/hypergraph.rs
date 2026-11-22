@@ -312,10 +312,18 @@ impl PyHypergraph {
             Some(w) => w,
             None => pyo3::types::PyString::new(py, "weight").into_any(),
         };
-        let bunch = weighted_bunch(py, &ebunch, &weight, "Empty or invalid edges specified.")?;
+        // XGI's frozen network replaces the method itself: the refusal comes before the bunch is read.
+        slf.borrow().frozen_check()?;
+        let (bunch, stopped) =
+            weighted_bunch(py, &ebunch, &weight, "Empty or invalid edges specified.")?;
+        // XGI feeds a generator to `add_edges_from`: every edge before the bad entry is added, then
+        // the error is raised (an error of an earlier add comes first).
         slf.call_method("add_edges_from", (bunch,), attr.as_ref())
             .map_err(|e| index_key_to_value_error(py, e, "Empty or invalid edges specified."))?;
-        Ok(())
+        match stopped {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
     }
 
     /// `H.add_edges_from(ebunch_to_add, **attr)` — Formats 1-5 (hypergraph.py:633-819).
@@ -1011,8 +1019,9 @@ impl PyHypergraph {
         e_id2: Option<&Bound<'_, PyAny>>,
         seed: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
-        let seed = crate::seed::extract_seed(seed)?;
+        // Frozen first: a refused call must not advance the caller's Generator.
         self.frozen_check()?;
+        let seed = crate::seed::extract_seed(seed)?;
         let e1c = match e_id1 {
             Some(o) => Some(self.edge_ids.get_key(o)?.ok_or_else(|| {
                 id_not_found(&o.repr().map(|r| r.to_string()).unwrap_or_default())
@@ -1818,23 +1827,32 @@ pub(crate) fn index_key_to_value_error(py: Python<'_>, e: PyErr, message: &str) 
 }
 
 /// Splits each `edge` of a weighted bunch into `(edge[:-1], {weight: edge[-1]})`, as XGI's
-/// `add_weighted_edges_from` does. An `IndexError` or `KeyError` becomes `ValueError(message)`.
+/// `add_weighted_edges_from` does. XGI makes that a generator, so the entries before a bad one are
+/// still added: this returns the entries read before the first error, and that error (an
+/// `IndexError` or `KeyError` already turned into `ValueError(message)`) for the caller to raise
+/// once the good prefix is added.
 pub(crate) fn weighted_bunch<'py>(
     py: Python<'py>,
     ebunch: &Bound<'py, PyAny>,
     weight: &Bound<'py, PyAny>,
     message: &str,
-) -> PyResult<Bound<'py, pyo3::types::PyList>> {
+) -> PyResult<(Bound<'py, pyo3::types::PyList>, Option<PyErr>)> {
     let invalid = |e: PyErr| index_key_to_value_error(py, e, message);
     let out = pyo3::types::PyList::empty(py);
     let head = pyo3::types::PySlice::new(py, 0, -1, 1);
     for edge in ebunch.try_iter()? {
-        let edge = edge?;
-        let value = edge.get_item(-1).map_err(invalid)?;
-        let members = edge.get_item(&head).map_err(invalid)?;
-        let attrs = PyDict::new(py);
-        attrs.set_item(weight, value)?;
-        out.append((members, attrs))?;
+        let split = (|| -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyDict>)> {
+            let edge = edge?;
+            let members = edge.get_item(&head)?;
+            let value = edge.get_item(-1)?;
+            let attrs = PyDict::new(py);
+            attrs.set_item(weight, value)?;
+            Ok((members, attrs))
+        })();
+        match split {
+            Ok(pair) => out.append(pair)?,
+            Err(e) => return Ok((out, Some(invalid(e)))),
+        }
     }
-    Ok(out)
+    Ok((out, None))
 }

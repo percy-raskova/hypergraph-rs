@@ -13,7 +13,7 @@
 use std::collections::HashMap;
 
 use numpy::IntoPyArray;
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use serde_json::Value;
@@ -33,6 +33,10 @@ enum NodeStatKind {
     },
     /// `""` = the whole per-node attr dict (`H.nodes.attrs.asdict()`); non-empty = a single key.
     Attr(String),
+    /// `H.nodes.pos`: the attribute `"pos"`. XGI's `pos(net, bunch)` takes no argument, so calling
+    /// the stat with one makes a stat that raises `TypeError` when it is evaluated, not when it
+    /// is called (`IDStat.__call__` only stores the arguments). `error` is that message.
+    Pos { error: Option<String> },
     /// A stat whose values were computed once, up front, by an existing `algorithms::*`
     /// function (e.g. `clustering_coefficient`, `clique_eigenvector_centrality`) — used for
     /// stats that take no further parametrization.
@@ -50,6 +54,72 @@ enum NodeStatKind {
         exclude_min_size: bool,
         func: fn(&hypergraph_rs::Hypergraph<Value, Value, Value>, usize, bool) -> f64,
     },
+}
+
+/// A bound argument that is there and is not `None`.
+fn present<'a, 'py>(slot: &'a Option<Bound<'py, PyAny>>) -> Option<&'a Bound<'py, PyAny>> {
+    slot.as_ref().filter(|v| !v.is_none())
+}
+
+/// The five parameters `NodeStat.__call__` takes, in order (`order`, `weight`, `kind`, `min_size`,
+/// `exclude_min_size`), bound from `*args, **kwargs` the way Python binds them: a repeated or
+/// unknown name, or a sixth positional, is a `TypeError`.
+fn bind_stat_arguments<'py>(
+    args: &Bound<'py, pyo3::types::PyTuple>,
+    kwargs: Option<&Bound<'py, PyDict>>,
+) -> PyResult<[Option<Bound<'py, PyAny>>; 5]> {
+    const NAMES: [&str; 5] = ["order", "weight", "kind", "min_size", "exclude_min_size"];
+    let mut slots: [Option<Bound<'py, PyAny>>; 5] = [None, None, None, None, None];
+    if args.len() > NAMES.len() {
+        return Err(PyTypeError::new_err(format!(
+            "__call__() takes from 1 to {} positional arguments but {} were given",
+            NAMES.len() + 1,
+            args.len() + 1
+        )));
+    }
+    for (i, a) in args.iter().enumerate() {
+        slots[i] = Some(a);
+    }
+    if let Some(kwargs) = kwargs {
+        for (k, v) in kwargs.iter() {
+            let name: String = k.extract()?;
+            let Some(i) = NAMES.iter().position(|n| *n == name) else {
+                return Err(PyTypeError::new_err(format!(
+                    "__call__() got an unexpected keyword argument '{name}'"
+                )));
+            };
+            if slots[i].is_some() {
+                return Err(PyTypeError::new_err(format!(
+                    "__call__() got multiple values for argument '{name}'"
+                )));
+            }
+            slots[i] = Some(v);
+        }
+    }
+    Ok(slots)
+}
+
+/// What Python says when `pos(net, bunch)` is called with the arguments of a `pos(...)` stat:
+/// too many positionals first, then an unknown keyword; `None` for no arguments.
+pub(crate) fn pos_call_error(
+    args: &Bound<'_, pyo3::types::PyTuple>,
+    kwargs: Option<&Bound<'_, PyDict>>,
+) -> PyResult<Option<String>> {
+    if !args.is_empty() {
+        return Ok(Some(format!(
+            "pos() takes 2 positional arguments but {} were given",
+            2 + args.len()
+        )));
+    }
+    if let Some(kwargs) = kwargs {
+        if let Some((k, _)) = kwargs.iter().next() {
+            return Ok(Some(format!(
+                "pos() got an unexpected keyword argument '{}'",
+                k.str()?
+            )));
+        }
+    }
+    Ok(None)
 }
 
 #[pyclass(name = "NodeStat", module = "hypergraph_rs")]
@@ -82,6 +152,23 @@ impl PyNodeStat {
             ids,
             kind: NodeStatKind::Attr(key),
         }
+    }
+
+    pub fn pos(py: Python<'_>, hg: Py<PyHypergraph>, ids: Vec<String>) -> Self {
+        let _ = py;
+        Self {
+            hg,
+            ids,
+            kind: NodeStatKind::Pos { error: None },
+        }
+    }
+
+    /// The values, or the `TypeError` a `pos` stat called with arguments raises when evaluated.
+    fn checked_values(&self, py: Python<'_>) -> PyResult<Vec<(String, Value)>> {
+        if let NodeStatKind::Pos { error: Some(msg) } = &self.kind {
+            return Err(PyTypeError::new_err(msg.clone()));
+        }
+        Ok(self.values(py))
     }
 
     pub fn precomputed(
@@ -169,10 +256,14 @@ impl PyNodeStat {
                     (c.clone(), jv)
                 })
                 .collect(),
-            NodeStatKind::Attr(key) => self
+            NodeStatKind::Attr(_) | NodeStatKind::Pos { .. } => self
                 .ids
                 .iter()
                 .map(|c| {
+                    let key: &str = match &self.kind {
+                        NodeStatKind::Attr(key) => key,
+                        _ => "pos",
+                    };
                     let v = if key.is_empty() {
                         // `""` = the whole attr dict for this node (`H.nodes.attrs.asdict()`).
                         hg.inner
@@ -251,16 +342,28 @@ impl PyNodeStat {
     /// raises `ValueError` for a non-str/None value, matching `stats/nodestats.py:95-96`'s
     /// `raise ValueError('"attr" must be str or None')`). `Precomputed` stats take no
     /// parameters — calling one is a same-value no-op, mirroring XGI's parameterless nodestats.
-    #[pyo3(signature = (order=None, weight=None, kind=None, min_size=None, exclude_min_size=None))]
+    #[pyo3(signature = (*args, **kwargs))]
     fn __call__(
         &self,
         py: Python<'_>,
-        order: Option<&Bound<'_, PyAny>>,
-        weight: Option<String>,
-        kind: Option<String>,
-        min_size: Option<usize>,
-        exclude_min_size: Option<bool>,
+        args: &Bound<'_, pyo3::types::PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<PyNodeStat> {
+        if let NodeStatKind::Pos { .. } = &self.kind {
+            return Ok(PyNodeStat {
+                hg: self.hg.clone_ref(py),
+                ids: self.ids.clone(),
+                kind: NodeStatKind::Pos {
+                    error: pos_call_error(args, kwargs)?,
+                },
+            });
+        }
+        let slots = bind_stat_arguments(args, kwargs)?;
+        let order = slots[0].as_ref();
+        let weight: Option<String> = present(&slots[1]).map(|v| v.extract()).transpose()?;
+        let kind: Option<String> = present(&slots[2]).map(|v| v.extract()).transpose()?;
+        let min_size: Option<usize> = present(&slots[3]).map(|v| v.extract()).transpose()?;
+        let exclude_min_size: Option<bool> = present(&slots[4]).map(|v| v.extract()).transpose()?;
         match &self.kind {
             NodeStatKind::Degree {
                 order: cur_order,
@@ -291,7 +394,7 @@ impl PyNodeStat {
                     kind: NodeStatKind::Attr(attr),
                 })
             }
-            NodeStatKind::Precomputed(_) => Ok(PyNodeStat {
+            NodeStatKind::Precomputed(_) | NodeStatKind::Pos { .. } => Ok(PyNodeStat {
                 hg: self.hg.clone_ref(py),
                 ids: self.ids.clone(),
                 kind: self.kind.clone(),
@@ -328,7 +431,7 @@ impl PyNodeStat {
     /// `H.nodes.<stat>.asnumpy()` — dense `numpy.ndarray` of values, in id order.
     fn asnumpy<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let vals: Vec<f64> = self
-            .values(py)
+            .checked_values(py)?
             .into_iter()
             .map(|(_, v)| v.as_f64().unwrap_or(f64::NAN))
             .collect();
@@ -338,7 +441,7 @@ impl PyNodeStat {
     fn asdict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
         let hg = self.hg.borrow(py);
         let d = PyDict::new(py);
-        for (core, v) in self.values(py) {
+        for (core, v) in self.checked_values(py)? {
             if let Some(obj) = hg.node_ids.get_obj(py, &core) {
                 d.set_item(obj, json_to_py(py, &v)?)?;
             }
@@ -348,7 +451,7 @@ impl PyNodeStat {
 
     fn aslist(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
         let list = PyList::empty(py);
-        for (_, v) in self.values(py) {
+        for (_, v) in self.checked_values(py)? {
             list.append(json_to_py(py, &v)?)?;
         }
         Ok(list.unbind())
@@ -363,7 +466,7 @@ impl PyNodeStat {
             .ok_or_else(|| id_not_found(&repr))?;
         drop(hg);
         let v = self
-            .values(py)
+            .checked_values(py)?
             .into_iter()
             .find(|(c, _)| c == &core)
             .map(|(_, v)| v)

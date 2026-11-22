@@ -120,13 +120,11 @@ fn ring_lattice(
 }
 
 /// `xgi.generators.lattice._ring_lattice_edges(n, d, k, l)`: the lattice's edges as lists of
-/// node numbers, in edge-id order.
+/// node numbers, in edge-id order. Like XGI's comprehension, `n == 0` gives an empty list (the
+/// loop over `range(0)` never reaches `% n`).
 #[pyfunction]
-fn _ring_lattice_edges(n: usize, d: usize, k: usize, l: usize) -> PyResult<Vec<Vec<usize>>> {
-    if n == 0 {
-        return Err(PyValueError::new_err("n must be > 0"));
-    }
-    Ok(gen::ring_lattice_edges(n, d, k, l))
+fn _ring_lattice_edges(n: usize, d: usize, k: usize, l: usize) -> Vec<Vec<usize>> {
+    gen::ring_lattice_edges(n, d, k, l)
 }
 
 /// `xgi.star_clique(n_star, n_clique, d_max)`. XGI parity (`generators/simple.py:50-57`):

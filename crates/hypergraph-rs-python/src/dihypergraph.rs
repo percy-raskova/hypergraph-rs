@@ -1528,7 +1528,7 @@ impl PyDiNodeView {
                 items.push((obj.unbind(), json_to_py(py, &v)?.unbind()));
             }
         }
-        Ok(DiNodeAttrStat { items })
+        Ok(DiNodeAttrStat { items, error: None })
     }
 
     #[getter]
@@ -2392,11 +2392,32 @@ impl DiStat {
 #[pyclass(name = "DiNodeAttrStat", module = "hypergraph_rs")]
 pub struct DiNodeAttrStat {
     items: Vec<(Py<PyAny>, Py<PyAny>)>,
+    /// The `TypeError` message of a stat called with arguments, raised when it is evaluated (XGI's
+    /// `pos(net, bunch)` takes none; `IDStat.__call__` only stores them).
+    error: Option<String>,
 }
 
 #[pymethods]
 impl DiNodeAttrStat {
+    #[pyo3(signature = (*args, **kwargs))]
+    fn __call__(
+        &self,
+        py: Python<'_>,
+        args: &Bound<'_, PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<DiNodeAttrStat> {
+        Ok(DiNodeAttrStat {
+            items: self
+                .items
+                .iter()
+                .map(|(k, v)| (k.clone_ref(py), v.clone_ref(py)))
+                .collect(),
+            error: crate::stats::pos_call_error(args, kwargs)?,
+        })
+    }
+
     fn asdict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        self.check()?;
         let d = PyDict::new(py);
         for (k, v) in &self.items {
             d.set_item(k.clone_ref(py), v.clone_ref(py))?;
@@ -2405,6 +2426,7 @@ impl DiNodeAttrStat {
     }
 
     fn aslist(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
+        self.check()?;
         let list = PyList::empty(py);
         for (_, v) in &self.items {
             list.append(v.clone_ref(py))?;
@@ -2416,10 +2438,20 @@ impl DiNodeAttrStat {
         let repr = key.repr().map(|r| r.to_string()).unwrap_or_default();
         for (k, v) in &self.items {
             if k.bind(py).eq(key).unwrap_or(false) {
+                self.check()?;
                 return Ok(v.clone_ref(py));
             }
         }
         Err(id_not_found(&repr))
+    }
+}
+
+impl DiNodeAttrStat {
+    fn check(&self) -> PyResult<()> {
+        match &self.error {
+            Some(msg) => Err(pyo3::exceptions::PyTypeError::new_err(msg.clone())),
+            None => Ok(()),
+        }
     }
 }
 

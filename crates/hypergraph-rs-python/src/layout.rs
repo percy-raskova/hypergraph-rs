@@ -76,7 +76,9 @@ fn pairwise_spring_layout(
 
 /// `xgi.bipartite_spring_layout(H, seed=None)` — two-column agent/hyperedge placement (Phase 5's
 /// deterministic `bipartite_layout`, not force-directed — declared deviation; `seed` is accepted
-/// for XGI signature parity and ignored since the placement has no RNG to seed). Returns the XGI
+/// for XGI signature parity and ignored since the placement has no RNG to seed: a `Generator` seed
+/// is consumed by one draw, as everywhere, but its value changes nothing; this layout is
+/// deterministic by construction, so two different seeds give the same placement). Returns the XGI
 /// shape: a `(node_positions, edge_positions)` tuple of dicts (`xgi/drawing/layout.py:186-226`).
 #[pyfunction]
 #[pyo3(signature = (h, seed=None))]
