@@ -21,4 +21,4 @@ pub use random::{
 };
 pub use simple::{star_clique, sunflower};
 pub use simplicial::random_simplicial_complex;
-pub use uniform::{uniform_erdos_renyi_hypergraph, uniform_hypergraph_configuration_model};
+pub use uniform::{uniform_configuration_model, uniform_erdos_renyi_model};

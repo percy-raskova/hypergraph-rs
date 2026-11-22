@@ -85,7 +85,7 @@ pub fn geometric(p: f64, rng: &mut Pcg64Mcg) -> u64 {
 /// product overflows (astronomically large `n`/`k`) or the final value
 /// exceeds `u64::MAX`, we saturate to `u64::MAX` rather than panic/wrap: at
 /// that magnitude the geometric-skip callers (`fast_random_hypergraph`,
-/// `uniform_erdos_renyi_hypergraph`) would never exhaustively enumerate the
+/// `uniform_erdos_renyi_model`) would never exhaustively enumerate the
 /// combination space anyway, so a saturated `max_index` is a documented,
 /// harmless approximation, not a correctness hazard.
 pub fn comb(n: u64, k: u64) -> u64 {

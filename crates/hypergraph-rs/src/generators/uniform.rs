@@ -14,7 +14,7 @@ use super::rng::{
 };
 use crate::Hypergraph;
 
-/// How `p` is interpreted in `uniform_erdos_renyi_hypergraph`.
+/// How `p` is interpreted in `uniform_erdos_renyi_model`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PType {
     /// `p` is the per-edge probability.
@@ -23,8 +23,8 @@ pub enum PType {
     Degree,
 }
 
-/// m-uniform Erdős–Rényi hypergraph. XGI `uniform_erdos_renyi_hypergraph`.
-pub fn uniform_erdos_renyi_hypergraph(
+/// m-uniform Erdős–Rényi hypergraph. XGI `uniform_erdos_renyi_model`.
+pub fn uniform_erdos_renyi_model(
     n: usize,
     m: usize,
     p: f64,
@@ -93,12 +93,12 @@ pub fn uniform_erdos_renyi_hypergraph(
 }
 
 /// m-uniform configuration model from a node-degree sequence.
-/// XGI `uniform_hypergraph_configuration_model(k, m)`.
+/// XGI `uniform_configuration_model(k, m)`.
 ///
 /// XGI increases random node degrees when `sum(k) % m != 0`; we instead drop the
 /// remainder stubs (documented deviation — still deterministic, avoids mutating
 /// the caller's degree map). Loopy/duplicate-collapsed edges are discarded.
-pub fn uniform_hypergraph_configuration_model(
+pub fn uniform_configuration_model(
     k: &IndexMap<String, usize>,
     m: usize,
     seed: Option<u64>,

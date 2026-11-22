@@ -312,12 +312,10 @@ fn watts_strogatz_hypergraph(
     PyHypergraph::from_core_with_int_ids(py, core)
 }
 
-/// `xgi.uniform_erdos_renyi_model(n, m, p, p_type="prob", multiedges=False, seed=None)` (XGI 1.0's
-/// new name for `uniform_erdos_renyi_hypergraph`).
+/// `xgi.uniform_erdos_renyi_model(n, m, p, p_type="prob", multiedges=False, seed=None)` (XGI 1.x name).
 #[pyfunction]
-#[pyo3(name = "uniform_erdos_renyi_model")]
 #[pyo3(signature = (n, m, p, p_type="prob".to_string(), multiedges=false, seed=None))]
-fn uniform_erdos_renyi_hypergraph(
+fn uniform_erdos_renyi_model(
     py: Python<'_>,
     n: usize,
     m: usize,
@@ -328,18 +326,16 @@ fn uniform_erdos_renyi_hypergraph(
 ) -> PyResult<PyHypergraph> {
     let seed = crate::seed::extract_seed(seed)?;
     let p_type = parse_p_type(&p_type)?;
-    let core = gen::uniform_erdos_renyi_hypergraph(n, m, p, p_type, multiedges, seed)
+    let core = gen::uniform_erdos_renyi_model(n, m, p, p_type, multiedges, seed)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     PyHypergraph::from_core_with_int_ids(py, core)
 }
 
-/// `xgi.uniform_configuration_model(k, m, seed=None)` (XGI 1.0's new name for
-/// `uniform_hypergraph_configuration_model`) — `k` is a `{node_id: degree}` dict with arbitrary
+/// `xgi.uniform_configuration_model(k, m, seed=None)` (XGI 1.x name) — `k` is a `{node_id: degree}` dict with arbitrary
 /// hashable keys (XGI parity); edges are freshly auto-id'd (Python ints).
 #[pyfunction]
-#[pyo3(name = "uniform_configuration_model")]
 #[pyo3(signature = (k, m, seed=None))]
-fn uniform_hypergraph_configuration_model(
+fn uniform_configuration_model(
     py: Python<'_>,
     k: &Bound<'_, PyDict>,
     m: usize,
@@ -352,7 +348,7 @@ fn uniform_hypergraph_configuration_model(
         let core_id = node_ids.intern(&key)?;
         k_map.insert(core_id, val.extract::<usize>()?);
     }
-    let core = gen::uniform_hypergraph_configuration_model(&k_map, m, seed);
+    let core = gen::uniform_configuration_model(&k_map, m, seed);
     let mut edge_ids = PyIdMap::new();
     for eid in core.edge_ids() {
         edge_ids.intern(&int_or_str_pyobj(py, &eid)?)?;
@@ -393,11 +389,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(random_hypergraph, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(chung_lu_hypergraph, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(watts_strogatz_hypergraph, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(uniform_erdos_renyi_hypergraph, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(
-        uniform_hypergraph_configuration_model,
-        m
-    )?)?;
+    m.add_function(pyo3::wrap_pyfunction!(uniform_erdos_renyi_model, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(uniform_configuration_model, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(random_simplicial_complex, m)?)?;
     Ok(())
 }
