@@ -51,7 +51,7 @@
 //!   membership. Each defaults to a JSON value. The statistics, readers, writers and
 //!   conversions work on that default type.
 //! - Modules, switched by the feature flags below: [`algorithms`], `generators`, `stats`,
-//!   `readwrite`, `layout`, `viz`, `raster`, `convert`, `dynamics`, `communities`. The
+//!   `readwrite`, `layout`, `viz`, `raster`, `geometry`, `convert`, `dynamics`, `communities`. The
 //!   modules [`core`], [`linalg`] and [`utils`] are always there.
 //!
 //! ## A value on a membership
@@ -77,7 +77,7 @@
 //! ## Feature flags
 //!
 //! The default features are `algorithms`, `generators`, `stats`, `readwrite`, `layout`,
-//! `viz` and `raster`.
+//! `viz`, `raster` and `geometry`.
 //!
 //! | Feature | Turns on |
 //! | --- | --- |
@@ -94,6 +94,7 @@
 //! | `network` | declares `readwrite::bigg::load_bigg_data`, which is not implemented and always returns an error |
 //! | `cells3d` | hexagonal-cell scenes and instruments for the rasterizer (needs `raster`, `communities` and the `h3o` crate) |
 //! | `raster-png` | PNG output for the rasterizer (needs `cells3d` and the `png` crate) |
+//! | `geometry` | outlines of a weighted set (ring, capsule, membrane), placement at a weighted mix of fixed points, spreading in fixed steps; the same bits on every machine |
 //! | `all` | every feature above |
 //!
 //! Every feature builds on its own, without the defaults.
@@ -107,6 +108,8 @@ pub mod algorithms;
 pub mod core;
 #[cfg(feature = "generators")]
 pub mod generators;
+#[cfg(feature = "geometry")]
+pub mod geometry;
 #[cfg(feature = "layout")]
 pub mod layout;
 pub mod linalg;
