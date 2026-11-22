@@ -297,13 +297,13 @@ impl PyHypergraph {
         self.try_add_one_edge(py, &members, idx.as_ref(), e_attrs, false, true)
     }
 
-    /// `H.add_weighted_edges_from(ebunch_to_add, weight="weight", **attr)`: every `edge` is
+    /// `H.add_weighted_edges_from(ebunch, weight="weight", **attr)`: every `edge` is
     /// `(*members, weight_value)`; goes through `add_edges_from` with `{weight: value}` as the edge's
     /// attributes.
-    #[pyo3(signature = (ebunch_to_add, weight=None, **attr))]
+    #[pyo3(signature = (ebunch, weight=None, **attr))]
     fn add_weighted_edges_from(
         slf: &Bound<'_, Self>,
-        ebunch_to_add: Bound<'_, PyAny>,
+        ebunch: Bound<'_, PyAny>,
         weight: Option<Bound<'_, PyAny>>,
         attr: Option<Bound<'_, PyDict>>,
     ) -> PyResult<()> {
@@ -312,13 +312,9 @@ impl PyHypergraph {
             Some(w) => w,
             None => pyo3::types::PyString::new(py, "weight").into_any(),
         };
-        let bunch = weighted_bunch(
-            py,
-            &ebunch_to_add,
-            &weight,
-            "Empty or invalid edges specified.",
-        )?;
-        slf.call_method("add_edges_from", (bunch,), attr.as_ref())?;
+        let bunch = weighted_bunch(py, &ebunch, &weight, "Empty or invalid edges specified.")?;
+        slf.call_method("add_edges_from", (bunch,), attr.as_ref())
+            .map_err(|e| index_key_to_value_error(py, e, "Empty or invalid edges specified."))?;
         Ok(())
     }
 
@@ -1782,6 +1778,17 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
+/// XGI wraps its weighted adds in `except (IndexError, KeyError)`: both become `ValueError(message)`.
+pub(crate) fn index_key_to_value_error(py: Python<'_>, e: PyErr, message: &str) -> PyErr {
+    if e.is_instance_of::<pyo3::exceptions::PyIndexError>(py)
+        || e.is_instance_of::<pyo3::exceptions::PyKeyError>(py)
+    {
+        pyo3::exceptions::PyValueError::new_err(message.to_owned())
+    } else {
+        e
+    }
+}
+
 /// Splits each `edge` of a weighted bunch into `(edge[:-1], {weight: edge[-1]})`, as XGI's
 /// `add_weighted_edges_from` does. An `IndexError` or `KeyError` becomes `ValueError(message)`.
 pub(crate) fn weighted_bunch<'py>(
@@ -1790,15 +1797,7 @@ pub(crate) fn weighted_bunch<'py>(
     weight: &Bound<'py, PyAny>,
     message: &str,
 ) -> PyResult<Bound<'py, pyo3::types::PyList>> {
-    let invalid = |e: PyErr| -> PyErr {
-        if e.is_instance_of::<pyo3::exceptions::PyIndexError>(py)
-            || e.is_instance_of::<pyo3::exceptions::PyKeyError>(py)
-        {
-            pyo3::exceptions::PyValueError::new_err(message.to_owned())
-        } else {
-            e
-        }
-    };
+    let invalid = |e: PyErr| index_key_to_value_error(py, e, message);
     let out = pyo3::types::PyList::empty(py);
     let head = pyo3::types::PySlice::new(py, 0, -1, 1);
     for edge in ebunch.try_iter()? {

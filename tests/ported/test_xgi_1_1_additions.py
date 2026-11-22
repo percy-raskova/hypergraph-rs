@@ -76,6 +76,8 @@ def test_add_weighted_edges_from_sets_weights():
     assert H.edges.attrs("color").aslist() == ["red", "red"]
     H.add_weighted_edges_from([(3, 4, 2.0)], weight="w")
     assert H.edges.attrs("w").aslist()[-1] == 2.0
+    H.add_weighted_edges_from(ebunch=[(5, 6, 1.5)])  # XGI's keyword name
+    assert H.edges.attrs("weight").aslist()[-1] == 1.5
 
 
 def test_add_weighted_adds_reject_empty_input():

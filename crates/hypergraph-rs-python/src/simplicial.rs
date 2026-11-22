@@ -394,7 +394,14 @@ impl PySimplicialComplex {
             &weight,
             "Empty or invalid simplices specified.",
         )?;
-        slf.call_method("add_simplices_from", (bunch,), attr.as_ref())?;
+        slf.call_method("add_simplices_from", (bunch,), attr.as_ref())
+            .map_err(|e| {
+                crate::hypergraph::index_key_to_value_error(
+                    py,
+                    e,
+                    "Empty or invalid simplices specified.",
+                )
+            })?;
         Ok(())
     }
 
