@@ -433,6 +433,21 @@ impl<N, E, M> Hypergraph<N, E, M> {
         self.hyperedge_ids.clear();
     }
 
+    /// The id the next edge added without an explicit id will get.
+    /// XGI parity: `H._edge_uid`.
+    pub fn next_edge_id(&self) -> u64 {
+        self.edge_uid_counter
+    }
+
+    /// Raise the counter past `idx`: if `next_edge_id() <= idx`, it becomes
+    /// `idx + 1`. XGI parity: `update_uid_counter`. Not a structural change,
+    /// so it is allowed on a frozen hypergraph.
+    pub fn update_uid_counter(&mut self, idx: u64) {
+        if self.edge_uid_counter <= idx {
+            self.edge_uid_counter = idx + 1;
+        }
+    }
+
     /// Freeze the hypergraph, preventing modification.
     /// XGI parity: `H.freeze()`.
     pub fn freeze(&mut self) {

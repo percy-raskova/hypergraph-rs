@@ -523,3 +523,18 @@ fn test_add_node_existing_replaces_attrs() {
     assert_eq!(h.num_nodes(), 1);
     assert_eq!(h.node_attrs("a").unwrap(), &serde_json::json!({"y": 2}));
 }
+
+#[test]
+fn next_edge_id_follows_auto_ids_and_explicit_numeric_ids() {
+    let mut dh: DiHypergraph = DiHypergraph::new();
+    assert_eq!(dh.next_edge_id(), 0);
+    dh.add_edge(vec!["a".into()], vec!["b".into()], None, v())
+        .unwrap();
+    dh.add_edge(vec!["b".into()], vec!["c".into()], Some("7".into()), v())
+        .unwrap();
+    assert_eq!(dh.next_edge_id(), 8);
+    dh.update_uid_counter(3);
+    assert_eq!(dh.next_edge_id(), 8);
+    dh.update_uid_counter(10);
+    assert_eq!(dh.next_edge_id(), 11);
+}

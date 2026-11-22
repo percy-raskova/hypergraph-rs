@@ -212,6 +212,12 @@ impl PyDiHypergraph {
         Ok(d.unbind())
     }
 
+    /// `DH._edge_uid` — the id the next edge added without an id will get (read-only here).
+    #[getter]
+    fn _edge_uid(&self) -> u64 {
+        self.inner.next_edge_id()
+    }
+
     #[getter]
     fn is_frozen(&self) -> bool {
         self.inner.is_frozen()
@@ -864,6 +870,7 @@ impl PyDiHypergraph {
         state.set_item("nodes", nodes)?;
         state.set_item("edges", edges)?;
         state.set_item("net_attr", net)?;
+        state.set_item("edge_uid", self.inner.next_edge_id())?;
 
         let func = py
             .import("hypergraph_rs")?
@@ -1218,6 +1225,14 @@ fn reconstruct_dihypergraph(py: Python<'_>, state: Bound<'_, PyDict>) -> PyResul
     for (k, v) in net.iter() {
         dh.net_attr
             .insert(k.str()?.to_string(), py_any_to_json(&v)?);
+    }
+    if let Some(v) = state.get_item("edge_uid")? {
+        let edge_uid: u64 = v
+            .extract()
+            .map_err(|_| xgi_error("'edge_uid' must be a non-negative int"))?;
+        if edge_uid > 0 {
+            dh.inner.update_uid_counter(edge_uid - 1);
+        }
     }
     Ok(dh)
 }

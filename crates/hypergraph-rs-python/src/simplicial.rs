@@ -192,6 +192,12 @@ impl PySimplicialComplex {
         self.net_attr == o.net_attr
     }
 
+    /// `S._edge_uid` — the id the next simplex added without an id will get (read-only here).
+    #[getter]
+    fn _edge_uid(&self) -> u64 {
+        self.inner.next_edge_id()
+    }
+
     #[getter]
     fn is_frozen(&self) -> bool {
         self.inner.is_frozen()
@@ -504,6 +510,56 @@ impl PySimplicialComplex {
         self.inner.close();
         self.register_new_edge_ids(py)?;
         Ok(())
+    }
+
+    /// Pickle support: nodes, simplices in id order (faces included, so the rebuild adds none),
+    /// network attributes and the edge-id counter.
+    fn __reduce__(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+        let nodes = PyDict::new(py);
+        for nid in self.inner.node_ids() {
+            let Some(obj) = self.node_ids.get_obj(py, &nid) else {
+                continue;
+            };
+            let attrs = match self.inner.node_attrs(&nid).cloned() {
+                Some(Value::Object(m)) => Value::Object(m),
+                _ => Value::Object(serde_json::Map::new()),
+            };
+            nodes.set_item(obj, json_to_py(py, &attrs)?)?;
+        }
+        let edges = PyList::empty(py);
+        for eid in self.inner.edge_ids() {
+            let Some(obj) = self.edge_ids.get_obj(py, &eid) else {
+                continue;
+            };
+            let members_list = PyList::empty(py);
+            for nid in self.inner.members(&eid).unwrap_or_default() {
+                if let Some(o) = self.node_ids.get_obj(py, &nid) {
+                    members_list.append(o)?;
+                }
+            }
+            let attrs = match self.inner.edge_attrs(&eid).cloned() {
+                Some(Value::Object(m)) => Value::Object(m),
+                _ => Value::Object(serde_json::Map::new()),
+            };
+            edges.append(PyTuple::new(
+                py,
+                [obj, members_list.into_any(), json_to_py(py, &attrs)?],
+            )?)?;
+        }
+        let net = PyDict::new(py);
+        for (k, v) in &self.net_attr {
+            net.set_item(k, json_to_py(py, v)?)?;
+        }
+        let state = PyDict::new(py);
+        state.set_item("nodes", nodes)?;
+        state.set_item("edges", edges)?;
+        state.set_item("net_attr", net)?;
+        state.set_item("edge_uid", self.inner.next_edge_id())?;
+
+        let func = py
+            .import("hypergraph_rs")?
+            .getattr("_reconstruct_simplicial_complex")?;
+        Ok(PyTuple::new(py, [func.into_any(), PyTuple::new(py, [state])?.into_any()])?.unbind())
     }
 
     /// `S.nodes` — the `NodeView` proxy (mirrors Task 5's `PyNodeView`, scoped to this complex).
@@ -1046,10 +1102,90 @@ fn subhypergraph(
     })
 }
 
+/// `hypergraph_rs._reconstruct_simplicial_complex(state)` — the pickle `__reduce__` reconstruction
+/// hook. `state` is `{"nodes": {obj: attrs}, "edges": [(idx, members, attrs), ...] in id order,
+/// "net_attr": {...}, "edge_uid": int}`; every face of each simplex must be in the list.
+#[pyfunction(name = "_reconstruct_simplicial_complex")]
+fn reconstruct_simplicial_complex(state: Bound<'_, PyDict>) -> PyResult<PySimplicialComplex> {
+    let mut node_ids = PyIdMap::new();
+    let mut edge_ids = PyIdMap::new();
+    let nodes: Bound<PyDict> = state
+        .get_item("nodes")?
+        .ok_or_else(|| xgi_error("missing 'nodes' in pickled state"))?
+        .cast_into()
+        .map_err(|_| xgi_error("'nodes' must be a dict"))?;
+    let mut core_nodes: Vec<(String, Value)> = Vec::new();
+    for (k, v) in nodes.iter() {
+        let attrd: Bound<PyDict> = v
+            .cast_into()
+            .map_err(|_| xgi_error("node attrs must be a dict"))?;
+        core_nodes.push((node_ids.intern(&k)?, py_dict_to_json(&attrd)?));
+    }
+    let edges: Bound<PyList> = state
+        .get_item("edges")?
+        .ok_or_else(|| xgi_error("missing 'edges' in pickled state"))?
+        .cast_into()
+        .map_err(|_| xgi_error("'edges' must be a list"))?;
+    let mut core_edges: Vec<(String, Vec<String>, Value)> = Vec::new();
+    for item in edges.iter() {
+        let t: Bound<PyTuple> = item
+            .cast_into()
+            .map_err(|_| xgi_error("edge entry must be a tuple"))?;
+        let idx = edge_ids.intern(&t.get_item(0)?)?;
+        let mut members = Vec::new();
+        for m in t.get_item(1)?.try_iter()? {
+            members.push(node_ids.intern(&m?)?);
+        }
+        let attrd: Bound<PyDict> = t
+            .get_item(2)?
+            .cast_into()
+            .map_err(|_| xgi_error("edge attrs must be a dict"))?;
+        core_edges.push((idx, members, py_dict_to_json(&attrd)?));
+    }
+    let inner = CoreSC::from_closed_simplices(core_nodes, core_edges)
+        .map_err(|e| xgi_error(format!("cannot rebuild the simplicial complex: {e}")))?;
+    let mut sc = PySimplicialComplex {
+        inner,
+        node_ids,
+        edge_ids,
+        net_attr: serde_json::Map::new(),
+    };
+    let net: Bound<PyDict> = state
+        .get_item("net_attr")?
+        .ok_or_else(|| xgi_error("missing 'net_attr' in pickled state"))?
+        .cast_into()
+        .map_err(|_| xgi_error("'net_attr' must be a dict"))?;
+    for (k, v) in net.iter() {
+        sc.net_attr
+            .insert(k.str()?.to_string(), py_any_to_json(&v)?);
+    }
+    if let Some(v) = state.get_item("edge_uid")? {
+        let edge_uid: u64 = v
+            .extract()
+            .map_err(|_| xgi_error("'edge_uid' must be a non-negative int"))?;
+        if edge_uid > 0 {
+            sc.inner.update_uid_counter(edge_uid - 1);
+        }
+    }
+    Ok(sc)
+}
+
+/// A Python dict of attributes as a JSON object (keys as strings, as the other hooks do).
+fn py_dict_to_json(d: &Bound<'_, PyDict>) -> PyResult<Value> {
+    let mut m = serde_json::Map::new();
+    for (k, v) in d.iter() {
+        m.insert(k.str()?.to_string(), py_any_to_json(&v)?);
+    }
+    Ok(Value::Object(m))
+}
+
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySimplicialComplex>()?;
     m.add_class::<PySCNodeView>()?;
     m.add_class::<PySCEdgeView>()?;
     m.add_function(pyo3::wrap_pyfunction!(subhypergraph, m)?)?;
+    let func = pyo3::wrap_pyfunction!(reconstruct_simplicial_complex, m)?;
+    func.setattr("__module__", "hypergraph_rs")?;
+    m.add_function(func)?;
     Ok(())
 }

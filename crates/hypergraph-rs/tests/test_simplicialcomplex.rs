@@ -219,3 +219,60 @@ fn test_simplicialcomplex_freeze() {
     }));
     assert!(r.is_err()); // add_simplex -> inner.add_edge panics when frozen
 }
+
+#[test]
+fn next_edge_id_follows_auto_ids_and_explicit_numeric_ids() {
+    let mut s: SimplicialComplex = SimplicialComplex::new();
+    assert_eq!(s.next_edge_id(), 0);
+    s.add_simplex(vec!["a".into(), "b".into()], None, v())
+        .unwrap();
+    s.add_simplex(vec!["c".into(), "d".into()], Some("7".into()), v())
+        .unwrap();
+    assert_eq!(s.next_edge_id(), 8);
+    s.update_uid_counter(3);
+    assert_eq!(s.next_edge_id(), 8);
+    s.update_uid_counter(10);
+    assert_eq!(s.next_edge_id(), 11);
+}
+
+#[test]
+fn from_closed_simplices_keeps_ids_and_order() {
+    let mut s: SimplicialComplex = SimplicialComplex::new();
+    s.add_simplex(vec!["a".into(), "b".into(), "c".into()], None, v())
+        .unwrap();
+    s.add_simplex(vec!["c".into(), "d".into()], Some("9".into()), v())
+        .unwrap();
+    let nodes: Vec<(String, serde_json::Value)> =
+        s.node_ids().into_iter().map(|n| (n, v())).collect();
+    let simplices: Vec<(String, Vec<String>, serde_json::Value)> = s
+        .edge_ids()
+        .into_iter()
+        .map(|e| {
+            let m = s.members(&e).unwrap();
+            (e, m, v())
+        })
+        .collect();
+    let t: SimplicialComplex = SimplicialComplex::from_closed_simplices(nodes, simplices).unwrap();
+    assert_eq!(t.edge_ids(), s.edge_ids());
+    assert_eq!(t.node_ids(), s.node_ids());
+    for e in s.edge_ids() {
+        assert_eq!(t.members(&e), s.members(&e));
+    }
+}
+
+#[test]
+fn from_closed_simplices_refuses_a_missing_face() {
+    let nodes = vec![
+        ("a".to_string(), v()),
+        ("b".to_string(), v()),
+        ("c".to_string(), v()),
+    ];
+    let simplices = vec![(
+        "t".to_string(),
+        vec!["a".to_string(), "b".to_string(), "c".to_string()],
+        v(),
+    )];
+    let r: Result<SimplicialComplex, SimplexError> =
+        SimplicialComplex::from_closed_simplices(nodes, simplices);
+    assert_eq!(r.err(), Some(SimplexError::NotClosed { idx: "t".into() }));
+}

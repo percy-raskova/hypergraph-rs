@@ -11,6 +11,7 @@ module referencing them at top level collects cleanly.
 from hypergraph_rs import _hypergraph_rs_core as _core  # noqa: F401
 from hypergraph_rs._hypergraph_rs_core import _reconstruct_hypergraph  # noqa: F401
 from hypergraph_rs._hypergraph_rs_core import _reconstruct_dihypergraph  # noqa: F401
+from hypergraph_rs._hypergraph_rs_core import _reconstruct_simplicial_complex  # noqa: F401
 
 from . import (  # noqa: F401
     utils,

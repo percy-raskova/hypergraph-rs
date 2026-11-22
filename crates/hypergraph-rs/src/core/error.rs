@@ -71,4 +71,7 @@ pub enum SimplexError {
     /// The simplex id was not found.
     #[error("simplex {idx} is not in the simplicial complex")]
     NotFound { idx: String },
+    /// A complex rebuilt from a list of simplices lacks a face of this one.
+    #[error("simplex {idx} has a face that is not in the list")]
+    NotClosed { idx: String },
 }

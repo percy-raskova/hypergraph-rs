@@ -1165,3 +1165,26 @@ fn test_add_node_existing_replaces_attrs() {
     assert_eq!(h.node_attrs("a").unwrap(), &serde_json::json!({"y": 2}));
     assert_eq!(h.num_nodes(), 1);
 }
+
+#[test]
+fn next_edge_id_follows_auto_ids_and_explicit_numeric_ids() {
+    let mut h: Hypergraph = Hypergraph::new();
+    assert_eq!(h.next_edge_id(), 0);
+    h.add_edge(vec!["a".into()], None, serde_json::Value::Null)
+        .unwrap();
+    h.add_edge(vec!["b".into()], Some("7".into()), serde_json::Value::Null)
+        .unwrap();
+    assert_eq!(h.next_edge_id(), 8);
+    h.update_uid_counter(3);
+    assert_eq!(h.next_edge_id(), 8);
+    h.update_uid_counter(10);
+    assert_eq!(h.next_edge_id(), 11);
+}
+
+#[test]
+fn update_uid_counter_is_allowed_on_a_frozen_hypergraph() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.freeze();
+    h.update_uid_counter(4);
+    assert_eq!(h.next_edge_id(), 5);
+}

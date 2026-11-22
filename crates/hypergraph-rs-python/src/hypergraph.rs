@@ -263,6 +263,12 @@ impl PyHypergraph {
         Ok(d.unbind())
     }
 
+    /// `H._edge_uid` — the id the next edge added without an id will get (read-only here).
+    #[getter]
+    fn _edge_uid(&self) -> u64 {
+        self.inner.next_edge_id()
+    }
+
     #[getter]
     fn is_frozen(&self) -> bool {
         self.inner.is_frozen()
@@ -1128,6 +1134,7 @@ impl PyHypergraph {
         state.set_item("nodes", nodes)?;
         state.set_item("edges", edges)?;
         state.set_item("net_attr", net)?;
+        state.set_item("edge_uid", self.inner.next_edge_id())?;
 
         let func = py
             .import("hypergraph_rs")?
@@ -1672,6 +1679,20 @@ pub(crate) fn int_or_str_pyobj<'py>(py: Python<'py>, core_id: &str) -> PyResult<
     Ok(core_id.into_pyobject(py)?.into_any())
 }
 
+/// Put the pickled edge-id counter back: `update_uid_counter(edge_uid - 1)` when `edge_uid > 0`.
+/// A state without `edge_uid` (pickled by an older version) keeps the counter the re-adds left.
+fn restore_edge_uid(state: &Bound<'_, PyDict>, inner: &mut CoreHg) -> PyResult<()> {
+    if let Some(v) = state.get_item("edge_uid")? {
+        let edge_uid: u64 = v
+            .extract()
+            .map_err(|_| xgi_error("'edge_uid' must be a non-negative int"))?;
+        if edge_uid > 0 {
+            inner.update_uid_counter(edge_uid - 1);
+        }
+    }
+    Ok(())
+}
+
 /// `hypergraph_rs._reconstruct_hypergraph(state)` — the pickle `__reduce__` reconstruction hook.
 /// `state` is `{"nodes": {obj: attrs}, "edges": [(idx, members, attrs), ...], "net_attr": {...}}`.
 #[pyfunction(name = "_reconstruct_hypergraph")]
@@ -1723,6 +1744,7 @@ fn reconstruct_hypergraph(py: Python<'_>, state: Bound<'_, PyDict>) -> PyResult<
         hg.net_attr
             .insert(k.str()?.to_string(), py_any_to_json(&v)?);
     }
+    restore_edge_uid(&state, &mut hg.inner)?;
     Ok(hg)
 }
 

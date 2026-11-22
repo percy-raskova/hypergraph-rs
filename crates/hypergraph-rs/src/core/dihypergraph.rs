@@ -144,6 +144,21 @@ impl<N, E, M> DiHypergraph<N, E, M> {
         }
     }
 
+    /// The id the next edge added without an explicit id will get.
+    /// XGI parity: `DH._edge_uid`.
+    pub fn next_edge_id(&self) -> u64 {
+        self.edge_uid_counter
+    }
+
+    /// Raise the counter past `idx`: if `next_edge_id() <= idx`, it becomes
+    /// `idx + 1`. XGI parity: `update_uid_counter`. Not a structural change,
+    /// so it is allowed on a frozen hypergraph.
+    pub fn update_uid_counter(&mut self, idx: u64) {
+        if self.edge_uid_counter <= idx {
+            self.edge_uid_counter = idx + 1;
+        }
+    }
+
     /// Add a directed hyperedge with the given tail (senders) and head
     /// (receivers). Auto-creates member nodes. XGI parity:
     /// `DH.add_edge((tail, head), idx=)` (dihypergraph.py:525-585).

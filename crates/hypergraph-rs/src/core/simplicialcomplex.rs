@@ -113,6 +113,54 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         }
     }
 
+    /// The id the next simplex added without an explicit id will get.
+    /// XGI parity: `S._edge_uid`.
+    pub fn next_edge_id(&self) -> u64 {
+        self.inner.next_edge_id()
+    }
+
+    /// Raise the counter past `idx` (see [`Hypergraph::update_uid_counter`]).
+    pub fn update_uid_counter(&mut self, idx: u64) {
+        self.inner.update_uid_counter(idx);
+    }
+
+    /// Rebuild a complex from its nodes and its simplices in id order, as
+    /// `node_ids()` and `edge_ids()` list them, adding no face: every subface
+    /// of size >= 2 of each simplex must be in the list. The first simplex
+    /// with a face missing gives `SimplexError::NotClosed { idx }`. A repeated
+    /// simplex id keeps its first entry, as `add_simplex` does.
+    pub fn from_closed_simplices(
+        nodes: Vec<(String, N)>,
+        simplices: Vec<(String, Vec<String>, E)>,
+    ) -> Result<Self, SimplexError>
+    where
+        N: Default,
+        E: Default,
+        M: Default + Clone,
+    {
+        let present: BTreeSet<Vec<String>> = simplices
+            .iter()
+            .map(|(_, members, _)| as_sorted_set(members))
+            .collect();
+        for (id, members, _) in &simplices {
+            let set = as_sorted_set(members);
+            if subfaces(&set)
+                .iter()
+                .any(|face| !face.is_empty() && !present.contains(face))
+            {
+                return Err(SimplexError::NotClosed { idx: id.clone() });
+            }
+        }
+        let mut complex = Self::new();
+        complex.add_nodes_from(nodes);
+        for (id, members, attrs) in simplices {
+            let _ = complex
+                .inner
+                .add_edge(as_sorted_set(&members), Some(id), attrs);
+        }
+        Ok(complex)
+    }
+
     /// Number of nodes. XGI parity: `S.num_nodes`.
     pub fn num_nodes(&self) -> usize {
         self.inner.num_nodes()
