@@ -19,6 +19,7 @@ mod pyid;
 #[cfg(feature = "cells3d")]
 mod raster; // Phase I Task 8
 mod readwrite; // Task 12
+mod seed; // Task 7
 mod simplicial; // Task 7
 mod stats; // Task 11
 mod utils; // Task 12

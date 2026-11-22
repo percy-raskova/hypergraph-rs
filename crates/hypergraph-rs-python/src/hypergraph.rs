@@ -1009,8 +1009,9 @@ impl PyHypergraph {
         &mut self,
         e_id1: Option<&Bound<'_, PyAny>>,
         e_id2: Option<&Bound<'_, PyAny>>,
-        seed: Option<u64>,
+        seed: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<()> {
+        let seed = crate::seed::extract_seed(seed)?;
         self.frozen_check()?;
         let e1c = match e_id1 {
             Some(o) => Some(self.edge_ids.get_key(o)?.ok_or_else(|| {

@@ -19,8 +19,9 @@ fn spectral_clustering(
     h: PyRef<'_, PyHypergraph>,
     k: usize,
     max_iter: usize,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyDict>> {
+    let seed = crate::seed::extract_seed(seed)?;
     let labels = core_comm::spectral_clustering(&h.inner, k, max_iter, seed)
         .map_err(|e| xgi_error(e.to_string()))?;
     let out = PyDict::new(py);

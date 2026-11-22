@@ -218,8 +218,9 @@ fn fast_random_hypergraph(
     n: usize,
     ps: &Bound<'_, PyAny>,
     order: Option<&Bound<'_, PyAny>>,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyHypergraph> {
+    let seed = crate::seed::extract_seed(seed)?;
     let (ps, ps_scalar) = parse_ps_arg(ps)?;
     let order = parse_order_arg(order, ps.len(), ps_scalar)?;
     let core = gen::fast_random_hypergraph(n, &ps, order.as_deref(), seed)
@@ -235,8 +236,9 @@ fn random_hypergraph(
     n: usize,
     ps: &Bound<'_, PyAny>,
     order: Option<&Bound<'_, PyAny>>,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyHypergraph> {
+    let seed = crate::seed::extract_seed(seed)?;
     let (ps, ps_scalar) = parse_ps_arg(ps)?;
     let order = parse_order_arg(order, ps.len(), ps_scalar)?;
     let core = gen::random_hypergraph(n, &ps, order.as_deref(), seed)
@@ -252,8 +254,9 @@ fn chung_lu_hypergraph(
     py: Python<'_>,
     k1: &Bound<'_, PyDict>,
     k2: &Bound<'_, PyDict>,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyHypergraph> {
+    let seed = crate::seed::extract_seed(seed)?;
     let mut node_ids = PyIdMap::new();
     let mut k1_map: IndexMap<String, f64> = IndexMap::new();
     for (k, v) in k1.iter() {
@@ -303,8 +306,9 @@ fn watts_strogatz_hypergraph(
     k: usize,
     l: usize,
     p: f64,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyHypergraph> {
+    let seed = crate::seed::extract_seed(seed)?;
     let core = gen::watts_strogatz_hypergraph(n, d, k, l, p, seed)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     PyHypergraph::from_core_with_int_ids(py, core)
@@ -320,8 +324,9 @@ fn uniform_erdos_renyi_hypergraph(
     p: f64,
     p_type: String,
     multiedges: bool,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyHypergraph> {
+    let seed = crate::seed::extract_seed(seed)?;
     let p_type = parse_p_type(&p_type)?;
     let core = gen::uniform_erdos_renyi_hypergraph(n, m, p, p_type, multiedges, seed)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -336,8 +341,9 @@ fn uniform_hypergraph_configuration_model(
     py: Python<'_>,
     k: &Bound<'_, PyDict>,
     m: usize,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyHypergraph> {
+    let seed = crate::seed::extract_seed(seed)?;
     let mut node_ids = PyIdMap::new();
     let mut k_map: IndexMap<String, usize> = IndexMap::new();
     for (key, val) in k.iter() {
@@ -364,8 +370,9 @@ fn random_simplicial_complex(
     py: Python<'_>,
     n: usize,
     ps: Vec<f64>,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PySimplicialComplex> {
+    let seed = crate::seed::extract_seed(seed)?;
     let core = gen::random_simplicial_complex(n, &ps, seed)
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     PySimplicialComplex::from_core_with_int_ids(py, core)

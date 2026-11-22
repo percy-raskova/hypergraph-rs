@@ -6,6 +6,7 @@ These are repo-authored: they import the library as `xgi` and never touch the re
 import copy
 import pickle
 
+import numpy as np
 import pytest
 
 import hypergraph_rs as xgi
@@ -139,3 +140,88 @@ def test_ring_lattice_positions_and_pos_stat():
 
 def test_ring_lattice_edges_by_path():
     assert xgi.generators.lattice._ring_lattice_edges(20, 3, 4, 2)[0] == [0, 3, 4]
+
+
+def assert_equal_results(a, b):
+    if isinstance(a, dict):
+        assert a.keys() == b.keys()
+        for k in a:
+            assert_equal_results(a[k], b[k])
+    elif isinstance(a, (tuple, list)) and a and not isinstance(a[0], (int, str)):
+        assert len(a) == len(b)
+        for x, y in zip(a, b):
+            assert_equal_results(x, y)
+    elif isinstance(a, (np.ndarray, tuple)) or isinstance(a, list) and a and isinstance(a[0], float):
+        assert np.allclose(a, b)
+    else:
+        assert a == b
+
+
+def _shuffled(s):
+    H = xgi.Hypergraph([[1, 2], [2, 3, 4], [4, 5], [1, 5, 6]])
+    H.random_edge_shuffle(seed=s)
+    return H.edges.members(dtype=list)
+
+
+_H3 = xgi.Hypergraph([[1, 2], [2, 3], [3, 4, 1], [4, 5], [1, 2, 3]])
+
+SEEDED = [
+    lambda s: xgi.random_hypergraph(10, [0.3, 0.1], seed=s).edges.members(dtype=list),
+    lambda s: xgi.fast_random_hypergraph(12, [0.3, 0.1], seed=s).edges.members(dtype=list),
+    lambda s: xgi.chung_lu_hypergraph({0: 2, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2}, {0: 3, 1: 3, 2: 3, 3: 3}, seed=s)
+    .edges.members(dtype=list),
+    lambda s: xgi.watts_strogatz_hypergraph(20, 3, 4, 2, 0.5, seed=s).edges.members(dtype=list),
+    lambda s: xgi.uniform_erdos_renyi_hypergraph(10, 3, 0.3, seed=s).edges.members(dtype=list),
+    lambda s: xgi.uniform_hypergraph_configuration_model({i: 3 for i in range(9)}, 3, seed=s)
+    .edges.members(dtype=list),
+    lambda s: xgi.random_simplicial_complex(10, [0.4, 0.1], seed=s).edges.members(dtype=list),
+    lambda s: xgi.spectral_clustering(xgi.random_hypergraph(12, [0.4, 0.2], seed=3), 2, seed=s),
+    lambda s: xgi.random_layout(_H3, seed=s),
+    lambda s: xgi.pairwise_spring_layout(_H3, seed=s),
+    _shuffled,
+]
+
+
+@pytest.mark.parametrize("run", SEEDED)
+def test_fresh_generators_from_one_seed_agree(run):
+    assert_equal_results(run(np.random.default_rng(5)), run(np.random.default_rng(5)))
+
+
+@pytest.mark.parametrize("run", SEEDED)
+def test_generator_seed_is_consumed(run):
+    rng = np.random.default_rng(5)
+    before = rng.bit_generator.state
+    run(rng)
+    assert rng.bit_generator.state != before
+
+
+def test_bipartite_spring_layout_consumes_a_generator_and_ignores_the_seed():
+    rng = np.random.default_rng(5)
+    before = rng.bit_generator.state
+    a = xgi.bipartite_spring_layout(_H3, seed=rng)
+    assert rng.bit_generator.state != before
+    assert_equal_results(a, xgi.bipartite_spring_layout(_H3, seed=7))
+
+
+def test_degree_assortativity_accepts_a_generator():
+    rng = np.random.default_rng(5)
+    before = rng.bit_generator.state
+    xgi.degree_assortativity(_H3, exact=True, seed=rng)
+    assert rng.bit_generator.state != before
+
+
+def test_different_seeds_differ():
+    run = SEEDED[0]
+    assert run(np.random.default_rng(1)) != run(np.random.default_rng(2))
+    assert run(1) != run(2)
+
+
+@pytest.mark.parametrize("bad,err", [(-1, ValueError), (2**64, ValueError), ("x", TypeError), (1.5, TypeError)])
+def test_bad_seeds_are_refused(bad, err):
+    with pytest.raises(err):
+        xgi.random_hypergraph(10, [0.3], seed=bad)
+
+
+def test_numpy_integer_and_bool_seeds_are_ints():
+    assert SEEDED[0](np.int64(4)) == SEEDED[0](4)
+    assert SEEDED[0](True) == SEEDED[0](1)

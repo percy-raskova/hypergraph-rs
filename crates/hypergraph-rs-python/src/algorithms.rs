@@ -158,7 +158,8 @@ fn degree_assortativity(
     num_samples: usize,
     seed: Option<Bound<'_, PyAny>>,
 ) -> PyResult<f64> {
-    let _ = (num_samples, seed); // only the exact path is ported (see module doc)
+    let _ = num_samples; // only the exact path is ported (see module doc)
+    let _ = crate::seed::extract_seed(seed.as_ref())?;
     if !exact {
         return Err(PyNotImplementedError::new_err(
             "degree_assortativity(exact=False) (random sampling) is not ported; call with exact=True",

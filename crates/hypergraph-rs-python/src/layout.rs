@@ -54,8 +54,9 @@ fn positions_to_dict(
 fn random_layout(
     py: Python<'_>,
     h: PyRef<'_, PyHypergraph>,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyDict>> {
+    let seed = crate::seed::extract_seed(seed)?;
     let result = spring_layout(&h.inner, 0, seed);
     positions_to_dict(py, &h, &result)
 }
@@ -66,8 +67,9 @@ fn random_layout(
 fn pairwise_spring_layout(
     py: Python<'_>,
     h: PyRef<'_, PyHypergraph>,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyDict>> {
+    let seed = crate::seed::extract_seed(seed)?;
     let result = spring_layout(&h.inner, PAIRWISE_SPRING_ITERATIONS, seed);
     positions_to_dict(py, &h, &result)
 }
@@ -81,8 +83,9 @@ fn pairwise_spring_layout(
 fn bipartite_spring_layout(
     py: Python<'_>,
     h: PyRef<'_, PyHypergraph>,
-    seed: Option<u64>,
+    seed: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<(Py<PyDict>, Py<PyDict>)> {
+    let seed = crate::seed::extract_seed(seed)?;
     let _ = seed;
     let result = bipartite_layout(&h.inner, BipartiteAlign::Vertical);
     let nodes = PyDict::new(py);
