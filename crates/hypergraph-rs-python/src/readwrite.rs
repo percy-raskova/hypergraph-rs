@@ -1,20 +1,12 @@
 //! `readwrite` bindings (plan Task 12a) — file I/O over Phase 4's `readwrite/` core module.
 //!
-//! XGI parity note (verified against the installed package): `xgi.readwrite.json.read_json`/
-//! `write_json` and `xgi.readwrite.hif.read_hif`/`write_hif` default `nodetype`/`edgetype` to
-//! `None`, which means node/edge ids round-trip as **plain strings**, NOT the `int`-if-numeric
-//! heuristic `PyHypergraph::from_core_with_int_ids` uses for generator output (verified:
-//! `xgi/convert/hypergraph_dict.py:112-121` only casts via `nodetype(idx)` when `nodetype` is
-//! given). This module therefore builds its own id maps (plain `str`) rather than reusing
-//! `from_core_with_int_ids`, and supports `nodetype`/`edgetype` callables where XGI does.
-//!
-//! **Deviation (documented):** the plan's Task 12a representative snippet reads
-//! `h.inner.to_hypergraph_dict_json()` — no such inherent method exists; the core exposes
-//! `readwrite::json::{to_hypergraph_dict, from_hypergraph_dict}` as free functions instead, and
-//! (Task 4 finding) `PyHypergraph` keeps network-level attrs in its own `net_attr` field rather
-//! than `inner`'s `M` generic (which this binding never populates). Both functions below bridge
-//! `net_attr` into/out of the `"hypergraph-data"` field explicitly so graph-level attrs survive
-//! the round trip; the plan's snippet is followed for the file-I/O shape otherwise.
+//! XGI parity note (verified against the installed package): `xgi.readwrite.hif.read_hif`/
+//! `write_hif` default `nodetype`/`edgetype` to `None`, which means node/edge ids round-trip as
+//! **plain strings**, NOT the `int`-if-numeric heuristic `PyHypergraph::from_core_with_int_ids`
+//! uses for generator output. This module therefore builds its own id maps (plain `str`) rather
+//! than reusing `from_core_with_int_ids`, and supports `nodetype`/`edgetype` callables where XGI
+//! does. XGI 1.1 dropped its own JSON format (`read_json`, `write_json`, `to_hypergraph_dict`);
+//! so did this library.
 //!
 //! `load_bigg_data` is gated behind the core's `network` feature (OFF in this workspace — spec
 //! `#C`, no network reads in the gate); it is intentionally left unbound here. The Python skeleton
@@ -107,185 +99,6 @@ fn wrap_core_ex(
     })
 }
 
-/// Raise `XGIError` if casting the original Python ids (via `map`) to `str` would collapse two
-/// distinct ids onto the same string — XGI parity: `to_hypergraph_dict`
-/// (`convert/hypergraph_dict.py:42-64`).
-pub(crate) fn check_no_str_collision(
-    py: Python<'_>,
-    map: &PyIdMap,
-    core_ids: &[String],
-    kind: &str,
-) -> PyResult<()> {
-    use std::collections::HashMap;
-    let mut seen: HashMap<String, Vec<String>> = HashMap::new();
-    for cid in core_ids {
-        if let Some(obj) = map.get_obj(py, cid) {
-            let s = obj.str()?.to_string();
-            seen.entry(s).or_default().push(obj.repr()?.to_string());
-        }
-    }
-    let dups: Vec<String> = seen
-        .into_iter()
-        .filter(|(_, v)| v.len() > 1)
-        .map(|(k, _)| k)
-        .collect();
-    if !dups.is_empty() {
-        return Err(xgi_error(format!(
-            "When casting {kind} IDs to strings, ID(s) {} have conflicting IDs!",
-            dups.join(", ")
-        )));
-    }
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------------------------
-// JSON (deep-import only: `hypergraph_rs.readwrite.json`, not part of `xgi.readwrite.__all__`).
-// ---------------------------------------------------------------------------------------------
-
-/// Write a single (non-collection) hypergraph to `path` as the standard JSON dict.
-fn write_json_single(py: Python<'_>, h: &PyHypergraph, path: &str) -> PyResult<()> {
-    // XGI parity: `to_hypergraph_dict` raises `XGIError` when casting the ORIGINAL Python
-    // node/edge ids to `str` would collapse two distinct ids onto the same string (e.g. the
-    // int `2` and the string `"2"`) — `convert/hypergraph_dict.py:42-64`. The core's own ids
-    // are already collision-free `String`s (via `PyIdMap`'s bump-suffix), so this check must
-    // run binding-side against the original Python objects.
-    check_no_str_collision(py, &h.node_ids, &h.inner.node_ids(), "node")?;
-    check_no_str_collision(py, &h.edge_ids, &h.inner.edge_ids(), "edge")?;
-    let mut data = rw::to_hypergraph_dict(&h.inner);
-    data["hypergraph-data"] = Value::Object(h.net_attr.clone());
-    let s = serde_json::to_string_pretty(&data).map_err(|e| xgi_error(e.to_string()))?;
-    std::fs::write(path, s).map_err(|e| xgi_error(e.to_string()))
-}
-
-/// `hypergraph_rs.readwrite.json.write_json(H, path, collection_name="")`. XGI parity:
-/// `xgi.write_json` (`readwrite/json.py:14-70`) — `H` a single hypergraph writes one JSON file
-/// to `path`; a `list`/`dict` of hypergraphs writes `path` as a directory of per-dataset JSON
-/// files plus a `<collection_name>collection_information.json` index.
-#[pyfunction]
-#[pyo3(signature = (h, path, collection_name=""))]
-fn write_json(
-    py: Python<'_>,
-    h: &Bound<'_, PyAny>,
-    path: &str,
-    collection_name: &str,
-) -> PyResult<()> {
-    let prefix = if collection_name.is_empty() {
-        String::new()
-    } else {
-        format!("{collection_name}_")
-    };
-    if let Ok(list) = h.cast::<pyo3::types::PyList>() {
-        let datasets = PyDict::new(py);
-        for (i, item) in list.iter().enumerate() {
-            let fname = format!("{path}/{prefix}{i}.json");
-            let hg: PyRef<PyHypergraph> = item.extract()?;
-            write_json_single(py, &hg, &fname)?;
-            let entry = PyDict::new(py);
-            entry.set_item("relative-path", format!("{prefix}{i}.json"))?;
-            datasets.set_item(i, entry)?;
-        }
-        let collection_data = PyDict::new(py);
-        collection_data.set_item("datasets", datasets)?;
-        collection_data.set_item("type", "collection")?;
-        let json_mod = py.import("json")?;
-        let s: String = json_mod
-            .call_method1("dumps", (collection_data,))?
-            .extract()?;
-        std::fs::write(format!("{path}/{prefix}collection_information.json"), s)
-            .map_err(|e| xgi_error(e.to_string()))?;
-        return Ok(());
-    }
-    if let Ok(dict) = h.cast::<PyDict>() {
-        let datasets = PyDict::new(py);
-        for (name, item) in dict.iter() {
-            let name_str = name.str()?.to_string();
-            let fname = format!("{path}/{prefix}{name_str}.json");
-            let hg: PyRef<PyHypergraph> = item.extract()?;
-            write_json_single(py, &hg, &fname)?;
-            let entry = PyDict::new(py);
-            entry.set_item("relative-path", format!("{prefix}{name_str}.json"))?;
-            datasets.set_item(&name, entry)?;
-        }
-        let collection_data = PyDict::new(py);
-        collection_data.set_item("datasets", datasets)?;
-        collection_data.set_item("type", "collection")?;
-        let json_mod = py.import("json")?;
-        let s: String = json_mod
-            .call_method1("dumps", (collection_data,))?
-            .extract()?;
-        std::fs::write(format!("{path}/{prefix}collection_information.json"), s)
-            .map_err(|e| xgi_error(e.to_string()))?;
-        return Ok(());
-    }
-    let hg: PyRef<PyHypergraph> = h.extract()?;
-    write_json_single(py, &hg, path)
-}
-
-fn read_json_single(
-    py: Python<'_>,
-    data: &Value,
-    nodetype: Option<&Bound<'_, PyAny>>,
-    edgetype: Option<&Bound<'_, PyAny>>,
-) -> PyResult<PyHypergraph> {
-    // XGI parity: `from_hypergraph_dict` converts node-data keys via `nodetype` FIRST — before
-    // even looking at "edge-dict" — raising `TypeError` on a failed cast
-    // (`convert/hypergraph_dict.py:112-120`). The core validates "edge-dict" presence while
-    // parsing (a binding-agnostic structural check), which would otherwise fire first when
-    // "edge-dict" happens to be absent too; pre-check the node-type cast here to match XGI's
-    // ordering without needing "edge-dict" to exist yet.
-    if let Some(cast) = nodetype {
-        if let Some(node_data) = data.get("node-data").and_then(|v| v.as_object()) {
-            for k in node_data.keys() {
-                cast_id(py, k, Some(cast), false)?;
-            }
-        }
-    }
-    let core = rw::from_hypergraph_dict(data).map_err(|e| xgi_error(e.to_string()))?;
-    let hgdata = data.get("hypergraph-data").and_then(|v| v.as_object());
-    wrap_core(py, core, nodetype, edgetype, hgdata)
-}
-
-/// `hypergraph_rs.readwrite.json.read_json(path, nodetype=None, edgetype=None)`. Returns a
-/// single `Hypergraph`, or (XGI parity, `readwrite/json.py:106-118`) a `dict` of them when the
-/// file has `"type": "collection"`.
-#[pyfunction]
-#[pyo3(signature = (path, nodetype=None, edgetype=None))]
-fn read_json(
-    py: Python<'_>,
-    path: &str,
-    nodetype: Option<Bound<'_, PyAny>>,
-    edgetype: Option<Bound<'_, PyAny>>,
-) -> PyResult<Py<PyAny>> {
-    let s = std::fs::read_to_string(path).map_err(|e| xgi_error(e.to_string()))?;
-    let data: Value = serde_json::from_str(&s).map_err(|e| xgi_error(e.to_string()))?;
-    if data.get("type").and_then(|v| v.as_str()) == Some("collection") {
-        let os_path = py.import("os.path")?;
-        let dirname: String = os_path.call_method1("dirname", (path,))?.extract()?;
-        let datasets = data
-            .get("datasets")
-            .and_then(|v| v.as_object())
-            .ok_or_else(|| xgi_error("missing datasets"))?;
-        let out = PyDict::new(py);
-        for (name, entry) in datasets {
-            let relpath = entry
-                .get("relative-path")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| xgi_error("missing relative-path"))?;
-            let joined: String = os_path
-                .call_method1("join", (&dirname, relpath))?
-                .extract()?;
-            let sub_s = std::fs::read_to_string(&joined).map_err(|e| xgi_error(e.to_string()))?;
-            let sub_data: Value =
-                serde_json::from_str(&sub_s).map_err(|e| xgi_error(e.to_string()))?;
-            let hg = read_json_single(py, &sub_data, nodetype.as_ref(), edgetype.as_ref())?;
-            out.set_item(name, Py::new(py, hg)?)?;
-        }
-        return Ok(out.into_any().unbind());
-    }
-    let hg = read_json_single(py, &data, nodetype.as_ref(), edgetype.as_ref())?;
-    Ok(Py::new(py, hg)?.into_any())
-}
-
 // ---------------------------------------------------------------------------------------------
 // HIF (`xgi.readwrite.hif`; `write_hif`/`read_hif` ARE part of `xgi.readwrite.__all__`).
 // ---------------------------------------------------------------------------------------------
@@ -293,7 +106,7 @@ fn read_json(
 /// Recursively substitute the core `String` id at every HIF `"node"`/`"edge"` field with the
 /// original Python id's native JSON representation (int stays int, str stays str) — XGI parity:
 /// `to_hif_dict` writes the network's actual node/edge ids verbatim, never `str()`-cast
-/// (`convert/hif_dict.py`, contrast with `to_hypergraph_dict`'s always-`str` dict keys).
+/// (`convert/hif_dict.py`, contrast with the always-`str` keys of XGI's removed JSON format).
 fn nativize_hif_ids(data: &mut Value, node_ids: &PyIdMap, edge_ids: &PyIdMap, py: Python<'_>) {
     let native = |map: &PyIdMap, core: &str| -> Value {
         map.get_obj(py, core)
@@ -549,8 +362,6 @@ fn write_incidence_matrix(h: PyRef<'_, PyHypergraph>, path: &str, delimiter: &st
 }
 
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(pyo3::wrap_pyfunction!(write_json, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(read_json, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(write_hif, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(read_hif, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(parse_edgelist, m)?)?;
@@ -561,8 +372,5 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(write_bipartite_edgelist, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(read_incidence_matrix, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(write_incidence_matrix, m)?)?;
-    // `_hypergraph_rs_core.write_json`/`read_json` are picked up by the deep-import shim
-    // `python/hypergraph_rs/readwrite/json.py`, not by `readwrite/__init__.py`'s `_BOUND` list
-    // (neither is part of `xgi.readwrite.__all__` — verified).
     Ok(())
 }

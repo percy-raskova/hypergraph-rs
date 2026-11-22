@@ -283,8 +283,8 @@ SEEDED = [
     lambda s: xgi.chung_lu_hypergraph({i: 2 for i in range(20)}, {i: 4 for i in range(10)}, seed=s)
     .edges.members(dtype=list),
     lambda s: xgi.watts_strogatz_hypergraph(40, 3, 4, 2, 0.5, seed=s).edges.members(dtype=list),
-    lambda s: xgi.uniform_erdos_renyi_hypergraph(20, 3, 0.2, seed=s).edges.members(dtype=list),
-    lambda s: xgi.uniform_hypergraph_configuration_model({i: 3 for i in range(30)}, 3, seed=s)
+    lambda s: xgi.uniform_erdos_renyi_model(20, 3, 0.2, seed=s).edges.members(dtype=list),
+    lambda s: xgi.uniform_configuration_model({i: 3 for i in range(30)}, 3, seed=s)
     .edges.members(dtype=list),
     lambda s: xgi.random_simplicial_complex(20, [0.3, 0.05], seed=s).edges.members(dtype=list),
     lambda s: xgi.spectral_clustering(xgi.random_hypergraph(40, [0.2, 0.1], seed=3), 3, seed=s),

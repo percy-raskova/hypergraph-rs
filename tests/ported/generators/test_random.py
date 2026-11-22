@@ -24,7 +24,7 @@ def test_chung_lu_hypergraph():
         _ = xgi.chung_lu_hypergraph({1: 1, 2: 2}, {1: 2, 2: 2})
 
 
-def test_dcsbm_hypergraph():
+def test_degree_corrected_stochastic_block_model_hypergraph():
     n = 50
     k1 = {i: random.randint(1, n) for i in range(n)}
     k2 = {i: sorted(k1.values())[i] for i in range(n)}
@@ -32,14 +32,20 @@ def test_dcsbm_hypergraph():
     g2 = {i: random.choice([0, 1]) for i in range(n)}
     omega = np.array([[n // 2, 10], [10, n // 2]])
 
-    H = xgi.dcsbm_hypergraph(k1, k2, g1, g2, omega)
+    H = xgi.degree_corrected_stochastic_block_model_hypergraph(k1, k2, g1, g2, omega)
 
     assert H.num_nodes == 50
 
     # seed
-    H1 = xgi.dcsbm_hypergraph(k1, k2, g1, g2, omega, seed=1)
-    H2 = xgi.dcsbm_hypergraph(k1, k2, g1, g2, omega, seed=2)
-    H3 = xgi.dcsbm_hypergraph(k1, k2, g1, g2, omega, seed=2)
+    H1 = xgi.degree_corrected_stochastic_block_model_hypergraph(
+        k1, k2, g1, g2, omega, seed=1
+    )
+    H2 = xgi.degree_corrected_stochastic_block_model_hypergraph(
+        k1, k2, g1, g2, omega, seed=2
+    )
+    H3 = xgi.degree_corrected_stochastic_block_model_hypergraph(
+        k1, k2, g1, g2, omega, seed=2
+    )
     assert H1._edge != H2._edge
     assert H2._edge == H3._edge
 
@@ -131,6 +137,63 @@ def test_fast_random_hypergraph():
         xgi.fast_random_hypergraph(10, [-0.1, 1])
 
 
+def test_simplicial_chung_lu_hypergraph():
+    k1 = {i: random.randint(1, 10) for i in range(20)}
+    k2 = {i: sorted(k1.values())[i] for i in range(20)}
+
+    H = xgi.simplicial_chung_lu_hypergraph(k1, k2, p=0.5)
+    assert H.num_nodes == 20
+
+    # seed reproducibility
+    H1 = xgi.simplicial_chung_lu_hypergraph(
+        k1, k2, p=0.5, seed=np.random.default_rng(2)
+    )
+    H2 = xgi.simplicial_chung_lu_hypergraph(
+        k1, k2, p=0.5, seed=np.random.default_rng(2)
+    )
+    assert H1._edge == H2._edge
+
+    # warning on mismatched degree/size sums
+    with pytest.warns(Warning):
+        _ = xgi.simplicial_chung_lu_hypergraph({0: 1, 1: 2}, {0: 2, 1: 2}, p=0.5)
+
+    # invalid p
+    with pytest.raises(ValueError):
+        xgi.simplicial_chung_lu_hypergraph(k1, k2, p=-0.1)
+    with pytest.raises(ValueError):
+        xgi.simplicial_chung_lu_hypergraph(k1, k2, p=1.5)
+
+
+def test_random_nested_hypergraph():
+    H = xgi.random_nested_hypergraph(20, 5, 4, [0.8, 0.5])
+    assert H.num_nodes == 20
+
+    # edge sizes should be between 2 and d
+    for edge in H.edges.members(dtype=list):
+        assert 2 <= len(edge) <= 4
+
+    # scalar epsilon
+    H = xgi.random_nested_hypergraph(20, 5, 4, 0.8)
+    assert H.num_nodes == 20
+
+    # seed reproducibility
+    H1 = xgi.random_nested_hypergraph(
+        20, 5, 4, [0.8, 0.5], seed=np.random.default_rng(2)
+    )
+    H2 = xgi.random_nested_hypergraph(
+        20, 5, 4, [0.8, 0.5], seed=np.random.default_rng(2)
+    )
+    assert H1._edge == H2._edge
+
+    # too many facets
+    with pytest.raises(ValueError):
+        xgi.random_nested_hypergraph(4, 5, 3, 0.8)
+
+    # force dense facet sampling
+    H = xgi.random_nested_hypergraph(5, 9, 3, 1, seed=np.random.default_rng(1))
+    assert sum(1 for edge in H.edges.members(dtype=list) if len(edge) == 3) == 9
+
+
 def test_pr_655():
     import warnings
 
@@ -138,3 +201,44 @@ def test_pr_655():
         warnings.simplefilter("error")
         # if this throws an error, then PR 655 doesn't fix the issue
         xgi.fast_random_hypergraph(100, [0.1, 0.001], seed=2)
+
+
+def test_watts_strogatz_hypergraph():
+    n, d, k, l = 20, 3, 4, 2
+    lattice = xgi.ring_lattice(n, d, k, l)
+
+    # p=0 leaves the ring lattice untouched
+    H = xgi.watts_strogatz_hypergraph(n, d, k, l, 0, seed=0)
+    assert H.edges.members() == lattice.edges.members()
+
+    for p in [0.2, 0.5, 1]:
+        for seed in range(20):
+            H = xgi.watts_strogatz_hypergraph(n, d, k, l, p, seed=seed)
+            assert H.num_nodes == n
+            assert H.num_edges == lattice.num_edges
+            # rewiring preserves edge size (issue #782)
+            assert xgi.unique_edge_sizes(H) == [d]
+            # node IDs stay plain ints (issue #782)
+            assert all(type(v) is int for e in H.edges.members().values() for v in e)
+
+    # seeding is reproducible
+    H1 = xgi.watts_strogatz_hypergraph(n, d, k, l, 0.5, seed=1)
+    H2 = xgi.watts_strogatz_hypergraph(n, d, k, l, 0.5, seed=1)
+    assert H1.edges.members() == H2.edges.members()
+
+    # each rewired edge keeps its originating node, including edges that wrap
+    # around the ring (e.g. [18, 1, 2] for n=20, l=2, where min() would be 1).
+    # With p=1, every node is then still in the k//2 edges it originated.
+    for seed in range(20):
+        H = xgi.watts_strogatz_hypergraph(n, d, k, l, 1, seed=seed)
+        assert min(H.nodes.degree.asdict().values()) >= k // 2
+
+    # only the farthest node of each edge is rewired, and never to a node
+    # already in the edge
+    lattice_edges = xgi.generators.lattice._ring_lattice_edges(n, d, k, l)
+    for seed in range(20):
+        H = xgi.watts_strogatz_hypergraph(n, d, k, l, 1, seed=seed)
+        for e, members in enumerate(lattice_edges):
+            new = H.edges.members(e)
+            assert set(members[:-1]) <= new
+            assert len(new) == d

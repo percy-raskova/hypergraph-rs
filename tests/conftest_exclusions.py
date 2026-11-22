@@ -21,13 +21,20 @@ FILE_CLASSES: dict[str, str] = {
     e["path"]: e["class"] for e in _DATA.get("file_exclusion", [])
 }
 
+FILE_OWNERS: dict[str, str] = {
+    e["path"]: e["owner"] for e in _DATA.get("file_exclusion", []) if "owner" in e
+}
+
 TEST_EXCLUSIONS: dict[str, list[tuple[str, str]]] = {}
 ENTRY_CLASSES: dict[tuple[str, str], str] = {}
+ENTRY_OWNERS: dict[tuple[str, str], str] = {}
 
 # Bounded: one pass over the parsed TOML array.
 for _e in _DATA.get("test_exclusion", []):
     TEST_EXCLUSIONS.setdefault(_e["path"], []).append((_e["test"], _e["reason"]))
     ENTRY_CLASSES[(_e["path"], _e["test"])] = _e["class"]
+    if "owner" in _e:
+        ENTRY_OWNERS[(_e["path"], _e["test"])] = _e["owner"]
 
 
 def entry_matches_name(name: str, entry: str) -> bool:

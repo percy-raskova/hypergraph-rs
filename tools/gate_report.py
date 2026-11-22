@@ -21,7 +21,12 @@ ROOT = pathlib.Path(__file__).parent.parent
 from tools.gen_manifest import DEST  # noqa: E402
 
 
-def main(passed: int, skipped: int, xfailed: int) -> int:
+def main(
+    passed: int,
+    skipped: int,
+    xfailed: int,
+    entry_items: dict[str, int] | None = None,
+) -> int:
     manifest = json.loads(DEST.read_text())
     invisible = sum(manifest["exclusions"]["invisible_test_counts"].values())
 
@@ -32,10 +37,24 @@ def main(passed: int, skipped: int, xfailed: int) -> int:
 
     if passed < 0 or skipped < 0 or xfailed < 0:
         raise SystemExit("counts must be non-negative")
-    if xfailed != sum(by_class.values()):
+    expected = sum(by_class.values())
+    if entry_items is not None:
+        # A parametrized test is one entry and several tests: count the tests each entry claimed.
+        # Every entry must have claimed at least one, or the registry names a test that did not run.
+        wanted = {f"{e['path']}::{e['test']}" for e in manifest["exclusions"]["tests"]}
+        unclaimed = sorted(wanted - set(entry_items))
+        if unclaimed:
+            raise SystemExit(f"registry entries that claimed no test in this run: {unclaimed}")
+        skip_classes = {"env", "upstream-bug", "out-of-scope"}
+        expected = sum(
+            entry_items[f"{e['path']}::{e['test']}"]
+            for e in manifest["exclusions"]["tests"]
+            if e["class"] not in skip_classes
+        )
+    if xfailed != expected:
         raise SystemExit(
             f"inconsistent inputs: {xfailed} xfailed reported, but the manifest "
-            f"lists {sum(by_class.values())} test-level gaps. Either the counts "
+            f"lists {expected} test-level gaps. Either the counts "
             "are from a different run, or the registry and the suite disagree."
         )
 
@@ -55,7 +74,7 @@ def main(passed: int, skipped: int, xfailed: int) -> int:
     return 0
 
 
-def _from_stats(path: pathlib.Path) -> tuple[int, int, int]:
+def _from_stats(path: pathlib.Path) -> tuple[int, int, int, dict[str, int] | None]:
     """Exact counts from the ported run, written by pytest_sessionfinish."""
     if not path.exists():
         raise SystemExit(
@@ -67,6 +86,7 @@ def _from_stats(path: pathlib.Path) -> tuple[int, int, int]:
         int(stats.get("passed", 0)),
         int(stats.get("skipped", 0)),
         int(stats.get("xfailed", 0)),
+        stats.get("entry_items"),
     )
 
 

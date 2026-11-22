@@ -339,7 +339,7 @@ def h_links_and_triangles2():
 @pytest.fixture
 def h1():
     return xgi.Hypergraph([{1, 2, 3}, {2, 3, 4, 5}, {5, 6, 7}, {5, 6}])
-# === END VERBATIM XGI 0.10.2 conftest — repo-authored code below this line ===
+# === END VERBATIM XGI 1.1 conftest — repo-authored code below this line ===
 # tests/test_oracle_integrity.py byte-compares everything ABOVE this marker
 # against upstream's conftest.py. Do not move, reword, or duplicate it, and do
 # not add repo-authored code above it.
@@ -352,6 +352,7 @@ import pathlib
 import pytest
 from conftest_exclusions import (
     ENTRY_CLASSES,
+    ENTRY_OWNERS,
     FILE_EXCLUSIONS,
     TEST_EXCLUSIONS,
     entry_matches_name,
@@ -418,6 +419,11 @@ def _entry_matches(item, entry: str) -> bool:
 # into over-reporting (spec §5.1).
 _SKIP_CLASSES = frozenset({"env", "upstream-bug", "out-of-scope"})
 
+# How many collected tests each registry entry claimed in this run (`path::entry` -> count). A
+# parametrized test is one entry and several tests, so the gate report compares the run's xfail
+# count with these counts, not with the number of entries.
+ENTRY_ITEMS: dict[str, int] = {}
+
 
 def pytest_collection_modifyitems(config, items):
     for item in items:
@@ -426,7 +432,10 @@ def pytest_collection_modifyitems(config, items):
             if not _entry_matches(item, name):
                 continue
             cls = ENTRY_CLASSES.get((rel, name), "deferred-symbol")
-            tag = f"[conformance-exclusion:{cls}] {reason}"
+            ENTRY_ITEMS[f"{rel}::{name}"] = ENTRY_ITEMS.get(f"{rel}::{name}", 0) + 1
+            owner = ENTRY_OWNERS.get((rel, name))
+            owner_tag = f"[owner:{owner}] " if owner else ""
+            tag = f"{owner_tag}[conformance-exclusion:{cls}] {reason}"
             if cls in _SKIP_CLASSES:
                 item.add_marker(pytest.mark.skip(reason=tag))
             else:
@@ -448,6 +457,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is None:  # -p no:terminal, or a non-terminal runner
         return
-    counts = {key: len(value) for key, value in reporter.stats.items() if key}
+    counts: dict = {key: len(value) for key, value in reporter.stats.items() if key}
+    counts["entry_items"] = dict(sorted(ENTRY_ITEMS.items()))
     target = pathlib.Path(session.config.rootpath) / ".gate-stats.json"
     target.write_text(json.dumps(counts, indent=2, sort_keys=True) + "\n")

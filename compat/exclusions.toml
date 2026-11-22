@@ -56,7 +56,20 @@ reason = "network: load_bigg_data is @pytest.mark.webtest/@slow and hits the BiG
 [[file_exclusion]]
 path = "stats/test_core_stats_functions.py"
 class = "binding-gap"
-reason = "tests the nodestat_func/dispatch decorator machinery, replaced by idiomatic Rust (spec §4.4)."
+owner = "later:stat-functions"
+reason = "tests the nodestat_func/dispatch decorator machinery, replaced by idiomatic Rust (spec §4.4); the owner ordered it built in a plan of its own (2026-11-21)."
+
+[[file_exclusion]]
+path = "readwrite/test_ahorn_data.py"
+class = "deferred-symbol"
+owner = "later:online-loaders"
+reason = "deferred: load_ahorn_data and its module hypergraph_rs.readwrite.ahorn_data (online loader, certificates checked by default) are a plan of their own; the file cannot be collected until the module exists."
+
+[[file_exclusion]]
+path = "readwrite/test_hypergraphx_data.py"
+class = "deferred-symbol"
+owner = "later:online-loaders"
+reason = "deferred: load_hypergraphx_data and its module hypergraph_rs.readwrite.hypergraphx_data (online loader, certificates checked by default) are a plan of their own; the file cannot be collected until the module exists."
 
 [[file_exclusion]]
 path = "drawing/test_draw.py"
@@ -93,9 +106,9 @@ reason = "deferred: empty_simplicial_complex (generators, §A ledger)."
 
 [[test_exclusion]]
 path = "generators/test_random.py"
-test = "test_dcsbm_hypergraph"
+test = "test_degree_corrected_stochastic_block_model_hypergraph"
 class = "deferred-symbol"
-reason = "deferred: dcsbm_hypergraph (generators, §A ledger)."
+reason = "deferred: degree_corrected_stochastic_block_model_hypergraph (XGI 1.0 renamed dcsbm_hypergraph; generators, §A ledger). No task of the raise to XGI 1.1 builds it."
 
 [[test_exclusion]]
 path = "generators/test_randomizing.py"
@@ -135,21 +148,21 @@ reason = "deferred: random_flag_complex_d2 (generators, §A ledger)."
 
 [[test_exclusion]]
 path = "generators/test_uniform.py"
-test = "test_uniform_configuration_model_hypergraph"
+test = "test_uniform_configuration_model"
 class = "divergence"
-reason = "core deviation, degree-sequence PARITY gap (documented in `uniform.rs::uniform_hypergraph_configuration_model`): remainder stubs are dropped and within-edge stub picks are deduplicated so the loop terminates deterministically (Power-of-10 rule 2) — the resulting degree sequence is close to but not always bit-exact with the requested `k`, so `dict(H.degree()) == k` does not hold in general. Documented core-level deviation from an earlier phase; not reopened here (Task 15 triage bucket 2 — not pre-approved for this pass; reviewed again at Task 19 and left as-is, exact parity with XGI's configuration model is unattainable under the bounded-loop policy, not a fixable binding bug)."
+reason = "core deviation, degree-sequence PARITY gap (documented in `uniform.rs::uniform_hypergraph_configuration_model (XGI 1.0 renamed it uniform_configuration_model)`): remainder stubs are dropped and within-edge stub picks are deduplicated so the loop terminates deterministically (Power-of-10 rule 2) — the resulting degree sequence is close to but not always bit-exact with the requested `k`, so `dict(H.degree()) == k` does not hold in general. Documented core-level deviation from an earlier phase; not reopened here (Task 15 triage bucket 2 — not pre-approved for this pass; reviewed again at Task 19 and left as-is, exact parity with XGI's configuration model is unattainable under the bounded-loop policy, not a fixable binding bug)."
 
 [[test_exclusion]]
 path = "generators/test_uniform.py"
-test = "test_uniform_HSBM"
+test = "test_uniform_stochastic_block_model"
 class = "deferred-symbol"
-reason = "deferred: uniform_HSBM (generators, §A ledger)."
+reason = "deferred: uniform_stochastic_block_model (XGI 1.0 renamed uniform_HSBM; generators, §A ledger). No task of the raise to XGI 1.1 builds it."
 
 [[test_exclusion]]
 path = "generators/test_uniform.py"
-test = "test_uniform_HPPM"
+test = "test_uniform_planted_partition_model"
 class = "deferred-symbol"
-reason = "deferred: uniform_HPPM (generators, §A ledger)."
+reason = "deferred: uniform_planted_partition_model (XGI 1.0 renamed uniform_HPPM; generators, §A ledger). No task of the raise to XGI 1.1 builds it."
 
 [[test_exclusion]]
 path = "readwrite/test_edgelist.py"
@@ -311,6 +324,7 @@ reason = "decorator machinery: asserts H.nodes.degree returns the SAME cached St
 path = "core/test_views.py"
 test = "test_custom_stat_still_works"
 class = "deferred-symbol"
+owner = "later:stat-functions"
 reason = "exercises @xgi.nodestat_func, a DEFERRED symbol (dispatch-registry decorator; §A ledger 'stats' deferred set)."
 
 [[test_exclusion]]
@@ -467,19 +481,7 @@ reason = "imports private communities.spectral._kmeans helper; not part of the p
 path = "communities/test_spectral.py"
 test = "TestSpectralClustering::test_strongly_separable_sbm"
 class = "deferred-symbol"
-reason = "deferred: uniform_HSBM (generators, §A ledger)."
-
-[[test_exclusion]]
-path = "dynamics/test_synchronization.py"
-test = "test_simulate_kuramoto"
-class = "float-parity"
-reason = "exact numpy float-trajectory parity not achievable (§9.4); structural shape asserts kept."
-
-[[test_exclusion]]
-path = "dynamics/test_synchronization.py"
-test = "test_simulate_simplicial_kuramoto"
-class = "deferred-symbol"
-reason = "deferred: simplicial Kuramoto (Phase 6)."
+reason = "deferred: uniform_stochastic_block_model (XGI 1.0 renamed uniform_HSBM; generators, §A ledger)."
 
 [[test_exclusion]]
 path = "drawing/test_layout.py"
@@ -534,3 +536,248 @@ path = "drawing/test_layout.py"
 test = "test_edge_positions_from_barycenters"
 class = "deferred-symbol"
 reason = "deferred: edge_positions_from_barycenters (drawing/layout, no Phase-5 analogue, Task 13 note)."
+
+[[test_exclusion]]
+path = "core/test_views.py"
+test = "test_edge_members"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T10"
+reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
+
+[[test_exclusion]]
+path = "core/test_views.py"
+test = "test_edge_dimembers"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T10"
+reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
+
+[[test_exclusion]]
+path = "core/test_views.py"
+test = "test_edge_tail"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T10"
+reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
+
+[[test_exclusion]]
+path = "core/test_views.py"
+test = "test_edge_head"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T10"
+reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
+
+[[test_exclusion]]
+path = "core/test_hypergraph.py"
+test = "test_repr"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T10"
+reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
+
+[[test_exclusion]]
+path = "core/test_hypergraph.py"
+test = "test_add_weighted_edges_from"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T10"
+reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
+
+[[test_exclusion]]
+path = "core/test_dihypergraph.py"
+test = "test_repr"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T10"
+reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
+
+[[test_exclusion]]
+path = "core/test_dihypergraph.py"
+test = "test_add_edge_rejects_set"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T11"
+reason = "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError."
+
+[[test_exclusion]]
+path = "core/test_dihypergraph.py"
+test = "test_add_node_to_edge"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T11"
+reason = "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError."
+
+[[test_exclusion]]
+path = "core/test_dihypergraph.py"
+test = "test_remove_node_from_edge"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T11"
+reason = "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError."
+
+[[test_exclusion]]
+path = "core/test_simplicialcomplex.py"
+test = "test_add_simplices_from_wrong_format"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T11"
+reason = "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError."
+
+[[test_exclusion]]
+path = "core/test_hypergraph.py"
+test = "test_add_nodes_from"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T12"
+reason = "XGI 1.1 add_nodes_from takes a dict and reads a 2-tuple as (node, attributes); the binding does not."
+
+[[test_exclusion]]
+path = "core/test_dihypergraph.py"
+test = "test_add_nodes_from"
+class = "binding-gap"
+owner = "xgi-1-1-raise:T12"
+reason = "XGI 1.1 add_nodes_from takes a dict and reads a 2-tuple as (node, attributes); the binding does not."
+
+[[test_exclusion]]
+path = "core/test_hypergraph.py"
+test = "test_fix_720"
+class = "core-gap"
+owner = "xgi-1-1-raise:T13"
+reason = "XGI 1.1 add_edge(idx=0) advances the edge-id counter; the Rust core still reproduces the 0.10.2 falsy-idx behaviour."
+
+[[test_exclusion]]
+path = "generators/test_random.py"
+test = "test_watts_strogatz_hypergraph"
+class = "core-gap"
+owner = "xgi-1-1-raise:T16"
+reason = "XGI 1.1 rewrote watts_strogatz_hypergraph. The test first fails on the list-shaped members() (cleared by T10), then on the old algorithm; T16 clears it last."
+
+[[test_exclusion]]
+path = "generators/test_growth.py"
+test = "test_pseudofractal"
+class = "deferred-symbol"
+owner = "xgi-1-1-raise:T18"
+reason = "deferred: pseudofractal_simplicial_complex and apollonian_complex are new in XGI 1.1."
+
+[[test_exclusion]]
+path = "generators/test_growth.py"
+test = "test_apollonian"
+class = "deferred-symbol"
+owner = "xgi-1-1-raise:T18"
+reason = "deferred: pseudofractal_simplicial_complex and apollonian_complex are new in XGI 1.1."
+
+[[test_exclusion]]
+path = "generators/test_growth.py"
+test = "test_order_too_small"
+class = "deferred-symbol"
+owner = "xgi-1-1-raise:T18"
+reason = "deferred: pseudofractal_simplicial_complex and apollonian_complex are new in XGI 1.1."
+
+[[test_exclusion]]
+path = "generators/test_growth.py"
+test = "test_network_geometry_flavor"
+class = "deferred-symbol"
+owner = "xgi-1-1-raise:T19"
+reason = "deferred: network_geometry_flavor is new in XGI 1.1."
+
+[[test_exclusion]]
+path = "generators/test_growth.py"
+test = "test_network_geometry_flavor_seed"
+class = "deferred-symbol"
+owner = "xgi-1-1-raise:T19"
+reason = "deferred: network_geometry_flavor is new in XGI 1.1."
+
+[[test_exclusion]]
+path = "generators/test_growth.py"
+test = "test_network_geometry_flavor_errors"
+class = "deferred-symbol"
+owner = "xgi-1-1-raise:T19"
+reason = "deferred: network_geometry_flavor is new in XGI 1.1."
+
+[[test_exclusion]]
+path = "generators/test_random.py"
+test = "test_simplicial_chung_lu_hypergraph"
+class = "deferred-symbol"
+owner = "xgi-1-1-raise:T20"
+reason = "deferred: simplicial_chung_lu_hypergraph is new in XGI 1.1."
+
+[[test_exclusion]]
+path = "generators/test_random.py"
+test = "test_random_nested_hypergraph"
+class = "deferred-symbol"
+owner = "xgi-1-1-raise:T20"
+reason = "deferred: random_nested_hypergraph is new in XGI 1.1."
+
+[[test_exclusion]]
+path = "utils/test_utilities.py"
+test = "test_successful_requests"
+class = "deferred-symbol"
+owner = "later:online-loaders"
+reason = "deferred: request_from_url and request_from_url_cached (the online loaders, certificates checked by default) are a plan of their own."
+
+[[test_exclusion]]
+path = "utils/test_utilities.py"
+test = "test_connection_error"
+class = "deferred-symbol"
+owner = "later:online-loaders"
+reason = "deferred: request_from_url and request_from_url_cached (the online loaders, certificates checked by default) are a plan of their own."
+
+[[test_exclusion]]
+path = "utils/test_utilities.py"
+test = "test_http_error"
+class = "deferred-symbol"
+owner = "later:online-loaders"
+reason = "deferred: request_from_url and request_from_url_cached (the online loaders, certificates checked by default) are a plan of their own."
+
+[[test_exclusion]]
+path = "utils/test_utilities.py"
+test = "test_invalid_mode"
+class = "deferred-symbol"
+owner = "later:online-loaders"
+reason = "deferred: request_from_url and request_from_url_cached (the online loaders, certificates checked by default) are a plan of their own."
+
+[[test_exclusion]]
+path = "core/test_hypergraph.py"
+test = "test_getattr_only_proxies_stats"
+class = "deferred-symbol"
+owner = "later:stat-functions"
+reason = "deferred: user-defined statistics (nodestat_func and its siblings) are a plan of their own; XGI 1.1 tests that __getattr__ proxies only stats."
+
+[[test_exclusion]]
+path = "core/test_dihypergraph.py"
+test = "test_getattr_only_proxies_stats"
+class = "deferred-symbol"
+owner = "later:stat-functions"
+reason = "deferred: user-defined statistics (nodestat_func and its siblings) are a plan of their own; XGI 1.1 tests that __getattr__ proxies only stats."
+
+[[test_exclusion]]
+path = "core/test_hypergraph.py"
+test = "test_cleanup_empties"
+class = "binding-gap"
+reason = "the test mutates H._edge live (a binding returns snapshot copies, as in test_iddict); no task of the raise changes that. Task 14 adds cleanup(empties=) and tests it in test_xgi_1_1_additions.py."
+
+[[test_exclusion]]
+path = "core/test_simplicialcomplex.py"
+test = "test_add_weighted_simplices_from"
+class = "binding-gap"
+reason = "SCEdgeView has no attrs stat; no task of the raise adds it (test_xgi_1_1_additions.py reads the weights through S.edges[e])."
+
+[[test_exclusion]]
+path = "core/test_views.py"
+test = "test_pos_stat"
+class = "divergence"
+reason = "D23: attribute values are JSON, so the tuples XGI stores come back as lists; the test compares tuples."
+
+[[test_exclusion]]
+path = "drawing/test_layout.py"
+test = "test_spring_layouts_accept_rng"
+class = "deferred-symbol"
+reason = "deferred: barycenter_spring_layout (and its weighted twin) have no Phase-5 analogue; the tests call them."
+
+[[test_exclusion]]
+path = "drawing/test_layout.py"
+test = "test_spring_layouts_rng_semantics"
+class = "deferred-symbol"
+reason = "deferred: barycenter_spring_layout (and its weighted twin) have no Phase-5 analogue; the tests call them."
+
+[[test_exclusion]]
+path = "algorithms/test_centrality.py"
+test = "test_node_edge_centrality_xgi_data"
+class = "deferred-symbol"
+reason = "deferred: load_xgi_data (network reader, gated off) is called, as in test_fix_649. The skipif never skips on Linux, so the test runs and fails."
+
+[[test_exclusion]]
+path = "algorithms/test_centrality.py"
+test = "test_h_eigenvector_centrality_xgi_data"
+class = "deferred-symbol"
+reason = "deferred: load_xgi_data (network reader, gated off) is called, as in test_fix_649. The skipif never skips on Linux, so the test runs and fails."

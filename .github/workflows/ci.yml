@@ -96,7 +96,7 @@ jobs:
       - name: Install the build and test tools
         run: .venv/bin/python -m pip install maturin pytest -r tests/requirements-dev.txt
       - name: Install the XGI oracle (test-only differential reference)
-        run: .venv/bin/python -m pip install "xgi==0.10.2"
+        run: .venv/bin/python -m pip install "xgi==1.1"
       - name: Build the extension into .venv
         run: .venv/bin/maturin develop
       - name: "XGI conformance gate (identical to local — mise run py:gate)"

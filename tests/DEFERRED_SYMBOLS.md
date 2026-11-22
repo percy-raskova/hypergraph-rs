@@ -1,12 +1,12 @@
-# Deferred symbols (71/164 not built by any phase)
+# Deferred symbols (76/165 not built by any phase)
 
 - `adjacency_tensor` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `apollonian_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `barycenter_kamada_kawai_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `barycenter_spring_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `binomial_sequence` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `boundary_matrix` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `compute_simplicial_order_parameter` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `dcsbm_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `degree_corrected_stochastic_block_model_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `diedgestat_func` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `dinodestat_func` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `dispatch_many_stats` — no Phase 0-6 plan built it; calling raises NotImplementedError.
@@ -39,20 +39,25 @@
 - `k_skeleton` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `largest_connected_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `line_vector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `load_ahorn_data` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `load_bigg_data` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `load_hypergraphx_data` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `load_xgi_data` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `network_geometry_flavor` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `node_edge_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `node_swap` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `nodestat_func` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `pairwise_incidence` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `pca_transform` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `pseudofractal_simplicial_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `random_flag_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `random_flag_complex_d2` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `random_nested_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `read_hif_collection` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `request_json_from_url` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `request_json_from_url_cached` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `request_from_url` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `request_from_url_cached` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `shuffle_hyperedges` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `simulate_simplicial_kuramoto` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `simplicial_chung_lu_hypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `spiral_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_bipartite_pandas_dataframe` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `to_dihypergraph` — no Phase 0-6 plan built it; calling raises NotImplementedError.
@@ -64,15 +69,15 @@
 - `to_simplicial_complex` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `ttsv1` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `ttsv2` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `uniform_HPPM` — no Phase 0-6 plan built it; calling raises NotImplementedError.
-- `uniform_HSBM` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `uniform_h_eigenvector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `uniform_planted_partition_model` — no Phase 0-6 plan built it; calling raises NotImplementedError.
+- `uniform_stochastic_block_model` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `update_uid_counter` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `weighted_barycenter_spring_layout` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `write_hif_collection` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 - `z_eigenvector_centrality` — no Phase 0-6 plan built it; calling raises NotImplementedError.
 
-# Bound-partial symbols (6/164)
+# Bound-partial symbols (6/165)
 
 These are bound, but some argument shapes or environments raise. See `compat/partial_symbols.toml` for the exact triggers.
 
@@ -83,7 +88,7 @@ These are bound, but some argument shapes or environments raise. See `compat/par
 - `draw_hyperedges`
 - `draw_nodes`
 
-# Bound symbols (87/164)
+# Bound symbols (83/165)
 
 Bound is a BINDING fact, not a behaviour one: it means the symbol is not routed through the `_deferred` stub factory. Absence from the partial list above is not evidence a symbol never raises — it may simply be unmeasured.
 
@@ -97,7 +102,6 @@ Bound is a BINDING fact, not a behaviour one: it means the symbol is not routed 
 - `clustering_coefficient`
 - `complement`
 - `complete_hypergraph`
-- `compute_kuramoto_order_parameter`
 - `connected_components`
 - `convert_labels_to_integers`
 - `cut_to_order`
@@ -117,7 +121,6 @@ Bound is a BINDING fact, not a behaviour one: it means the symbol is not routed 
 - `from_bipartite_graph`
 - `from_hyperedge_dict`
 - `from_hyperedge_list`
-- `from_hypergraph_dict`
 - `get_network_type`
 - `incidence_density`
 - `incidence_matrix`
@@ -151,7 +154,6 @@ Bound is a BINDING fact, not a behaviour one: it means the symbol is not routed 
 - `shortest_path_length`
 - `simplicial_edit_distance`
 - `simplicial_fraction`
-- `simulate_kuramoto`
 - `single_source_shortest_path_length`
 - `spectral_clustering`
 - `star_clique`
@@ -163,11 +165,10 @@ Bound is a BINDING fact, not a behaviour one: it means the symbol is not routed 
 - `to_graph`
 - `to_hyperedge_dict`
 - `to_hyperedge_list`
-- `to_hypergraph_dict`
 - `trivial_hypergraph`
 - `two_node_clustering_coefficient`
-- `uniform_erdos_renyi_hypergraph`
-- `uniform_hypergraph_configuration_model`
+- `uniform_configuration_model`
+- `uniform_erdos_renyi_model`
 - `unique_edge_sizes`
 - `watts_strogatz_hypergraph`
 - `write_bipartite_edgelist`

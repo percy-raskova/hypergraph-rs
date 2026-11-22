@@ -10,7 +10,7 @@
 # every feature; rust:msrv checks it.
 #
 # NOTE rust:fixtures regenerates crates/hypergraph-rs/conformance/xgi_ground_truth.json
-# from the live XGI 0.10.2 oracle in .venv (read-only reference install — NEVER
+# from the live XGI 1.1 oracle in .venv (read-only reference install — NEVER
 # babylon's venv). It is deliberately NOT part of rust:check: the committed JSON
 # is the contract tests/conformance/main.rs replays against, and regeneration is
 # a manual, reviewed act, not a CI-gated one.
@@ -71,7 +71,7 @@ description = "Build Rust API docs (no deps), rustdoc warnings denied"
 run = "RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --locked"
 
 [tasks."rust:fixtures"]
-description = "Regenerate the XGI conformance fixture from the live XGI 0.10.2 oracle (.venv, read-only reference install). NOT part of rust:check — the committed JSON is the contract."
+description = "Regenerate the XGI conformance fixture from the live XGI 1.1 oracle (.venv, read-only reference install). NOT part of rust:check — the committed JSON is the contract."
 run = ".venv/bin/python crates/hypergraph-rs/conformance/generate_fixtures.py"
 
 [tasks."rust:msrv"]
@@ -93,11 +93,11 @@ description = "Build the PyO3 wheel via maturin (crates/hypergraph-rs-python -> 
 run = "uvx maturin build --manifest-path crates/hypergraph-rs-python/Cargo.toml"
 
 [tasks."py:manifest"]
-description = "Regenerate python/hypergraph_rs/compat/manifest.json from the built extension + authored TOMLs. Requires real xgi 0.10.2 installed (differential oracle)."
+description = "Regenerate python/hypergraph_rs/compat/manifest.json from the built extension + authored TOMLs. Requires real xgi 1.1 installed (differential oracle)."
 run = ".venv/bin/python -m tools.gen_manifest"
 
 [tasks."py:symbols"]
-description = "Regenerate tests/DEFERRED_SYMBOLS.md from the built extension + authored TOMLs. Requires real xgi 0.10.2 installed (differential oracle). py:gate only CHECKS this file (--check, no write); run this task and commit the result when the ledger drifts."
+description = "Regenerate tests/DEFERRED_SYMBOLS.md from the built extension + authored TOMLs. Requires real xgi 1.1 installed (differential oracle). py:gate only CHECKS this file (--check, no write); run this task and commit the result when the ledger drifts."
 run = ".venv/bin/python -m tools.audit_symbols"
 
 [tasks."py:import-tests"]

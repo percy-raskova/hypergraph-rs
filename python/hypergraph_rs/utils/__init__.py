@@ -14,8 +14,8 @@ find_triangles = make_deferred("find_triangles")
 geometric = make_deferred("geometric")
 hist = make_deferred("hist")
 pairwise_incidence = make_deferred("pairwise_incidence")
-request_json_from_url = make_deferred("request_json_from_url")
-request_json_from_url_cached = make_deferred("request_json_from_url_cached")
+request_from_url = make_deferred("request_from_url")
+request_from_url_cached = make_deferred("request_from_url_cached")
 ttsv1 = make_deferred("ttsv1")
 ttsv2 = make_deferred("ttsv2")
 update_uid_counter = make_deferred("update_uid_counter")
@@ -24,11 +24,11 @@ class IDDict(dict):
     """A dict subclass keyed by node/edge IDs (deep-import target: `from xgi.utils import IDDict`).
 
     Not part of xgi.utils.__all__ (verified) so excluded from __all__ below to preserve the
-    164-symbol total.
+    165-symbol total.
     """
 
 
-__all__ = ['binomial_sequence', 'convert_labels_to_integers', 'dual_dict', 'find_triangles', 'geometric', 'get_network_type', 'hist', 'pairwise_incidence', 'powerset', 'request_json_from_url', 'request_json_from_url_cached', 'subfaces', 'ttsv1', 'ttsv2', 'update_uid_counter']
+__all__ = ['binomial_sequence', 'convert_labels_to_integers', 'dual_dict', 'find_triangles', 'geometric', 'get_network_type', 'hist', 'pairwise_incidence', 'powerset', 'request_from_url', 'request_from_url_cached', 'subfaces', 'ttsv1', 'ttsv2', 'update_uid_counter']
 
 # Deep-import target `hypergraph_rs.utils.utilities` (mirrors `xgi.utils.utilities`), e.g.
 # `xgi.utils.utilities.min_where`. Imported LAST — `utilities.py` does `from . import *`,

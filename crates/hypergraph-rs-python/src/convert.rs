@@ -3,8 +3,7 @@
 //! Bound (matches `python/hypergraph_rs/convert/__init__.py`'s `_BOUND` list): the hyperedge
 //! list/dict pair, the bipartite-edgelist pair, `to_bipartite_graph`/`from_bipartite_graph`
 //! (**networkx** on the Python side — spec §6.3/D-style optional import, matching the plan's
-//! Task 12b representative snippet), `to_graph` (1-skeleton → `nx.Graph`), the standardized
-//! `to_hypergraph_dict`/`from_hypergraph_dict`, and `cut_to_order`. `to_hif_dict`/`from_hif_dict`
+//! Task 12b representative snippet), `to_graph` (1-skeleton → `nx.Graph`), and `cut_to_order`. `to_hif_dict`/`from_hif_dict`
 //! stay `make_deferred` here (§A: the "convert (~14)" deferred list) even though the core `hif`
 //! module exists — Task 12a binds it under `readwrite` instead (`write_hif`/`read_hif`), which is
 //! where `xgi.readwrite.hif` actually re-exports it; the plan's convert-namespace deferral is
@@ -12,24 +11,20 @@
 //!
 //! **Id typing:** `to_hyperedge_list`/`to_hyperedge_dict`/`to_bipartite_edgelist` preserve the
 //! *exact* original Python ids (via `PyIdMap`, not the `int`-if-numeric heuristic) — these
-//! round-trip through a hypergraph that was itself built with real ids. `to_hypergraph_dict`/
-//! `from_hypergraph_dict` follow XGI's own contract instead: ids serialize as `str(idx)`
-//! (`xgi/convert/hypergraph_dict.py:41-43`) and deserialize back to plain `str` unless
-//! `nodetype`/`edgetype` is given (`hypergraph_dict.py:112-121`) — verified against the
-//! installed package.
+//! round-trip through a hypergraph that was itself built with real ids. XGI 1.0 dropped
+//! `to_hypergraph_dict`/`from_hypergraph_dict`; so did this library.
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PySet, PyString, PyTuple};
 use rustworkx_core::petgraph::stable_graph::StableDiGraph;
 use rustworkx_core::petgraph::visit::EdgeRef;
-use serde_json::Value;
 
 use hypergraph_rs::convert as conv;
 use hypergraph_rs::convert::BipartiteNode;
 
 use crate::errors::xgi_error;
 use crate::hypergraph::{int_or_str_pyobj, PyHypergraph};
-use crate::pyid::{json_to_py, py_any_to_json, PyIdMap};
+use crate::pyid::PyIdMap;
 
 // ---------------------------------------------------------------------------------------------
 // Hyperedge list / dict.
@@ -522,74 +517,6 @@ fn to_graph(py: Python<'_>, h: PyRef<'_, PyHypergraph>) -> PyResult<Py<PyAny>> {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Standardized hypergraph dict (ids serialize as `str(idx)` — XGI parity, see module doc).
-// ---------------------------------------------------------------------------------------------
-
-/// `xgi.to_hypergraph_dict(H)`.
-#[pyfunction]
-fn to_hypergraph_dict(py: Python<'_>, h: PyRef<'_, PyHypergraph>) -> PyResult<Py<PyDict>> {
-    crate::readwrite::check_no_str_collision(py, &h.node_ids, &h.inner.node_ids(), "node")?;
-    crate::readwrite::check_no_str_collision(py, &h.edge_ids, &h.inner.edge_ids(), "edge")?;
-    let mut data = conv::to_hypergraph_dict(&h.inner);
-    data["hypergraph-data"] = Value::Object(h.net_attr.clone());
-    let obj = json_to_py(py, &data)?;
-    obj.cast_into::<PyDict>()
-        .map(Bound::unbind)
-        .map_err(|e| xgi_error(e.to_string()))
-}
-
-/// `xgi.from_hypergraph_dict(data, nodetype=None, edgetype=None, max_order=None)`.
-#[pyfunction]
-#[pyo3(signature = (data, nodetype=None, edgetype=None, max_order=None))]
-fn from_hypergraph_dict(
-    py: Python<'_>,
-    data: Bound<'_, PyDict>,
-    nodetype: Option<Bound<'_, PyAny>>,
-    edgetype: Option<Bound<'_, PyAny>>,
-    max_order: Option<i64>,
-) -> PyResult<PyHypergraph> {
-    let mut value = py_any_to_json(data.as_any())?;
-    if let Some(max_order) = max_order {
-        if let Some(edge_dict) = value.get_mut("edge-dict").and_then(|v| v.as_object_mut()) {
-            edge_dict.retain(|_, members| {
-                members
-                    .as_array()
-                    .map(|a| a.len() as i64 <= max_order + 1)
-                    .unwrap_or(true)
-            });
-        }
-    }
-    let core = conv::from_hypergraph_dict(&value).map_err(|e| xgi_error(e.to_string()))?;
-    let hgdata = value
-        .get("hypergraph-data")
-        .and_then(|v| v.as_object())
-        .cloned();
-
-    let mut node_ids = PyIdMap::new();
-    for nid in core.node_ids() {
-        let obj = match &nodetype {
-            Some(f) => f.call1((nid.as_str(),))?,
-            None => PyString::new(py, &nid).into_any(),
-        };
-        node_ids.intern(&obj)?;
-    }
-    let mut edge_ids = PyIdMap::new();
-    for eid in core.edge_ids() {
-        let obj = match &edgetype {
-            Some(f) => f.call1((eid.as_str(),))?,
-            None => PyString::new(py, &eid).into_any(),
-        };
-        edge_ids.intern(&obj)?;
-    }
-    Ok(PyHypergraph {
-        inner: core,
-        node_ids,
-        edge_ids,
-        net_attr: hgdata.unwrap_or_default(),
-    })
-}
-
-// ---------------------------------------------------------------------------------------------
 // cut_to_order (existing node/edge id maps are preserved — only edges are filtered).
 // ---------------------------------------------------------------------------------------------
 
@@ -615,8 +542,6 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(to_bipartite_graph, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(from_bipartite_graph, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(to_graph, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(to_hypergraph_dict, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(from_hypergraph_dict, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(cut_to_order, m)?)?;
     Ok(())
 }

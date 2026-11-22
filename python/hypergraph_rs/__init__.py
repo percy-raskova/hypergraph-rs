@@ -1,6 +1,6 @@
-"""hypergraph_rs — a Rust port of XGI 0.10.2, import-compatible as ``import hypergraph_rs as xgi``.
+"""hypergraph_rs — a Rust port of XGI 1.1, import-compatible as ``import hypergraph_rs as xgi``.
 
-The public surface mirrors ``xgi/__init__.py`` (164 symbols). Symbols no Rust phase implemented raise
+The public surface mirrors ``xgi/__init__.py`` (165 symbols). Symbols no Rust phase implemented raise
 ``NotImplementedError`` on call (see ``tests/DEFERRED_SYMBOLS.md``); they still *import* so any test
 module referencing them at top level collects cleanly.
 """
@@ -21,7 +21,6 @@ from . import (  # noqa: F401
     communities,
     convert,
     drawing,
-    dynamics,
     generators,
     linalg,
     readwrite,
@@ -33,13 +32,12 @@ from .algorithms import *  # noqa: F401,F403
 from .communities import *  # noqa: F401,F403
 from .convert import *  # noqa: F401,F403
 from .drawing import *  # noqa: F401,F403
-from .dynamics import *  # noqa: F401,F403
 from .generators import *  # noqa: F401,F403
 from .linalg import *  # noqa: F401,F403
 from .readwrite import *  # noqa: F401,F403
 from .stats import *  # noqa: F401,F403
 
-__version__ = "0.10.2-xgi-parity"  # PORT of XGI 0.10.2, not XGI itself (spec Sec6.1)
+__version__ = "1.1-xgi-parity"  # PORT of XGI 1.1, not XGI itself (spec Sec6.1)
 
 __all__ = (
     core.__all__
@@ -47,7 +45,6 @@ __all__ = (
     + communities.__all__
     + convert.__all__
     + drawing.__all__
-    + dynamics.__all__
     + generators.__all__
     + linalg.__all__
     + readwrite.__all__

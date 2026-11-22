@@ -43,3 +43,16 @@ When a ported test is red, classify it into exactly ONE bucket and act:
 
 TARGET: every non-excluded test passes. The ledger is append-only and any exclusion lacking a valid
 `class` from the 9-class taxonomy in `compat/exclusions.toml` is a triage failure.
+
+## Owners, and what a re-import files
+
+An entry may carry an `owner` (`tools/taxonomy.py` `OWNER_PATTERN`): `xgi-1-1-raise:T10` to `T20` names the
+task of `plans/2026-11-21-xgi-1-1-raise.md` that clears it, and `later:online-loaders`,
+`later:stat-functions` and `later:doc-examples` name a later plan of its own. The test's strict expected
+failure carries the owner in its reason as `[owner:<owner>]`. An entry with no owner is a standing gap
+that the raise does not close, and its reason says why.
+
+After a re-import (`mise run py:import-tests <tag>`), run the ported suite, read each failure, and file it
+by its real cause. A failure that the plan's table did not predict gets a reason that starts with
+`found at the flip:` and is listed in the commit message. An entry whose test now passes is removed, since
+a strict expected failure fails the run when it passes.

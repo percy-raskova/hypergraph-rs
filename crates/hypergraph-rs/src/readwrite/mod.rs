@@ -5,7 +5,6 @@ pub mod bipartite;
 pub mod edgelist;
 pub mod hif;
 pub mod incidence;
-pub mod json;
 
 use thiserror::Error;
 
@@ -28,4 +27,3 @@ pub use bipartite::{parse_bipartite_edgelist, read_bipartite_edgelist, write_bip
 pub use edgelist::{parse_edgelist, read_edgelist, write_edgelist};
 pub use hif::{from_hif_dict, read_hif, to_hif_dict, write_hif};
 pub use incidence::{read_incidence_matrix, write_incidence_matrix};
-pub use json::{from_hypergraph_dict, read_json, to_hypergraph_dict, write_json};

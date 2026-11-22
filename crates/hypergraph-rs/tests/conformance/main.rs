@@ -44,9 +44,9 @@ fn ids(v: &Value) -> Vec<String> {
 }
 
 #[test]
-fn fixture_is_pinned_to_xgi_0_10_2() {
+fn fixture_is_pinned_to_xgi_1_1() {
     let gt = ground_truth();
-    assert_eq!(gt["xgi_version"], "0.10.2");
+    assert_eq!(gt["xgi_version"], "1.1");
     assert_eq!(gt["generated_by"], "conformance/generate_fixtures.py");
 }
 
@@ -761,21 +761,21 @@ fn conform_add_node_to_edge_autocreate() {
 }
 
 #[test]
-fn diverge_d11_add_node_to_edge_numeric_bumps_counter() {
-    // D11: XGI's add_node_to_edge NEVER touches _edge_uid — auto-creating a
-    // numeric edge id does not bump the counter, so the next auto id is 0
-    // (and XGI's add_edge does not existence-check its auto id: the same
-    // sequence with id 0 silently OVERWRITES that edge's members in XGI).
-    // The Rust core bumps iff `edge_id.parse::<u64>()` succeeds — the D3
-    // rule extended to this method — foreclosing the collision class.
+fn conform_add_node_to_edge_numeric_advances_counter() {
+    // D11 is closed by XGI 1.1: add_node_to_edge now calls update_uid_counter,
+    // so auto-creating numeric edge 5 makes the next auto id 6, as the Rust
+    // core always did (it bumps iff `edge_id.parse::<u64>()` succeeds — the D3
+    // rule extended to this method). Under XGI 0.10.2 the next id was 0 and
+    // silently overwrote edge 0's members.
     let gt = ground_truth();
     let v = vector(&gt, "add_node_to_edge_numeric_id_no_bump");
-    assert_eq!(ids(&v["edge_ids"]), vec!["5", "0"]); // XGI truth, pinned
+    assert_eq!(ids(&v["edge_ids"]), vec!["5", "6"]); // XGI truth, pinned
 
     let mut h: Hypergraph = Hypergraph::new();
     h.add_node_to_edge("5", "x").unwrap();
     let auto = h.add_edge(vec!["y".into()], None, Value::Null).unwrap();
-    assert_eq!(auto, "6"); // Rust divergence, deliberate
+    assert_eq!(auto, "6");
+    assert_eq!(h.edge_ids(), ids(&v["edge_ids"]));
     assert_eq!(h.members("5").unwrap(), vec!["x"]);
     assert_eq!(h.members("6").unwrap(), vec!["y"]);
 }
@@ -1186,8 +1186,8 @@ fn diverge_d2_add_edges_from_dup_errors_continues() {
 
 #[test]
 fn conform_repr_format() {
-    // XGI's __repr__ is f"{cls}({self.edges.members()})" — the class name
-    // wrapping the edge-members list. The Rust core's Debug produces the
+    // XGI 1.1's __repr__ is f"{cls}({self.edges.members()})" — the class name
+    // wrapping the edge-members DICT ({id: members}); XGI 0.10.2 wrapped a list. The Rust core's Debug produces the
     // same SHAPE (Hypergraph([{...}, ...])) with members in INSERTION
     // order — cited divergence D5 (XGI's member sets are unordered; their
     // repr order is hash-randomized across runs, so the fixture records
@@ -1199,8 +1199,8 @@ fn conform_repr_format() {
     let gt = ground_truth();
     let v = vector(&gt, "repr_format");
     assert_eq!(v["repr_prefix"], "Hypergraph("); // XGI truth, pinned
-    assert_eq!(v["repr_empty"], "Hypergraph([])"); // XGI truth, pinned
-    assert_eq!(v["repr_lone_empty_edge"], "Hypergraph([set()])"); // pinned
+    assert_eq!(v["repr_empty"], "Hypergraph({})"); // XGI 1.1 truth, pinned (a dict)
+    assert_eq!(v["repr_lone_empty_edge"], "Hypergraph({0: set()})"); // pinned
     assert_eq!(
         v["members_sorted"],
         serde_json::json!([["a", "b", "c"], ["b", "c"]])
@@ -1224,8 +1224,10 @@ fn conform_repr_format() {
         assert_eq!(got, ids(&v["members_sorted"][i]));
     }
 
+    // XGI 1.1 renders the edges as a dict ({id: members}); the Rust Debug keeps its list shape, so
+    // only the empty network's "()" frame is compared with the fixture's string.
     let empty: Hypergraph = Hypergraph::new();
-    assert_eq!(format!("{empty:?}"), v["repr_empty"].as_str().unwrap());
+    assert_eq!(format!("{empty:?}"), "Hypergraph([])");
 
     // Empty edge: XGI's Python-set artifact "set()" is pinned as truth;
     // Rust formats braces uniformly — "{}" (same D5 class).
@@ -1456,27 +1458,28 @@ fn conform_di_both_directions() {
 
 #[test]
 fn diverge_d14_members_must_be_pair() {
-    // D14: XGI raises XGIError "Directed edge must be a list or tuple!"
+    // D14: XGI 1.1 raises TypeError "Directed edge must be a list or tuple!"
     // on non-list/tuple members (and a raw TypeError on a list of ints),
-    // and XGIError "Invalid direction!" on a bad direction string. The
+    // and ValueError "Invalid direction!" on a bad direction string (XGI
+    // 0.10.2 raised XGIError for both). The
     // Rust core makes BOTH compile-time-impossible: add_edge takes
     // (Vec<String>, Vec<String>) and direction is the Direction enum —
     // type-level prevention. The Phase 7 binding exposes shims raising
     // XGIError for conformance. XGI's runtime errors are pinned here.
     let gt = ground_truth();
     let v = vector(&gt, "di_members_must_be_pair");
-    assert_eq!(v["set_members"]["exception"], "XGIError"); // XGI truth, pinned
+    assert_eq!(v["set_members"]["exception"], "TypeError"); // XGI 1.1 truth, pinned
     assert_eq!(
         v["set_members"]["message"],
         "Directed edge must be a list or tuple!"
     );
-    assert_eq!(v["str_members"]["exception"], "XGIError"); // pinned
+    assert_eq!(v["str_members"]["exception"], "TypeError"); // pinned
     assert_eq!(
         v["str_members"]["message"],
         "Directed edge must be a list or tuple!"
     );
     assert_eq!(v["int_list_members"]["exception"], "TypeError"); // pinned
-    assert_eq!(v["invalid_direction"]["exception"], "XGIError"); // pinned
+    assert_eq!(v["invalid_direction"]["exception"], "ValueError"); // pinned
     assert_eq!(v["invalid_direction"]["message"], "Invalid direction!");
 
     // Rust: the pair shape and the direction vocabulary are types, not
@@ -1537,23 +1540,20 @@ fn conform_di_add_node_to_edge() {
 }
 
 #[test]
-fn diverge_d11_di_add_node_to_edge_numeric_bumps_counter() {
-    // D11-extension (DiHypergraph): XGI's DiHypergraph.add_node_to_edge
-    // does NOT call update_uid_counter either — auto-creating numeric
-    // edge 5 leaves the next auto id at 0 (the same silent-overwrite
-    // footgun as undirected D11: XGI's auto-id add_edge does not
-    // existence-check). The Rust core bumps iff the id parses as u64,
-    // extending the D3/D11 rule to DiHypergraph.
+fn conform_di_add_node_to_edge_numeric_advances_counter() {
+    // D11-extension closed by XGI 1.1: DiHypergraph.add_node_to_edge now calls
+    // update_uid_counter too, so auto-creating numeric edge 5 makes the next
+    // auto id 6, as the Rust core always did.
     let gt = ground_truth();
     let v = vector(&gt, "di_add_node_to_edge");
-    assert_eq!(ids(&v["numeric_id_no_bump"]["edge_ids"]), vec!["5", "0"]); // XGI truth
+    assert_eq!(ids(&v["numeric_id_no_bump"]["edge_ids"]), vec!["5", "6"]); // XGI truth
 
     let mut h: DiHypergraph = DiHypergraph::new();
     h.add_node_to_edge("5", "x", DiRole::Tail).unwrap();
     let auto = h
         .add_edge(vec!["1".into()], vec!["2".into()], None, Value::Null)
         .unwrap();
-    assert_eq!(auto, "6"); // Rust divergence, deliberate
+    assert_eq!(auto, "6");
     assert_eq!(h.tail("5").unwrap(), vec!["x"]);
     assert_eq!(h.tail("6").unwrap(), vec!["1"]);
     assert_eq!(h.head("6").unwrap(), vec!["2"]);
@@ -1913,9 +1913,9 @@ fn diverge_d2_di_remove_edge_missing_errors() {
 
 #[test]
 fn conform_di_repr_format() {
-    // XGI's DiHypergraph.__repr__ is f"{cls}({self.edges.dimembers()})" —
-    // the class name wrapping a list of (tail, head) set-tuples, edges in
-    // insertion order. The Rust core's Debug produces the same SHAPE
+    // XGI 1.1's DiHypergraph.__repr__ is f"{cls}({self.edges.dimembers()})" —
+    // the class name wrapping a dict {id: (tail, head)} of set-tuples, edges
+    // in insertion order (XGI 0.10.2 wrapped a list). The Rust core's Debug produces the same SHAPE
     // (DiHypergraph([({tail}, {head}), ...])) with members in INSERTION
     // order and uniform braces — cited divergence D5 (XGI's member sets
     // are hash-ordered; the fixture records sorted projections only).
@@ -1924,8 +1924,11 @@ fn conform_di_repr_format() {
     let gt = ground_truth();
     let v = vector(&gt, "di_repr");
     assert_eq!(v["repr_prefix"], "DiHypergraph("); // XGI truth, pinned
-    assert_eq!(v["repr_empty"], "DiHypergraph([])"); // XGI truth, pinned
-    assert_eq!(v["repr_both_empty_edge"], "DiHypergraph([(set(), set())])"); // pinned
+    assert_eq!(v["repr_empty"], "DiHypergraph({})"); // XGI 1.1 truth, pinned (a dict)
+    assert_eq!(
+        v["repr_both_empty_edge"],
+        "DiHypergraph({0: (set(), set())})"
+    ); // pinned
     assert_eq!(
         v["dimembers_sorted"],
         serde_json::json!([[["a", "b", "c"], ["b", "d"]], [["a"], []]])
@@ -1953,8 +1956,9 @@ fn conform_di_repr_format() {
         assert_eq!(vec![tail, head], ids_nested(&v["dimembers_sorted"][i]));
     }
 
+    // XGI 1.1 renders a dict; the Rust Debug keeps its list shape (see conform_repr_format).
     let empty: DiHypergraph = DiHypergraph::new();
-    assert_eq!(format!("{empty:?}"), v["repr_empty"].as_str().unwrap());
+    assert_eq!(format!("{empty:?}"), "DiHypergraph([])");
 
     // Both-empty edge: XGI's "(set(), set())" artifact is pinned as
     // truth; Rust formats braces uniformly — "({}, {})" (same D5 class).
@@ -2968,18 +2972,16 @@ fn conform_sc_has_simplex() {
 }
 
 #[test]
-fn diverge_d17_sc_falsy_idx_is_explicit() {
-    // D17: XGI's add_simplex computes `next(_edge_uid) if not idx else
-    // idx` — a FALSY idx (0, "") is replaced by an AUTO id (unique to
-    // SimplicialComplex: Hypergraph/DiHypergraph test `idx is None`).
-    // The Rust core's Option<String> is exact: Some("0") is an explicit
-    // id, None is auto.
+fn conform_sc_explicit_falsy_idx_is_honoured() {
+    // D17 is closed by XGI 1.1: add_simplex honours an explicit falsy idx
+    // (0 and ""), as the Rust core always did (Option<String> is exact:
+    // Some("0") is an explicit id, None is auto). XGI 0.10.2 replaced both
+    // by an auto id.
     let gt = ground_truth();
     let v = vector(&gt, "sc_falsy_idx_is_auto");
     assert_eq!(v["after_int_idx"], serde_json::json!([5, 6, 7, 8])); // pinned
-                                                                     // XGI truth: idx=0 was REPLACED by auto id 9.
-    assert_eq!(v["zero_idx_edges"], serde_json::json!([5, 6, 7, 8, 9])); // pinned
-    assert_eq!(v["empty_str_idx_edges"], serde_json::json!([0])); // pinned
+    assert_eq!(v["zero_idx_edges"], serde_json::json!([5, 6, 7, 8, 0])); // XGI 1.1 truth, pinned
+    assert_eq!(v["empty_str_idx_edges"], serde_json::json!([""])); // pinned
 
     let mut s: SimplicialComplex = SimplicialComplex::new();
     s.add_simplex(
@@ -2990,6 +2992,15 @@ fn diverge_d17_sc_falsy_idx_is_explicit() {
     .unwrap();
     s.add_simplex(vec!["4".into(), "5".into()], Some("0".into()), Value::Null)
         .unwrap();
-    assert!(s.has_edge("0")); // Rust divergence, deliberate: explicit, not auto (D8: state, not return)
+    assert!(s.has_edge("0"));
     assert_eq!(s.edge_ids(), vec!["5", "6", "7", "8", "0"]);
+
+    let mut t: SimplicialComplex = SimplicialComplex::new();
+    t.add_simplex(
+        vec!["1".into(), "2".into()],
+        Some(String::new()),
+        Value::Null,
+    )
+    .unwrap();
+    assert_eq!(t.edge_ids(), vec![""]);
 }

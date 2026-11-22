@@ -20,7 +20,7 @@ from tools.count_tests import file_exclusion_test_counts  # noqa: E402
 from tools.symbol_status import SymbolStatusError, symbol_status  # noqa: E402
 
 DEST = ROOT / "python" / "hypergraph_rs" / "compat" / "manifest.json"
-XGI_TARGET = "0.10.2"
+XGI_TARGET = "1.1"
 
 
 class ManifestError(RuntimeError):
@@ -37,7 +37,7 @@ def require_xgi_target() -> None:
     """Refuse to proceed against an xgi that is not the pinned target.
 
     Without this the whole gate keeps producing a score, and that score
-    silently stops meaning "conformance to 0.10.2" — the failure mode is a
+    silently stops meaning "conformance to 1.1" — the failure mode is a
     number that still looks authoritative.
     """
     try:

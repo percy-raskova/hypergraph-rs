@@ -136,14 +136,14 @@
     "add_node_to_edge_numeric_id_no_bump": {
       "edge_ids": [
         5,
-        0
+        6
       ],
       "members": {
-        "0": [
-          "y"
-        ],
         "5": [
           "x"
+        ],
+        "6": [
+          "y"
         ]
       }
     },
@@ -462,24 +462,24 @@
       "num_nodes": 4,
       "numeric_id_no_bump": {
         "dimembers": {
-          "0": {
+          "5": {
+            "head": [],
+            "tail": [
+              "x"
+            ]
+          },
+          "6": {
             "head": [
               "2"
             ],
             "tail": [
               "1"
             ]
-          },
-          "5": {
-            "head": [],
-            "tail": [
-              "x"
-            ]
           }
         },
         "edge_ids": [
           5,
-          0
+          6
         ]
       },
       "return_in": null,
@@ -667,15 +667,15 @@
         "message": "'int' object is not iterable"
       },
       "invalid_direction": {
-        "exception": "XGIError",
+        "exception": "ValueError",
         "message": "Invalid direction!"
       },
       "set_members": {
-        "exception": "XGIError",
+        "exception": "TypeError",
         "message": "Directed edge must be a list or tuple!"
       },
       "str_members": {
-        "exception": "XGIError",
+        "exception": "TypeError",
         "message": "Directed edge must be a list or tuple!"
       }
     },
@@ -905,8 +905,8 @@
           []
         ]
       ],
-      "repr_both_empty_edge": "DiHypergraph([(set(), set())])",
-      "repr_empty": "DiHypergraph([])",
+      "repr_both_empty_edge": "DiHypergraph({0: (set(), set())})",
+      "repr_empty": "DiHypergraph({})",
       "repr_prefix": "DiHypergraph("
     },
     "di_set_attrs": {
@@ -1287,8 +1287,8 @@
           "c"
         ]
       ],
-      "repr_empty": "Hypergraph([])",
-      "repr_lone_empty_edge": "Hypergraph([set()])",
+      "repr_empty": "Hypergraph({})",
+      "repr_lone_empty_edge": "Hypergraph({0: set()})",
       "repr_prefix": "Hypergraph("
     },
     "sc_add_simplex_closure": {
@@ -1522,14 +1522,14 @@
         8
       ],
       "empty_str_idx_edges": [
-        0
+        ""
       ],
       "zero_idx_edges": [
         5,
         6,
         7,
         8,
-        9
+        0
       ]
     },
     "sc_has_simplex": {
@@ -1602,5 +1602,5 @@
       "warning_message": "Node ghost does not exist!"
     }
   },
-  "xgi_version": "0.10.2"
+  "xgi_version": "1.1"
 }

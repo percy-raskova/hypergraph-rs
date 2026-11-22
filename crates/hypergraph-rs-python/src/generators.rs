@@ -6,7 +6,7 @@
 //! `PyHypergraph`/`PySimplicialComplex` built via `from_core_with_int_ids` (node keys
 //! `"0".."n-1"` -> Python ints). `complement` reuses the input hypergraph's existing node
 //! id map (same node set, XGI parity) and mints fresh int ids only for the new edges.
-//! `chung_lu_hypergraph` / `uniform_hypergraph_configuration_model` take arbitrary-hashable
+//! `chung_lu_hypergraph` / `uniform_configuration_model` take arbitrary-hashable
 //! node-id-keyed `dict`s (XGI parity) — those user ids are interned directly, not remapped
 //! to ints.
 //!
@@ -312,8 +312,10 @@ fn watts_strogatz_hypergraph(
     PyHypergraph::from_core_with_int_ids(py, core)
 }
 
-/// `xgi.uniform_erdos_renyi_hypergraph(n, m, p, p_type="prob", multiedges=False, seed=None)`.
+/// `xgi.uniform_erdos_renyi_model(n, m, p, p_type="prob", multiedges=False, seed=None)` (XGI 1.0's
+/// new name for `uniform_erdos_renyi_hypergraph`).
 #[pyfunction]
+#[pyo3(name = "uniform_erdos_renyi_model")]
 #[pyo3(signature = (n, m, p, p_type="prob".to_string(), multiedges=false, seed=None))]
 fn uniform_erdos_renyi_hypergraph(
     py: Python<'_>,
@@ -331,9 +333,11 @@ fn uniform_erdos_renyi_hypergraph(
     PyHypergraph::from_core_with_int_ids(py, core)
 }
 
-/// `xgi.uniform_hypergraph_configuration_model(k, m, seed=None)` — `k` is a `{node_id: degree}`
-/// dict with arbitrary hashable keys (XGI parity); edges are freshly auto-id'd (Python ints).
+/// `xgi.uniform_configuration_model(k, m, seed=None)` (XGI 1.0's new name for
+/// `uniform_hypergraph_configuration_model`) — `k` is a `{node_id: degree}` dict with arbitrary
+/// hashable keys (XGI parity); edges are freshly auto-id'd (Python ints).
 #[pyfunction]
+#[pyo3(name = "uniform_configuration_model")]
 #[pyo3(signature = (k, m, seed=None))]
 fn uniform_hypergraph_configuration_model(
     py: Python<'_>,

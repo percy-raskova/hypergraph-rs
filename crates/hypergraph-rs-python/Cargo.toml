@@ -22,7 +22,7 @@ raster-png = ["cells3d", "hypergraph-rs/raster-png"]
 # Turn on every built module (spec Sec10.1 `all` minus `network` — no network reads in the gate).
 hypergraph-rs = { path = "../hypergraph-rs", version = "0.2.0", features = [
     "algorithms", "generators", "stats", "readwrite", "layout", "viz",
-    "dynamics", "communities", "convert",
+    "communities", "convert",
 ] }
 pyo3 = { version = "0.30", features = ["extension-module"] }
 numpy = "0.30"

@@ -9,7 +9,6 @@ mod algorithms; // Task 9
 mod communities; // Task 12
 mod convert; // Task 12
 mod dihypergraph; // Task 6
-mod dynamics; // Task 12
 mod errors;
 mod generators; // Task 10
 mod hypergraph;
@@ -39,7 +38,6 @@ fn _hypergraph_rs_core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     convert::register(m)?;
     readwrite::register(m)?;
     utils::register(m)?;
-    dynamics::register(m)?;
     communities::register(m)?;
     layout::register(m)?;
     #[cfg(feature = "cells3d")]

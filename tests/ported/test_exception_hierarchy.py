@@ -3,6 +3,6 @@ def test_id_not_found_is_keyerror():
     assert issubclass(IDNotFound, KeyError)
     assert issubclass(IDNotFound, XGIException)
 
-def test_surface_matches_xgi_164():
+def test_surface_matches_xgi_165():
     import hypergraph_rs as xgi
-    assert len(set(xgi.__all__)) == 164
+    assert len(set(xgi.__all__)) == 165

@@ -1,7 +1,7 @@
 """Convert (mirrors xgi/convert/__init__.py)."""
 from .._deferred import make_deferred
 
-_BOUND = ['from_bipartite_edgelist', 'to_bipartite_edgelist', 'from_bipartite_graph', 'to_bipartite_graph', 'to_graph', 'cut_to_order', 'from_hyperedge_dict', 'to_hyperedge_dict', 'from_hyperedge_list', 'to_hyperedge_list', 'to_hypergraph_dict', 'from_hypergraph_dict']
+_BOUND = ['from_bipartite_edgelist', 'to_bipartite_edgelist', 'from_bipartite_graph', 'to_bipartite_graph', 'to_graph', 'cut_to_order', 'from_hyperedge_dict', 'to_hyperedge_dict', 'from_hyperedge_list', 'to_hyperedge_list']
 for _n in _BOUND:
     try:
         globals()[_n] = getattr(__import__("hypergraph_rs._hypergraph_rs_core", fromlist=[_n]), _n)
@@ -25,4 +25,4 @@ to_simplicial_complex = make_deferred("to_simplicial_complex")
 from_bipartite_pandas_dataframe = make_deferred("from_bipartite_pandas_dataframe")
 to_bipartite_pandas_dataframe = make_deferred("to_bipartite_pandas_dataframe")
 
-__all__ = ['from_bipartite_edgelist', 'to_bipartite_edgelist', 'from_bipartite_graph', 'to_bipartite_graph', 'to_encapsulation_dag', 'empirical_subsets_filter', 'to_graph', 'to_hif_dict', 'from_hif_dict', 'to_hypergraph', 'to_dihypergraph', 'to_simplicial_complex', 'cut_to_order', 'from_hyperedge_dict', 'to_hyperedge_dict', 'from_hyperedge_list', 'to_hyperedge_list', 'to_hypergraph_dict', 'from_hypergraph_dict', 'from_incidence_matrix', 'to_incidence_matrix', 'to_line_graph', 'from_bipartite_pandas_dataframe', 'to_bipartite_pandas_dataframe', 'from_simplex_dict', 'from_max_simplices', 'k_skeleton']
+__all__ = ['from_bipartite_edgelist', 'to_bipartite_edgelist', 'from_bipartite_graph', 'to_bipartite_graph', 'to_encapsulation_dag', 'empirical_subsets_filter', 'to_graph', 'to_hif_dict', 'from_hif_dict', 'to_hypergraph', 'to_dihypergraph', 'to_simplicial_complex', 'cut_to_order', 'from_hyperedge_dict', 'to_hyperedge_dict', 'from_hyperedge_list', 'to_hyperedge_list', 'from_incidence_matrix', 'to_incidence_matrix', 'to_line_graph', 'from_bipartite_pandas_dataframe', 'to_bipartite_pandas_dataframe', 'from_simplex_dict', 'from_max_simplices', 'k_skeleton']

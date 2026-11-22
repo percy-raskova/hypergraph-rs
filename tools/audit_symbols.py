@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Compare hypergraph_rs's public surface against XGI 0.10.2's 164 symbols; emit the ledger.
+"""Compare hypergraph_rs's public surface against XGI 1.1's 165 symbols; emit the ledger.
 
-Fails if __all__ != XGI's 164. Classifies each symbol into one of three sections: bound,
+Fails if __all__ != XGI's 165. Classifies each symbol into one of three sections: bound,
 bound-partial (bound but recorded raising for some argument shape or environment — see
 compat/partial_symbols.toml), or deferred (a stub whose __module__ is exactly the
 `_deferred` stub factory module). Writes tests/DEFERRED_SYMBOLS.md — or, with --check,
@@ -25,7 +25,7 @@ def _ledger_text() -> tuple[str, dict[str, int]]:
     read its __all__, it does not guard the version.
     """
     xgi = importlib.import_module(
-        "xgi", package=None)  # the installed oracle; used only to read the canonical 164 names
+        "xgi", package=None)  # the installed oracle; used only to read the canonical 165 names
     hr = importlib.import_module("hypergraph_rs")
     want, have = set(xgi.__all__), set(hr.__all__)
     assert have == want, f"surface mismatch: missing={want-have} extra={have-want}"
@@ -39,16 +39,16 @@ def _ledger_text() -> tuple[str, dict[str, int]]:
     bound = [n for n, s in status.items() if s == "bound" and n not in partial]
     partials = [n for n, s in status.items() if s == "bound" and n in partial]
 
-    lines = [f"# Deferred symbols ({len(deferred)}/164 not built by any phase)\n\n"]
+    lines = [f"# Deferred symbols ({len(deferred)}/165 not built by any phase)\n\n"]
     for n in deferred:
         lines.append(f"- `{n}` — no Phase 0-6 plan built it; calling raises NotImplementedError.\n")
-    lines.append(f"\n# Bound-partial symbols ({len(partials)}/164)\n\n")
+    lines.append(f"\n# Bound-partial symbols ({len(partials)}/165)\n\n")
     lines.append("These are bound, but some argument shapes or environments "
                   "raise. See `compat/partial_symbols.toml` for the exact "
                   "triggers.\n\n")
     for n in partials:
         lines.append(f"- `{n}`\n")
-    lines.append(f"\n# Bound symbols ({len(bound)}/164)\n\n")
+    lines.append(f"\n# Bound symbols ({len(bound)}/165)\n\n")
     lines.append("Bound is a BINDING fact, not a behaviour one: it means the "
                   "symbol is not routed through the `_deferred` stub factory. "
                   "Absence from the partial list above is not evidence a symbol "

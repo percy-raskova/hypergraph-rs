@@ -1,4 +1,8 @@
-//! Kuramoto synchronization dynamics ported from `xgi/dynamics/synchronization.py`.
+//! Kuramoto synchronization dynamics, first ported from `xgi/dynamics/synchronization.py`.
+//!
+//! XGI 1.0 dropped its `dynamics` package. This module stays as an extra of this crate, behind the
+//! `dynamics` feature; it is no longer checked against XGI and the Python bindings no longer
+//! expose it.
 //!
 //! NOTE: XGI's `dynamics/` slice is Kuramoto synchronization, NOT epidemic (SIR/SIS)
 //! models — the spec's "epidemic" summary is wrong (see the Phase-6 plan header). This

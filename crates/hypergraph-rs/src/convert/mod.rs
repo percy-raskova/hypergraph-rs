@@ -1,5 +1,6 @@
 //! Conversions to/from hyperedge lists/dicts, bipartite edgelists, bipartite petgraph
-//! graphs, the 1-skeleton graph, the standardized hypergraph dict, and order-cutting.
+//! graphs, the 1-skeleton graph, and order-cutting. (XGI 1.0 dropped its hypergraph dict; so did this
+//! module.)
 //!
 //! Ported from `xgi/convert/`. Operates on the default `Hypergraph`
 //! (`serde_json::Value` attrs). The `pandas` slice is NOT ported (spec §4.4); HIF,
@@ -10,7 +11,6 @@ use indexmap::IndexMap;
 use rustworkx_core::petgraph::graph::UnGraph;
 use rustworkx_core::petgraph::stable_graph::StableDiGraph;
 use rustworkx_core::petgraph::visit::{EdgeRef, IntoEdgeReferences};
-use serde_json::Map;
 use serde_json::Value;
 use std::collections::HashSet;
 use thiserror::Error;
@@ -215,110 +215,6 @@ pub fn to_graph(h: &Hypergraph) -> UnGraph<String, ()> {
         }
     }
     g
-}
-
-/// Coerce a node/edge attr value to the shape XGI serializes: a JSON object. XGI's
-/// `H.nodes[idx]`/`H.edges[idx]` are always dicts (never `None`), so a default
-/// `Value::Null` attr (e.g. from auto-created members) must emit `{}`, not `null`, to
-/// match the xgi-data contract.
-fn attrs_as_object(v: Option<&Value>) -> Value {
-    match v.and_then(|v| v.as_object()) {
-        Some(obj) => Value::Object(obj.clone()),
-        None => Value::Object(Map::new()),
-    }
-}
-
-/// Serialize to the standardized xgi-data hypergraph dict.
-///
-/// XGI parity: `xgi.to_hypergraph_dict` (`convert/hypergraph_dict.py:12-72`). `edge-dict`
-/// members are sorted (stringwise). `type` is the constant `"hypergraph"`. `node-data`/
-/// `edge-data` entries are always JSON objects (a `Value::Null` attr serializes as `{}`,
-/// matching XGI's `H.nodes[idx]` dict-always contract — see `attrs_as_object`).
-pub fn to_hypergraph_dict(h: &Hypergraph) -> Value {
-    let mut root = Map::new();
-    root.insert("type".into(), Value::String("hypergraph".into()));
-    root.insert(
-        "hypergraph-data".into(),
-        Value::Object(h.graph_attrs().clone()),
-    );
-
-    let mut node_data = Map::new();
-    for n in h.node_ids() {
-        node_data.insert(n.clone(), attrs_as_object(h.node_attrs(&n)));
-    }
-    root.insert("node-data".into(), Value::Object(node_data));
-
-    let mut edge_data = Map::new();
-    let mut edge_dict = Map::new();
-    for e in h.edge_ids() {
-        edge_data.insert(e.clone(), attrs_as_object(h.edge_attrs(&e)));
-        let mut members = h.members(&e).unwrap_or_default();
-        members.sort();
-        edge_dict.insert(
-            e.clone(),
-            Value::Array(members.into_iter().map(Value::String).collect()),
-        );
-    }
-    root.insert("edge-data".into(), Value::Object(edge_data));
-    root.insert("edge-dict".into(), Value::Object(edge_dict));
-    Value::Object(root)
-}
-
-/// Deserialize from the standardized xgi-data hypergraph dict.
-///
-/// XGI parity: `xgi.from_hypergraph_dict` (`convert/hypergraph_dict.py:75-165`). Requires
-/// `hypergraph-data`, `node-data`, `edge-dict`; `edge-data` attrs are applied if present.
-pub fn from_hypergraph_dict(data: &Value) -> Result<Hypergraph, ConvertError> {
-    let obj = data
-        .as_object()
-        .ok_or_else(|| ConvertError::Malformed("top-level value is not an object".into()))?;
-
-    let mut h = Hypergraph::new();
-
-    let hdata = obj
-        .get("hypergraph-data")
-        .and_then(|v| v.as_object())
-        .ok_or_else(|| ConvertError::Malformed("missing hypergraph-data".into()))?;
-    for (k, v) in hdata {
-        h.set_graph_attr(k, v.clone());
-    }
-
-    let node_data = obj
-        .get("node-data")
-        .and_then(|v| v.as_object())
-        .ok_or_else(|| ConvertError::Malformed("missing node-data".into()))?;
-    for (nid, attrs) in node_data {
-        h.add_node(nid, attrs.clone());
-    }
-
-    let edge_dict = obj
-        .get("edge-dict")
-        .and_then(|v| v.as_object())
-        .ok_or_else(|| ConvertError::Malformed("missing edge-dict".into()))?;
-    for (eid, members_val) in edge_dict {
-        let members: Vec<String> = members_val
-            .as_array()
-            .ok_or_else(|| ConvertError::Malformed(format!("edge {eid} members not an array")))?
-            .iter()
-            .filter_map(|m| m.as_str().map(|s| s.to_string()))
-            .collect();
-        if !members.is_empty() {
-            h.add_edge(members, Some(eid.clone()), Value::Null)
-                .map_err(|e| ConvertError::Malformed(format!("edge {eid}: {e}")))?;
-        }
-    }
-
-    // Optional edge attributes.
-    if let Some(edge_data) = obj.get("edge-data").and_then(|v| v.as_object()) {
-        let pairs: Vec<(String, Map<String, Value>)> = edge_data
-            .iter()
-            .filter(|(eid, _)| h.has_edge(eid))
-            .filter_map(|(eid, v)| v.as_object().map(|o| (eid.clone(), o.clone())))
-            .collect();
-        h.set_edge_attributes(pairs);
-    }
-
-    Ok(h)
 }
 
 /// A copy of the hypergraph keeping only edges of order ≤ `order`.

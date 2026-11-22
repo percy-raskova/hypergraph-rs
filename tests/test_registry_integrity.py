@@ -9,10 +9,13 @@ import pathlib
 
 from conftest_exclusions import (
     ENTRY_CLASSES,
+    ENTRY_OWNERS,
     FILE_EXCLUSIONS,
+    FILE_OWNERS,
     TEST_EXCLUSIONS,
     entry_matches_name,
 )
+from tools.taxonomy import OWNER_PATTERN
 
 PORTED = pathlib.Path(__file__).parent / "ported"
 
@@ -185,3 +188,42 @@ def test_no_test_entry_hides_behind_a_skip_class() -> None:
         "test entries classed into a skip tier, hiding a running gap:\n  "
         + "\n  ".join(hidden)
     )
+
+
+def test_every_owner_is_known() -> None:
+    """An owner names a later task of the raise to XGI 1.1 or a later plan of its own."""
+    bad = sorted(
+        f"{key}: {owner}"
+        for key, owner in [*ENTRY_OWNERS.items(), *FILE_OWNERS.items()]
+        if not OWNER_PATTERN.match(owner)
+    )
+    assert bad == [], "owners that match no task or plan:\n  " + "\n  ".join(bad)
+
+
+def test_flip_entries_carry_an_owner_or_a_reason() -> None:
+    """A test entry the flip added without an owner says why no task of the plan clears it."""
+    import tomllib
+
+    data = tomllib.loads(
+        (pathlib.Path(__file__).parent.parent / "compat" / "exclusions.toml").read_text()
+    )
+    flip_without_owner = {
+        ("core/test_hypergraph.py", "test_cleanup_empties"),
+        ("core/test_simplicialcomplex.py", "test_add_weighted_simplices_from"),
+        ("core/test_views.py", "test_pos_stat"),
+        ("drawing/test_layout.py", "test_spring_layouts_accept_rng"),
+        ("drawing/test_layout.py", "test_spring_layouts_rng_semantics"),
+        ("algorithms/test_centrality.py", "test_node_edge_centrality_xgi_data"),
+        ("algorithms/test_centrality.py", "test_h_eigenvector_centrality_xgi_data"),
+        ("generators/test_random.py", "test_degree_corrected_stochastic_block_model_hypergraph"),
+        ("generators/test_uniform.py", "test_uniform_stochastic_block_model"),
+        ("generators/test_uniform.py", "test_uniform_planted_partition_model"),
+    }
+    reasons = {
+        (e["path"], e["test"]): e["reason"]
+        for e in data["test_exclusion"]
+        if "owner" not in e
+    }
+    for key in sorted(flip_without_owner):
+        assert key in reasons, f"{key} has an owner or is gone"
+        assert len(reasons[key]) > 40, f"{key}: the reason is too short to say why nothing clears it"

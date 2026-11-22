@@ -11,7 +11,10 @@ for _n in _BOUND:
 # network (gated off) + Phase 4 built undirected HIF only
 load_xgi_data = make_deferred("load_xgi_data")
 download_xgi_data = make_deferred("download_xgi_data")
+# the online loaders are a plan of their own (owner ruling 2026-11-21: certificates checked by default)
+load_ahorn_data = make_deferred("load_ahorn_data")
+load_hypergraphx_data = make_deferred("load_hypergraphx_data")
 read_hif_collection = make_deferred("read_hif_collection")
 write_hif_collection = make_deferred("write_hif_collection")
 
-__all__ = ['load_bigg_data', 'read_bipartite_edgelist', 'write_bipartite_edgelist', 'parse_bipartite_edgelist', 'read_edgelist', 'write_edgelist', 'parse_edgelist', 'read_hif', 'write_hif', 'read_hif_collection', 'write_hif_collection', 'read_incidence_matrix', 'write_incidence_matrix', 'load_xgi_data', 'download_xgi_data']
+__all__ = ['load_bigg_data', 'read_bipartite_edgelist', 'write_bipartite_edgelist', 'parse_bipartite_edgelist', 'read_edgelist', 'write_edgelist', 'parse_edgelist', 'read_hif', 'write_hif', 'read_hif_collection', 'write_hif_collection', 'read_incidence_matrix', 'write_incidence_matrix', 'load_xgi_data', 'download_xgi_data', 'load_ahorn_data', 'load_hypergraphx_data']
