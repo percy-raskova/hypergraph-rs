@@ -356,6 +356,34 @@ from conftest_exclusions import (
     TEST_EXCLUSIONS,
     entry_matches_name,
 )
+from oracle_guard import VIOLATIONS, is_upstream, oracle_hidden, upstream_paths
+
+from tools.import_tests import read_lock
+
+# The upstream ported files (the lock's list). While one of them is collected or run,
+# the real XGI is hidden and cannot be imported (tests/oracle_guard.py).
+_UPSTREAM_PORTED = upstream_paths(read_lock())
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_protocol(item, nextitem):
+    """Run setup, call and teardown of an upstream ported test with the oracle hidden."""
+    if not is_upstream(item.path, _UPSTREAM_PORTED):
+        return (yield)
+    with oracle_hidden(item.nodeid):
+        return (yield)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_make_collect_report(collector):
+    """Collect an upstream ported module with the oracle hidden."""
+    if not (
+        isinstance(collector, pytest.Module)
+        and is_upstream(collector.path, _UPSTREAM_PORTED)
+    ):
+        return (yield)
+    with oracle_hidden(str(collector.path)):
+        return (yield)
 
 
 def pytest_ignore_collect(collection_path, config):
@@ -412,6 +440,11 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     printed summary line: that line's wording and order are presentation, and
     pinning it would be one more guard on a proxy.
     """
+    if VIOLATIONS:
+        # A strict expected failure cannot hide an oracle import: fail the session.
+        for violation in VIOLATIONS:
+            print(f"oracle guard: {violation}")
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     if reporter is None:  # -p no:terminal, or a non-terminal runner
         return

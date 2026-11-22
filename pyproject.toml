@@ -49,4 +49,5 @@ strip = true
 pythonpath = ["."]
 markers = [
     "slow: upstream XGI's marker for network- or compute-heavy tests. Registered here only to silence PytestUnknownMarkWarning; the ported files that use it are byte-verbatim upstream copies and must not be edited.",
+    "webtest: upstream XGI's marker for tests that need the network. Registered here only to silence PytestUnknownMarkWarning; the ported files that use it are importer-written copies and must not be edited.",
 ]

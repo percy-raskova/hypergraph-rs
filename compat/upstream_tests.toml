@@ -1,0 +1,209 @@
+# Written by tools/import_tests.py. Do not edit.
+tag = "v0.10.2"
+commit = "a61d6700096c3b5e864f34ef58c415f7b5c072ff"
+xgi_version = "0.10.2"
+conftest_sha256 = "2a923914e98068ce4eead3afdc8498f92cfcbc760b3fc658f87b3ee5dee9e117"
+
+[[file]]
+path = "algorithms/test_assortativity.py"
+sha256 = "1e1ce95ce43766ad2f35648e2e30163e34f588a164544a6d34e70985626249a5"
+
+[[file]]
+path = "algorithms/test_centrality.py"
+sha256 = "3629b1cf2444862d6d9cdaefe64c1a13793b83c25c0598e8d55fbe4792a8e630"
+
+[[file]]
+path = "algorithms/test_clustering.py"
+sha256 = "033d1a8cb6a127c86b24b67b7a29faec73fd56030421e4632b20846f68b9df94"
+
+[[file]]
+path = "algorithms/test_connected.py"
+sha256 = "310ec6f5199495fe49d8200b50e5b7e187d8fb581ee354194ef6249ce4acb3e4"
+
+[[file]]
+path = "algorithms/test_properties.py"
+sha256 = "acccbd488f5036a911f7d30b5f7e633cd15a86c3221ae2483667b1143d8b4948"
+
+[[file]]
+path = "algorithms/test_shortest_path.py"
+sha256 = "a3d3249bbe5343238d4d4a79659f507c468ac95642bae6c3b620c644a2740ae0"
+
+[[file]]
+path = "algorithms/test_simpliciality.py"
+sha256 = "b82c3ca9b70cfab411464d3a677e84378ad5fc4a93dd47e505eb40b0f7b5495b"
+
+[[file]]
+path = "communities/test_spectral.py"
+sha256 = "077a383876447ba16de36ff9fa86fb9c9be94dfde38b54a2ba40a78e41fa61ed"
+
+[[file]]
+path = "convert/test_bipartite_edges.py"
+sha256 = "d642d3d4fbb33f11a75d3ee69eef93dc661a5caa69b192763c7bbe384f330018"
+
+[[file]]
+path = "convert/test_bipartite_graph.py"
+sha256 = "74d0c1d592be5a66e53369eb6271cb83734d7dafafd5fedb3d30859e8ac03b6c"
+
+[[file]]
+path = "convert/test_encapsulation_dag.py"
+sha256 = "6e24857b57cc92d32996bcef4fbfaee20ecce6909fbe4267f820b27fae07f42a"
+
+[[file]]
+path = "convert/test_graph.py"
+sha256 = "47c3389bf7137c32da6f1264ea06ed4258371409f5b0b0c9bda518f63f28361a"
+
+[[file]]
+path = "convert/test_hif_dict.py"
+sha256 = "e1a95028db8b98e35eb10a239180c985fc0a627f07b2a3b782bfe43ea5c8db30"
+
+[[file]]
+path = "convert/test_higher_order_network.py"
+sha256 = "fd713c319a81cbdb5468577011ede5eb650c9db544122ca2717b436a5bbbb67a"
+
+[[file]]
+path = "convert/test_hyperedges.py"
+sha256 = "d43d752efeac7d157f7c3dbb54946b7dce7b1ecec47b0b3296cb3484fc4add66"
+
+[[file]]
+path = "convert/test_hypergraph_dict.py"
+sha256 = "87628541d4248eb0e9799044e5007322b0703c9e2aca9c1497fa18102f3059b5"
+
+[[file]]
+path = "convert/test_incidence.py"
+sha256 = "193777ed6df31fefb869a7d14b0398073547727d30cad43f8055a16f8b49d470"
+
+[[file]]
+path = "convert/test_k_skeleton.py"
+sha256 = "b1d3d489f416d3cf2de2f1dbfbae8626e614610527a7da2a4620e2be318ebe90"
+
+[[file]]
+path = "convert/test_line_graph.py"
+sha256 = "8d9b569bed37a5ad5265c5d25eb92c202dd491a55844518a46a3ed4e24a370b6"
+
+[[file]]
+path = "convert/test_pandas.py"
+sha256 = "2eb7922390e2647104fd53fcdebf80071a493b8b483c55f07e7c3b77a6356fb5"
+
+[[file]]
+path = "core/test_dihypergraph.py"
+sha256 = "398def8dfe3c9e1612d885344ff70b915e1165a30c07e59b0d363fcc5f67baf3"
+
+[[file]]
+path = "core/test_globalviews.py"
+sha256 = "b22d3108cc6cf3c26b5a35d4d761dae1480c7f1c19082ea2f79c071d07722d7e"
+
+[[file]]
+path = "core/test_hypergraph.py"
+sha256 = "a965aaa6d779a10cb3c6cb0e605a2b6f9b328e073a2023978b32224875630280"
+
+[[file]]
+path = "core/test_simplicialcomplex.py"
+sha256 = "5fd8dcbd1ec7804670d3fc527318b32d84e5c1cb9809edbd05fb863cfcb45739"
+
+[[file]]
+path = "core/test_views.py"
+sha256 = "8daad8d11afc4ff2c6cff10995523c03a2b13428ef382944ece3731530e80860"
+
+[[file]]
+path = "drawing/test_draw.py"
+sha256 = "3b8df3635ff8469213f4f13fd54f18d0c90e4aa63a34aa19c1f42493924f0e99"
+
+[[file]]
+path = "drawing/test_draw_utils.py"
+sha256 = "3dac9712f7cc2bc26f7f982069850b05a0fcd5e93e006f96adfd98763d179f67"
+
+[[file]]
+path = "drawing/test_layout.py"
+sha256 = "a610cdea3937a3e70a8862ed32939e8f8948e437abb3eab9d03e724bac52a940"
+
+[[file]]
+path = "dynamics/test_synchronization.py"
+sha256 = "c900575e2ca05725036e612afaeffadf7029af211ae544912778f14af6da7ce2"
+
+[[file]]
+path = "generators/test_classic.py"
+sha256 = "e6cb1ba6a84a55f0c6b3ae413c56ebd9eb212fe5248470c511081ad11c7919bb"
+
+[[file]]
+path = "generators/test_lattice.py"
+sha256 = "f0a26734814cf7839303109d7333d48f08303fe198392a3fe6721e1defe9a0af"
+
+[[file]]
+path = "generators/test_random.py"
+sha256 = "97bc8cee906e25672f16fcefdf519f800f247e80aa512cf949732889ba2041ef"
+
+[[file]]
+path = "generators/test_randomizing.py"
+sha256 = "52fb3d51e255ecb15628b9bb84dba18258ad935cc010a49c3059fe3c62745675"
+
+[[file]]
+path = "generators/test_simple.py"
+sha256 = "3586fceebdd2426caa6a7120dfe9a4514e8aa79d0c32bd00105de0b529d226bc"
+
+[[file]]
+path = "generators/test_simplicial_complexes.py"
+sha256 = "69573f84ee5b4b90e0681b6b4062d5ec48f32a9a2bd6a5f25a5425304f917eb1"
+
+[[file]]
+path = "generators/test_uniform.py"
+sha256 = "06c64796741094692b60a50cd8a2842c12b29ad25f877337b2674bc95b18054f"
+
+[[file]]
+path = "linalg/test_matrix.py"
+sha256 = "0a4717241dc415b39d6311ada40ef6a3b05135f3795fb4500fa56d987821a55a"
+
+[[file]]
+path = "readwrite/test_bigg_data.py"
+sha256 = "08d0ffaf05c197b84d590a31c2c549be78436498e690ffa47cacd60821702374"
+
+[[file]]
+path = "readwrite/test_bipartite_edgelist.py"
+sha256 = "96b8c85627537286285fe1025f36c9a574ef647d8d5049bc742a08df658ed983"
+
+[[file]]
+path = "readwrite/test_edgelist.py"
+sha256 = "8638ab93568db37aa39750a78b4bbdb6322b0a63f9e1c6c8484c7dbcb28a138e"
+
+[[file]]
+path = "readwrite/test_hif.py"
+sha256 = "314ce215e514390cfe1781860b81d9ef95b17ebbe8d8cb9aee7c3c382a7a7601"
+
+[[file]]
+path = "readwrite/test_incidence_matrix.py"
+sha256 = "4c7314b20c4a6b9e2262ac50d7b7e51f4167560420b047acd9e3f9e028c74efe"
+
+[[file]]
+path = "readwrite/test_json.py"
+sha256 = "2538f498eeee45f81b2fcddc07660714ab82e1daff309cf624496cbfd2b7b266"
+
+[[file]]
+path = "readwrite/test_xgi_data.py"
+sha256 = "ebcc7245b934d123f8be9f14dfed9a551e919478c08b059792975b3fe660e252"
+
+[[file]]
+path = "stats/test_core_stats_functions.py"
+sha256 = "5e91388f04c76b53caae51d7e648bb1db06cc1f755228a56dfb345091727a6ea"
+
+[[file]]
+path = "stats/test_diedgestats.py"
+sha256 = "83f4e1b39264d4b6543c9b48d545773a113228c5f816dea73175956a944359f6"
+
+[[file]]
+path = "stats/test_dinodestats.py"
+sha256 = "abe1dd216b088ea815be576fd8267ce72f4199d687225f81c5b7b85f723039f6"
+
+[[file]]
+path = "stats/test_edgestats.py"
+sha256 = "ef1965f470b7f88fbad7f94f8a711571592472f80297fcb23f1120cf22fe3675"
+
+[[file]]
+path = "stats/test_nodestats.py"
+sha256 = "d8c81d28a6048cc835d066914f877a6663a430b778cf655a1a4cd756a7687dfe"
+
+[[file]]
+path = "test_import_time.py"
+sha256 = "be833e901cccbd7176558f79eb6ac3869c98dc5c0ee6e9b4e2396a9142eeb309"
+
+[[file]]
+path = "utils/test_utilities.py"
+sha256 = "7d87707ff122ae783e0937f67eb15f40320ffb78ea7ebec26ac0832462c52555"

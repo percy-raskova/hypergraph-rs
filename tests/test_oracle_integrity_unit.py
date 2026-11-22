@@ -18,13 +18,13 @@ def test_missing_ported_file_is_reported(tmp_path: pathlib.Path) -> None:
     assert drifted == []
 
 
-def test_drifted_file_is_reported(tmp_path: pathlib.Path) -> None:
+def test_compare_tree_reports_a_ported_file_left_unrewritten(tmp_path: pathlib.Path) -> None:
     upstream = tmp_path / "up"
     ported = tmp_path / "ported"
     upstream.mkdir()
     ported.mkdir()
-    (upstream / "test_y.py").write_text("import xgi\nassert 1 == 1\n")
-    (ported / "test_y.py").write_text("import hypergraph_rs as xgi\nassert 1 == 2\n")
+    (upstream / "test_y.py").write_text("import xgi\n")
+    (ported / "test_y.py").write_text("import xgi\n")
 
     missing, drifted = _compare_tree(upstream, ported)
 
@@ -32,7 +32,7 @@ def test_drifted_file_is_reported(tmp_path: pathlib.Path) -> None:
     assert drifted == ["test_y.py"]
 
 
-def test_import_swap_alone_is_not_drift(tmp_path: pathlib.Path) -> None:
+def test_compare_tree_accepts_the_rewrite(tmp_path: pathlib.Path) -> None:
     upstream = tmp_path / "up"
     ported = tmp_path / "ported"
     upstream.mkdir()

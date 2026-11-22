@@ -100,6 +100,10 @@ run = ".venv/bin/python -m tools.gen_manifest"
 description = "Regenerate tests/DEFERRED_SYMBOLS.md from the built extension + authored TOMLs. Requires real xgi 0.10.2 installed (differential oracle). py:gate only CHECKS this file (--check, no write); run this task and commit the result when the ledger drifts."
 run = ".venv/bin/python -m tools.audit_symbols"
 
+[tasks."py:import-tests"]
+description = "Import XGI's own tests at a tag (mise run py:import-tests v1.1) into tests/ported, with the import rewrite, the oracle lock and the conftest prefix. Reads a git clone in .cache/xgi; runs nothing from it."
+run = ".venv/bin/python -m tools.import_tests"
+
 [tasks."py:gate"]
 description = "The XGI conformance gate, exactly as CI runs it: symbol audit (read-only — fails on a stale committed ledger rather than regenerating it; see py:symbols), manifest drift + registry integrity + denominator + oracle integrity, then the ported suite. Sequential — heavy builds single-flight. Override the interpreter with PY=... (CI passes PY=python, which resolves to the setup-python + maturin develop environment)."
 run = """

@@ -1,75 +1,29 @@
-"""The ported oracle must stay byte-identical to XGI 0.10.2 modulo imports.
+"""The ported oracle must stay byte-identical to XGI's own tests, modulo the import rewrite.
 
-tests/ported/ holds verbatim copies of XGI's own suite. They are the
-differential oracle: every conformance claim on this port rests on them being
-unmodified. Nothing executable enforced that until now — gutting an oracle
-file's assertions left the entire suite green.
+tests/ported/ holds copies of XGI's own suite, written only by tools/import_tests.py.
+They are the differential oracle: every conformance claim on this port rests on them
+being unmodified. The expectation is exact: each ported file is
+`rewrite(upstream file)`, byte for byte, where `rewrite` is the importer's own function,
+and compat/upstream_tests.toml agrees with the wheel installed as the oracle.
 
 Repo-authored files (no upstream counterpart) are exempt; they are this repo's
 own tests, not ports.
 """
 
 import ast
+import hashlib
 import pathlib
-import re
 
 import xgi
+
+from tools.import_tests import read_lock, rewrite, sentinel_line
 
 PORTED = pathlib.Path(__file__).parent / "ported"
 # Derive the oracle path from the INSTALLED xgi rather than hardcoding a venv
 # layout: CI has no `.venv` (it pip-installs xgi into a setup-python env), and a
-# hardcoded `python3.13` breaks on any interpreter bump. xgi 0.10.2 vendors its
+# hardcoded `python3.13` breaks on any interpreter bump. XGI's wheel vendors its
 # own test suite as a sibling of the package directory.
 UPSTREAM = pathlib.Path(xgi.__file__).resolve().parent.parent / "tests"
-
-# The port aliases its import (`import hypergraph_rs as xgi`) rather than
-# rewriting every `xgi.Foo(...)` call site, so everywhere BELOW the import
-# line both files already read identically as `xgi.Foo(...)`. A blanket
-# `\bxgi\b` substitution over the whole file is too blunt: it also rewrites
-# the trailing alias name in `import hypergraph_rs as xgi`, producing
-# `import hypergraph_rs as hypergraph_rs` on the ported side against
-# `import hypergraph_rs` (upstream's `import xgi` normalised) on the other —
-# a false positive on every file that imports at all. Anchoring the
-# substitution to the import statement's root-module position only (start of
-# line, only leading whitespace before `import`/`from`) normalises exactly
-# the one shape each side is allowed to carry, and leaves every other `xgi`
-# token (call sites, error-message text, identifiers like `load_xgi_data`)
-# untouched on both sides.
-#
-# The two sides get SEPARATE regexes and separate normalise functions —
-# deliberately not one pattern accepting either spelling on either side. A
-# shared pattern would rewrite both `import xgi` and `import hypergraph_rs as
-# xgi` to the identical `import PKG` token regardless of which file carries
-# which, so a ported file left un-swapped — still reading the real `import
-# xgi` — would normalise to the same token as a correctly-swapped port and
-# compare equal to upstream. That is testing xgi against itself and calling
-# it byte-verbatim (a vacuous green). `_normalise_ported` only recognises the
-# port's own sanctioned spelling (`hypergraph_rs`); a bare `import xgi` left
-# on the ported side is untouched by it and therefore fails to match
-# upstream's normalised `import PKG`, which is the drift it must be.
-_UPSTREAM_IMPORT_ROOT = re.compile(rb"(?m)^(\s*)import xgi\s*$")
-_UPSTREAM_FROM_ROOT = re.compile(rb"(?m)^(\s*)from xgi\b")
-_PORTED_IMPORT_ROOT = re.compile(rb"(?m)^(\s*)import hypergraph_rs as xgi\s*$")
-_PORTED_FROM_ROOT = re.compile(rb"(?m)^(\s*)from hypergraph_rs\b")
-
-
-def _normalise_upstream(raw: bytes) -> bytes:
-    """Collapse upstream's own import spelling (`import xgi`) to a common token."""
-    raw = _UPSTREAM_IMPORT_ROOT.sub(rb"\1import PKG", raw)
-    raw = _UPSTREAM_FROM_ROOT.sub(rb"\1from PKG", raw)
-    return raw
-
-
-def _normalise_ported(raw: bytes) -> bytes:
-    """Collapse the port's own sanctioned import swap to the same common token.
-
-    Deliberately does NOT also accept a bare `import xgi`/`from xgi` — see
-    the module comment above the regexes. A ported file that still imports
-    the real `xgi` must fail the comparison, not be normalised away.
-    """
-    raw = _PORTED_IMPORT_ROOT.sub(rb"\1import PKG", raw)
-    raw = _PORTED_FROM_ROOT.sub(rb"\1from PKG", raw)
-    return raw
 
 
 # Upstream test files with no ported counterpart, each with the reason it was
@@ -103,9 +57,7 @@ def _compare_tree(
         if not ours.exists():
             missing.append(rel)
             continue
-        if _normalise_ported(ours.read_bytes()) != _normalise_upstream(
-            path.read_bytes()
-        ):
+        if ours.read_bytes() != rewrite(path.read_text(encoding="utf-8")).encode("utf-8"):
             drifted.append(rel)
     return missing, drifted
 
@@ -125,13 +77,9 @@ def _allowlist_verdict(
     return unexplained, stale
 
 
-# The em dash below is written as its UTF-8 escape sequence (\xe2\x80\x94)
-# rather than the literal character: bytes literals only permit ASCII source
-# characters, so embedding "—" directly is a SyntaxError. This is the exact
-# same three bytes the character encodes to; tests/conftest.py's sentinel
-# comment contains the literal character, which Python encodes to these same
-# bytes when the file is read via read_bytes().
-SENTINEL = b"# === END VERBATIM XGI 0.10.2 conftest \xe2\x80\x94 repo-authored code below this line ==="
+# The sentinel names the XGI version the lock records; it is built from the same
+# function the importer writes it with.
+SENTINEL = sentinel_line(read_lock().xgi_version).encode("utf-8")
 
 
 def _upstream_prefix(raw: bytes) -> bytes:
@@ -179,10 +127,10 @@ def test_shared_conftest_prefix_is_verbatim_upstream() -> None:
     if not upstream.exists():
         raise AssertionError(f"upstream conftest not found at {upstream}")
     ours = (PORTED.parent / "conftest.py").read_bytes()
-    assert _normalise_ported(_upstream_prefix(ours)) == _normalise_upstream(
-        upstream.read_bytes()
+    assert _upstream_prefix(ours) == rewrite(upstream.read_text(encoding="utf-8")).encode(
+        "utf-8"
     ), (
-        "tests/conftest.py's upstream section differs from XGI 0.10.2's. Every "
+        "tests/conftest.py's upstream section differs from rewrite(XGI's conftest.py). Every "
         "ported test's inputs come from these fixtures; a change here silently "
         "alters what the oracle asserts."
     )
@@ -198,7 +146,7 @@ def test_shared_conftest_prefix_is_verbatim_upstream() -> None:
 def test_ported_oracle_files_are_verbatim_upstream() -> None:
     if not UPSTREAM.exists():
         raise AssertionError(
-            f"upstream oracle not found at {UPSTREAM}; install xgi==0.10.2"
+            f"upstream oracle not found at {UPSTREAM}; install the XGI the lock names"
         )
     missing, drifted = _compare_tree(UPSTREAM, PORTED)
     unexplained, stale = _allowlist_verdict(missing, UNPORTED)
@@ -208,11 +156,26 @@ def test_ported_oracle_files_are_verbatim_upstream() -> None:
         "conformance claim that rested on it:\n  " + "\n  ".join(unexplained)
     )
     assert drifted == [], (
-        "ported oracle files differ from upstream XGI 0.10.2 beyond the import "
-        "swap — every conformance claim rests on these being verbatim:\n  "
-        + "\n  ".join(drifted)
+        "ported oracle files differ from rewrite(upstream) — every conformance "
+        "claim rests on these being verbatim:\n  " + "\n  ".join(drifted)
     )
     assert stale == [], (
         "UNPORTED lists files that ARE now ported; remove them so the "
         "allowlist cannot hide a future deletion:\n  " + "\n  ".join(stale)
     )
+
+
+def test_lock_agrees_with_the_installed_wheel() -> None:
+    lock = read_lock()
+    assert lock.xgi_version == xgi.__version__, (
+        f"compat/upstream_tests.toml is for XGI {lock.xgi_version} but XGI "
+        f"{xgi.__version__} is installed"
+    )
+    wheel = {
+        str(p.relative_to(UPSTREAM)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in UPSTREAM.rglob("test_*.py")
+    }
+    locked = {f.path: f.sha256 for f in lock.files}
+    assert locked == wheel, "the lock and the wheel hold different upstream test files"
+    conftest = hashlib.sha256((UPSTREAM / "conftest.py").read_bytes()).hexdigest()
+    assert lock.conftest_sha256 == conftest
