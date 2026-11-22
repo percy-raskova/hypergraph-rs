@@ -704,9 +704,14 @@ impl PyEdgeView {
         scope.into_iter().filter(|i| filtered.contains(i)).collect()
     }
 
-    fn dtype_is_valid(py: Python<'_>, dtype: Option<&Bound<'_, PyAny>>) -> PyResult<bool> {
+    /// `true` for `dict` (and for no `dtype`, XGI 1.x's default), `false` for `list`; anything
+    /// else raises `XGIError("Unrecognized dtype ...")`.
+    pub(crate) fn dtype_is_valid(
+        py: Python<'_>,
+        dtype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<bool> {
         match dtype {
-            None => Ok(false),
+            None => Ok(true),
             Some(d) => {
                 if d.is(py.get_type::<PyDict>()) {
                     Ok(true)
@@ -944,9 +949,9 @@ impl PyEdgeView {
         Ok(self.sub(py, ids))
     }
 
-    /// `H.edges.members(e=None, dtype=list)` (views.py:706-745).
+    /// `H.edges.members(e=None, dtype=dict)` (views.py:706-745).
     #[pyo3(signature = (e=None, dtype=None))]
-    fn members(
+    pub(crate) fn members(
         &self,
         py: Python<'_>,
         e: Option<&Bound<'_, PyAny>>,

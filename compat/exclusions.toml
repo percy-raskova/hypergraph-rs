@@ -538,55 +538,6 @@ class = "deferred-symbol"
 reason = "deferred: edge_positions_from_barycenters (drawing/layout, no Phase-5 analogue, Task 13 note)."
 
 [[test_exclusion]]
-path = "core/test_views.py"
-test = "test_edge_members"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T10"
-reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
-
-[[test_exclusion]]
-path = "core/test_views.py"
-test = "test_edge_dimembers"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T10"
-reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
-
-[[test_exclusion]]
-path = "core/test_views.py"
-test = "test_edge_tail"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T10"
-reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
-
-[[test_exclusion]]
-path = "core/test_views.py"
-test = "test_edge_head"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T10"
-reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
-
-[[test_exclusion]]
-path = "core/test_hypergraph.py"
-test = "test_repr"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T10"
-reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
-
-[[test_exclusion]]
-path = "core/test_hypergraph.py"
-test = "test_add_weighted_edges_from"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T10"
-reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
-
-[[test_exclusion]]
-path = "core/test_dihypergraph.py"
-test = "test_repr"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T10"
-reason = "XGI 1.1 returns a dict from members/dimembers/head/tail by default and a dict-shaped repr; the binding still returns a list."
-
-[[test_exclusion]]
 path = "core/test_dihypergraph.py"
 test = "test_add_edge_rejects_set"
 class = "binding-gap"

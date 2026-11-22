@@ -143,6 +143,20 @@ impl PySimplicialComplex {
         Ok(d.unbind())
     }
 
+    fn __repr__(slf: &Bound<'_, Self>) -> PyResult<String> {
+        let py = slf.py();
+        let edges = PySCEdgeView {
+            sc: slf.clone().unbind(),
+            ids: None,
+        };
+        let members = edges.members(py, None, None)?;
+        Ok(format!(
+            "{}({})",
+            slf.get_type().name()?,
+            members.bind(py).repr()?
+        ))
+    }
+
     fn __str__(&self, py: Python<'_>) -> PyResult<String> {
         let cls = "SimplicialComplex";
         match self.net_attr.get("name") {
@@ -1038,7 +1052,7 @@ impl PySCEdgeView {
         }
     }
 
-    /// `S.edges.members(e=None, dtype=list)` — node ids of simplex `e` (a SET), or all simplices
+    /// `S.edges.members(e=None, dtype=dict)` — node ids of simplex `e` (a SET), or all simplices
     /// as a list/dict of sets when `e` is omitted.
     #[pyo3(signature = (e=None, dtype=None))]
     fn members(
@@ -1070,10 +1084,7 @@ impl PySCEdgeView {
                 Ok(set_for(py, &core)?.into_any())
             }
             None => {
-                let is_dict = match dtype {
-                    Some(d) => d.is(py.get_type::<PyDict>()),
-                    None => false,
-                };
+                let is_dict = crate::views::PyEdgeView::dtype_is_valid(py, dtype)?;
                 if is_dict {
                     let d = PyDict::new(py);
                     for eid in self.effective_ids(&sc) {

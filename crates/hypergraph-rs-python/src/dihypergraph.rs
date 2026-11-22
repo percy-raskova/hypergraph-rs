@@ -103,28 +103,18 @@ impl PyDiHypergraph {
         }
     }
 
-    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        let list = PyList::empty(py);
-        for eid in self.inner.edge_ids() {
-            let (tail, head) = self.inner.dimembers(&eid).unwrap_or_default();
-            let tail_set = PySet::empty(py)?;
-            for n in tail {
-                if let Some(o) = self.node_ids.get_obj(py, &n) {
-                    tail_set.add(o)?;
-                }
-            }
-            let head_set = PySet::empty(py)?;
-            for n in head {
-                if let Some(o) = self.node_ids.get_obj(py, &n) {
-                    head_set.add(o)?;
-                }
-            }
-            list.append(PyTuple::new(
-                py,
-                [tail_set.into_any(), head_set.into_any()],
-            )?)?;
-        }
-        Ok(format!("DiHypergraph({})", list.repr()?))
+    fn __repr__(slf: &Bound<'_, Self>) -> PyResult<String> {
+        let py = slf.py();
+        let edges = PyDiEdgeView {
+            dh: slf.clone().unbind(),
+            ids: None,
+        };
+        let members = edges.dimembers(py, None, None)?;
+        Ok(format!(
+            "{}({})",
+            slf.get_type().name()?,
+            members.bind(py).repr()?
+        ))
     }
 
     fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
@@ -1696,7 +1686,7 @@ impl PyDiEdgeView {
 
     fn is_dict_dtype(py: Python<'_>, dtype: Option<&Bound<'_, PyAny>>) -> PyResult<bool> {
         match dtype {
-            None => Ok(false),
+            None => Ok(true),
             Some(d) => {
                 if d.is(py.get_type::<PyDict>()) {
                     Ok(true)
@@ -1823,7 +1813,7 @@ impl PyDiEdgeView {
         Ok(d.unbind())
     }
 
-    /// `DH.edges.dimembers(e=None, dtype=list)` -> `(tail, head)` pair(s) of SETs.
+    /// `DH.edges.dimembers(e=None, dtype=dict)` -> `(tail, head)` pair(s) of SETs.
     #[pyo3(signature = (e=None, dtype=None))]
     fn dimembers(
         &self,
@@ -1875,7 +1865,7 @@ impl PyDiEdgeView {
         }
     }
 
-    /// `DH.edges.members(e=None, dtype=list)` -> `tail ∪ head` set(s).
+    /// `DH.edges.members(e=None, dtype=dict)` -> `tail ∪ head` set(s).
     #[pyo3(signature = (e=None, dtype=None))]
     fn members(
         &self,
@@ -1923,7 +1913,7 @@ impl PyDiEdgeView {
         }
     }
 
-    /// `DH.edges.tail(e=None, dtype=list)` -> the tail (sender) node ids.
+    /// `DH.edges.tail(e=None, dtype=dict)` -> the tail (sender) node ids.
     #[pyo3(signature = (e=None, dtype=None))]
     fn tail(
         &self,
@@ -1995,7 +1985,7 @@ impl PyDiEdgeView {
         self.head(py, e, dtype)
     }
 
-    /// `DH.edges.head(e=None, dtype=list)` -> the head (receiver) node ids.
+    /// `DH.edges.head(e=None, dtype=dict)` -> the head (receiver) node ids.
     #[pyo3(signature = (e=None, dtype=None))]
     fn head(
         &self,

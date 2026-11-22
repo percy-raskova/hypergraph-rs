@@ -108,18 +108,18 @@ impl PyHypergraph {
         }
     }
 
-    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        let list = PyList::empty(py);
-        for eid in self.inner.edge_ids() {
-            let set = PySet::empty(py)?;
-            for nid in self.inner.members(&eid).unwrap_or_default() {
-                if let Some(o) = self.node_ids.get_obj(py, &nid) {
-                    set.add(o)?;
-                }
-            }
-            list.append(set)?;
-        }
-        Ok(format!("Hypergraph({})", list.repr()?))
+    fn __repr__(slf: &Bound<'_, Self>) -> PyResult<String> {
+        let py = slf.py();
+        let edges = crate::views::PyEdgeView {
+            hg: slf.clone().unbind(),
+            ids: None,
+        };
+        let members = edges.members(py, None, None)?;
+        Ok(format!(
+            "{}({})",
+            slf.get_type().name()?,
+            members.bind(py).repr()?
+        ))
     }
 
     fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {

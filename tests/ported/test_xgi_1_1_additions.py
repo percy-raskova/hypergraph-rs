@@ -380,3 +380,33 @@ def test_bad_seeds_are_refused(bad, err):
 def test_numpy_integer_and_bool_seeds_are_ints():
     assert SEEDED[0](np.int64(4)) == SEEDED[0](4)
     assert SEEDED[0](True) == SEEDED[0](1)
+
+
+def test_members_default_is_a_dict_and_list_keeps_view_order(edgelist1):
+    H = xgi.Hypergraph(edgelist1)
+    assert H.edges.members() == {e: H.edges.members(e) for e in H.edges}
+    sub = H.edges.filterby("size", 2)
+    assert sub.members(dtype=list) == [H.edges.members(e) for e in sub]
+    with pytest.raises(xgi.exception.XGIError, match="Unrecognized dtype"):
+        H.edges.members(dtype=tuple)
+    with pytest.raises(xgi.exception.XGIError, match="Unrecognized dtype"):
+        xgi.SimplicialComplex([[1, 2]]).edges.members(dtype=tuple)
+
+
+def test_dimembers_default(diedgelist2):
+    D = xgi.DiHypergraph(diedgelist2)
+    assert D.edges.dimembers() == {e: D.edges.dimembers(e) for e in D.edges}
+    assert D.edges.tail() == {e: D.edges.tail(e) for e in D.edges}
+    assert D.edges.head() == {e: D.edges.head(e) for e in D.edges}
+    assert D.edges.members() == {e: D.edges.members(e) for e in D.edges}
+    assert D.edges.tail(dtype=list) == [D.edges.tail(e) for e in D.edges]
+
+
+def test_reprs_are_dict_shaped():
+    assert repr(xgi.Hypergraph()) == "Hypergraph({})"
+    assert repr(xgi.Hypergraph([[1, 2]])) == "Hypergraph({0: {1, 2}})"
+    H = xgi.Hypergraph()
+    H.add_edge([])
+    assert repr(H) == "Hypergraph({0: set()})"
+    assert repr(xgi.DiHypergraph([([1], [2])])) == "DiHypergraph({0: ({1}, {2})})"
+    assert repr(xgi.SimplicialComplex([[1, 2]])).startswith("SimplicialComplex({")
