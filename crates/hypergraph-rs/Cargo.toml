@@ -27,8 +27,8 @@ h3o = { workspace = true, optional = true }
 png = { workspace = true, optional = true }
 
 [features]
-default = ["algorithms", "generators", "stats", "readwrite", "layout", "viz", "raster"]
-all = ["default", "dynamics", "communities", "convert", "network", "cells3d", "raster-png"]
+default = ["algorithms", "generators", "stats", "readwrite", "layout", "viz", "raster", "geometry"]
+all = ["default", "dynamics", "communities", "convert", "network", "cells3d", "raster-png", "geometry"]
 algorithms = []
 generators = ["dep:rand_pcg", "dep:rand_core"]
 stats = []
@@ -42,6 +42,7 @@ network = []
 raster = ["viz", "algorithms"]
 cells3d = ["raster", "communities", "dep:h3o"]
 raster-png = ["cells3d", "dep:png"]
+geometry = []
 
 [package.metadata.docs.rs]
 all-features = true
