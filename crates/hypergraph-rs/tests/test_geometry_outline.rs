@@ -507,3 +507,77 @@ fn a_zero_member_at_nan_is_not_an_error_and_held_indexes_members() {
     assert_eq!(out.members, ["a"]);
     assert_eq!(out.outline.held, [0]);
 }
+
+#[test]
+fn weights_whose_sum_overflows_are_refused_naming_the_member() {
+    let members = [((0.0, 0.0), 1e308), ((1.0, 0.0), 1e308)];
+    match weighted_outline(&members, &params(0.9)) {
+        Err(GeometryError::BadWeight { item, value }) => {
+            assert_eq!(item, "#1");
+            assert!(value.is_infinite(), "{value}");
+        }
+        other => panic!("expected BadWeight, got {other:?}"),
+    }
+}
+
+#[test]
+fn memberships_whose_numbers_overflow_are_refused_naming_the_node() {
+    let mut h = H::new();
+    link(&mut h, "club", "a", 1e308);
+    link(&mut h, "club", "b", 1e308);
+    let positions = at(&[("a", (0.0, 0.0)), ("b", (1.0, 0.0))]);
+    match edge_outline(&h, "club", &positions, |w| *w, &params(0.9)) {
+        Err(GeometryError::BadWeight { item, value }) => {
+            assert_eq!(item, "b");
+            assert!(value.is_infinite(), "{value}");
+        }
+        other => panic!("expected BadWeight, got {other:?}"),
+    }
+}
+
+#[test]
+fn held_agrees_with_the_even_odd_test_over_weights_from_zero_up() {
+    let mut state = 99_u64;
+    let members: Vec<(Point, f64)> = (0..300)
+        .map(|k| {
+            let p = (lcg(&mut state) * 10.0, lcg(&mut state) * 10.0);
+            (p, f64::from(k) / 5.0)
+        })
+        .collect();
+    let w = outline_of(&members, 0.9);
+    let paths = paths_of(&w);
+    for (k, (p, weight)) in members.iter().enumerate() {
+        if *weight > 0.0 {
+            assert_eq!(
+                w.held.contains(&k),
+                contains(paths, *p),
+                "member {k} at {p:?}"
+            );
+        }
+    }
+    assert!(!w.held.contains(&0));
+    assert!(
+        w.held_weight >= 0.9 * w.total_weight,
+        "{} < 0.9 * {}",
+        w.held_weight,
+        w.total_weight
+    );
+}
+
+#[test]
+fn a_number_of_negative_zero_counts_as_zero() {
+    let members = [((f64::NAN, f64::INFINITY), -0.0), ((1.0, 1.0), 1.0)];
+    let w = outline_of(&members, 0.9);
+    assert_eq!(w.held, [1]);
+    assert_eq!(w.total_weight, 1.0);
+
+    let mut h = H::new();
+    link(&mut h, "club", "z", -0.0);
+    link(&mut h, "club", "a", 1.0);
+    let positions = at(&[("a", (1.0, 1.0))]);
+    let out = edge_outline(&h, "club", &positions, |w| *w, &params(0.9))
+        .unwrap()
+        .unwrap();
+    assert_eq!(out.members, ["a"]);
+    assert_eq!(out.outline.held, [0]);
+}

@@ -186,19 +186,7 @@ fn build_field(parts: &[Part], params: &OutlineParams) -> Result<ScalarGrid, Geo
     Ok(grid)
 }
 
-/// The held members and their weight at a threshold of a membrane, by one pass of `inside_cell`.
-fn held_by_membrane(grid: &ScalarGrid, threshold: f64, parts: &[Part]) -> (Vec<usize>, f64) {
-    let mut held = Vec::new();
-    let mut weight = 0.0;
-    for part in parts {
-        if inside_cell(grid, threshold, part.at) {
-            held.push(part.index);
-            weight += part.weight;
-        }
-    }
-    (held, weight)
-}
-
+/// The held members and their weight, by one pass of `inside` over the parts.
 fn held_by(parts: &[Part], inside: impl Fn(Point) -> bool) -> (Vec<usize>, f64) {
     let mut held = Vec::new();
     let mut weight = 0.0;
@@ -246,7 +234,8 @@ fn in_capsule(at: Point, a: Point, ra: f64, b: Point, rb: f64) -> bool {
 /// # Errors
 ///
 /// [`GeometryError::BadParameter`] naming `reach`, `cell`, `share` or `level_fraction`;
-/// [`GeometryError::BadWeight`] for a number that is negative or not finite (`item` is `#<index>`);
+/// [`GeometryError::BadWeight`] for a number that is negative or not finite, or that makes the running sum of the
+/// numbers overflow (`item` is `#<index>`; `value` is the number, or the sum that is not finite);
 /// [`GeometryError::NonFinitePosition`] for a member above zero whose position is not finite;
 /// [`GeometryError::GridTooLarge`] when the grid would hold more than `max_grid_nodes` nodes, or a count that does
 /// not fit a `usize`. The check comes before anything is allocated.
@@ -271,6 +260,12 @@ pub fn weighted_outline(
                 });
             }
             total += weight;
+            if !total.is_finite() {
+                return Err(GeometryError::BadWeight {
+                    item: format!("#{index}"),
+                    value: total,
+                });
+            }
             largest = largest.max(weight);
         }
     }
@@ -332,9 +327,11 @@ pub fn weighted_outline(
         }
         _ => {
             let threshold_of = |j: usize| params.level_fraction * levels[order[j - 1]];
-            let reaches = |j: usize| held_by_membrane(&grid, threshold_of(j), &parts).1 >= wanted;
+            let reaches = |j: usize| {
+                held_by(&parts, |at| inside_cell(&grid, threshold_of(j), at)).1 >= wanted
+            };
             let n = order.len();
-            let chosen = if reaches(k) || k == n {
+            let chosen = if k == n || reaches(k) {
                 k
             } else if !reaches(n) {
                 n
@@ -352,7 +349,7 @@ pub fn weighted_outline(
                 hi
             };
             let threshold = threshold_of(chosen);
-            let held = held_by_membrane(&grid, threshold, &parts);
+            let held = held_by(&parts, |at| inside_cell(&grid, threshold, at));
             (
                 Outline::Membrane {
                     paths: iso_lines(&grid, threshold),
@@ -390,7 +387,8 @@ pub struct EdgeOutline {
 /// # Errors
 ///
 /// [`GeometryError::UnknownEdge`] when the hypergraph has no such hyperedge;
-/// [`GeometryError::BadWeight`] for a number that is negative or not finite (`item` is the node id);
+/// [`GeometryError::BadWeight`] for a number that is negative or not finite, or that makes the running sum of the
+/// numbers overflow (`item` is the node id; `value` is the number, or the sum that is not finite);
 /// [`GeometryError::NoPosition`] for a member above zero with no entry in `positions`;
 /// [`GeometryError::NonFinitePosition`] for a member above zero whose position is not finite (`item` is the node
 /// id); and any error of [`weighted_outline`] about `params`.
@@ -406,6 +404,7 @@ pub fn edge_outline<N, E, M>(
     };
     let mut members = Vec::new();
     let mut points: Vec<(Point, f64)> = Vec::new();
+    let mut total = 0.0_f64;
     for (node, data) in listing {
         let w = weight(data);
         if !(w.is_finite() && w >= 0.0) {
@@ -425,6 +424,13 @@ pub fn edge_outline<N, E, M>(
         };
         if !(at.0.is_finite() && at.1.is_finite()) {
             return Err(GeometryError::NonFinitePosition { item: node });
+        }
+        total += w;
+        if !total.is_finite() {
+            return Err(GeometryError::BadWeight {
+                item: node,
+                value: total,
+            });
         }
         members.push(node);
         points.push((at, w));
