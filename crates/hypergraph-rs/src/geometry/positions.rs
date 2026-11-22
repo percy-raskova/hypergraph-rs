@@ -48,7 +48,6 @@ impl Positions {
     }
 
     /// The point at `index` in insertion order. Panics when out of range.
-    #[allow(dead_code)]
     pub(crate) fn point_mut(&mut self, index: usize) -> &mut Point {
         self.map
             .get_index_mut(index)
@@ -57,7 +56,6 @@ impl Positions {
     }
 
     /// The id at `index` in insertion order. Panics when out of range.
-    #[allow(dead_code)]
     pub(crate) fn id_at(&self, index: usize) -> &str {
         self.map
             .get_index(index)

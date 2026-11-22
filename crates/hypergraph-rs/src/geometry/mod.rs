@@ -26,10 +26,12 @@
 mod error;
 mod place;
 mod positions;
+mod spread;
 
 pub use error::GeometryError;
 pub use place::{anchored_placement, barycentre, corner_mix};
 pub use positions::{Placement, Positions};
+pub use spread::{spread, SpreadParams, SpreadReport, DEFAULT_MAX_NEIGHBOURS};
 
 /// A point `(x, y)`.
 pub type Point = (f64, f64);
