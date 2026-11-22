@@ -17,7 +17,9 @@ All notable changes to this project are written here. The format follows
   so the XGI-compatible formats, the Python package and the WASM bindings do not carry it.
 - Runnable examples: `quickstart` and `membership_data`.
 - A `geometry` feature, on by default, with the module `geometry`: the outline of a weighted set of
-  points or of a hyperedge (`weighted_outline`, `edge_outline`, shaped as `Outline::Ring`,
+  points or of a hyperedge (`weighted_outline`, `edge_outline`, with `OutlineParams`, `WeightedOutline`, `EdgeOutline`, `Point`,
+  `Rect` and `ClosedPath`, and the constants `DEFAULT_LEVEL_FRACTION`, `DEFAULT_MAX_GRID_NODES` and
+  `DEFAULT_MAX_NEIGHBOURS`; shaped as `Outline::Ring`,
   `Outline::Capsule` or `Outline::Membrane`), iso-lines of a scalar grid (`ScalarGrid`, `iso_lines`,
   `signed_area`, `contains`), placement at a weighted mix of fixed points (`barycentre`,
   `corner_mix`, `anchored_placement`, with `Positions` and `Placement`), and spreading of

@@ -51,7 +51,7 @@
 //!   membership. Each defaults to a JSON value. The statistics, readers, writers and
 //!   conversions work on that default type.
 //! - Modules, switched by the feature flags below: [`algorithms`], `generators`, `stats`,
-//!   `readwrite`, `layout`, `viz`, `raster`, `convert`, `dynamics`, `communities`. The
+//!   `readwrite`, `layout`, `viz`, `raster`, `geometry`, `convert`, `dynamics`, `communities`. The
 //!   modules [`core`], [`linalg`] and [`utils`] are always there.
 //!
 //! ## A value on a membership
