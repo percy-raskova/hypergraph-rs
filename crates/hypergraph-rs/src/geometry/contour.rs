@@ -278,9 +278,10 @@ fn cell_segments(
 ///
 /// Each path has the inside on its left: outer boundaries run counter-clockwise (positive [`signed_area`]), holes
 /// clockwise. No vertex repeats within a path and no path has fewer than three vertices or zero area: where a line
-/// touches itself at a node holding exactly `threshold`, it is cut there into separate loops. Paths start at the vertex that comes
-/// first in row-major order of the crossing edges (horizontal edges of a row before its vertical edges) and are
-/// listed in that order. The cost is linear in the count of nodes.
+/// touches itself at a node holding exactly `threshold`, it is cut there into separate loops. Paths start at the
+/// vertex that comes first in row-major order of the crossing edges (horizontal edges of a row before its vertical
+/// edges) and are listed in that order, except that a loop cut off at a pinch starts at the pinch vertex and is
+/// listed before the rest of its line. The cost is linear in the count of nodes.
 ///
 /// # Panics
 ///

@@ -131,7 +131,35 @@ fn a_line_touching_itself_at_a_node_at_the_threshold_is_cut_there() {
     ];
     let g = grid(3, 4, 1.0, &values);
     let paths = iso_lines(&g, 0.5);
-    assert!(paths.len() >= 2, "{paths:?}");
+    // By hand: inside (above 0.5) are column 0, column 2 and row 0; node (1, 2) holds exactly 0.5 and is outside.
+    // Crossings: half a cell outside the grid on the ring side, midway between 1.0 and 0.0 nodes, and at node
+    // (1, 2) itself for both of its inside neighbours (t = 1 and t = 0). The outer line starts at the first
+    // crossing edge, the vertical one at (0, -0.5), and runs counter-clockwise: along the bottom, up the right
+    // side, round the foot of the right column, up its inner side through (1, 2), over the slot top (1, 0.5),
+    // down the left column's inner side through (1, 2) again, round its foot and back up the left side. The
+    // second visit to (1, 2) cuts off the slot top as a clockwise loop that starts at the pinch and is listed
+    // first; the rest of the outer line keeps (1, 2) once.
+    let slot = vec![(1.0, 2.0), (1.5, 1.0), (1.0, 0.5), (0.5, 1.0)];
+    let outer = vec![
+        (0.0, -0.5),
+        (1.0, -0.5),
+        (2.0, -0.5),
+        (2.5, 0.0),
+        (2.5, 1.0),
+        (2.5, 2.0),
+        (2.5, 3.0),
+        (2.0, 3.5),
+        (1.5, 3.0),
+        (1.0, 2.0),
+        (0.5, 3.0),
+        (0.0, 3.5),
+        (-0.5, 3.0),
+        (-0.5, 2.0),
+        (-0.5, 1.0),
+        (-0.5, 0.0),
+    ];
+    assert_eq!(paths.len(), 2, "{paths:?}");
+    assert_eq!(paths, vec![slot, outer], "{paths:?}");
     for path in &paths {
         assert!(path.len() >= 3);
         assert!(signed_area(path) != 0.0);
