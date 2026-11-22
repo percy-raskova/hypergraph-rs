@@ -410,3 +410,54 @@ def test_reprs_are_dict_shaped():
     assert repr(H) == "Hypergraph({0: set()})"
     assert repr(xgi.DiHypergraph([([1], [2])])) == "DiHypergraph({0: ({1}, {2})})"
     assert repr(xgi.SimplicialComplex([[1, 2]])).startswith("SimplicialComplex({")
+
+
+def test_directed_edge_must_be_a_pair():
+    with pytest.raises(TypeError, match="Directed edge must be a list or tuple!"):
+        xgi.DiHypergraph().add_edge({1, 2})
+
+
+def test_directed_edge_type_checks_in_every_adder():
+    with pytest.raises(TypeError, match="Directed edge must be a list or tuple!"):
+        xgi.DiHypergraph().add_edges_from({"a": {1, 2}})
+    with pytest.raises(TypeError, match="Directed edge must be a list or tuple!"):
+        xgi.DiHypergraph().add_edge("ab")
+    # the type is checked, not the length: a one-element list is an IndexError in XGI, never the TypeError
+    with pytest.raises(IndexError):
+        xgi.DiHypergraph().add_edge([[1]])
+    with pytest.raises(ValueError, match="Invalid ebunch format"):
+        xgi.DiHypergraph().add_edges_from({"a": (1, 2)})
+    with pytest.raises(ValueError, match="Invalid ebunch format"):
+        xgi.DiHypergraph().add_edges_from([((1, 2), 5)])
+
+
+def test_invalid_direction():
+    D = xgi.DiHypergraph([([1], [2])])
+    with pytest.raises(ValueError, match="Invalid direction!"):
+        D.add_node_to_edge(0, 3, direction="sideways")
+    with pytest.raises(ValueError, match="Invalid direction!"):
+        D.remove_node_from_edge(0, 1, direction="sideways")
+
+
+def test_simplex_members_as_a_string():
+    with pytest.raises(TypeError, match="Members cannot be specified as a string"):
+        xgi.SimplicialComplex().add_simplices_from(["a", "b", "c"])
+    with pytest.raises(TypeError, match="Members cannot be specified as a string"):
+        xgi.SimplicialComplex().add_simplices_from([("foo", {"color": "red"})])
+    with pytest.raises(ValueError, match="Invalid ebunch format"):
+        xgi.SimplicialComplex().add_simplices_from([0, 1, 2])
+    with pytest.raises(TypeError, match="The simplex cannot be cast to a frozenset."):
+        xgi.SimplicialComplex().add_simplex(5)
+    S = xgi.SimplicialComplex()
+    S.add_simplex("abc")
+    assert set(S.nodes) == {"a", "b", "c"}
+
+
+def test_simplex_exception_types_are_not_xgi_errors():
+    for bad in ([0, 1, 2],):
+        with pytest.raises(ValueError) as info:
+            xgi.SimplicialComplex().add_simplices_from(bad)
+        assert not isinstance(info.value, xgi.exception.XGIError)
+    with pytest.raises(TypeError) as info:
+        xgi.SimplicialComplex().add_simplex(None)
+    assert not isinstance(info.value, xgi.exception.XGIError)

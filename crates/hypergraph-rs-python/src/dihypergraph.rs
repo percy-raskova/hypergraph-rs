@@ -7,6 +7,7 @@ use hypergraph_rs::core::error::EdgeError;
 use hypergraph_rs::core::kinds::DiRole;
 use hypergraph_rs::DiHypergraph as CoreDiHg;
 use hypergraph_rs::MembershipError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PySet, PyString, PyTuple};
 use serde_json::Value;
@@ -27,7 +28,7 @@ fn parse_direction(direction: &str) -> PyResult<DiRole> {
     match direction {
         "in" => Ok(DiRole::Tail),
         "out" => Ok(DiRole::Head),
-        _ => Err(xgi_error("Invalid direction!")),
+        _ => Err(PyValueError::new_err("Invalid direction!")),
     }
 }
 
@@ -235,7 +236,7 @@ impl PyDiHypergraph {
                 e_attrs.insert(k.str()?.to_string(), py_any_to_json(&v)?);
             }
         }
-        self.try_add_one_edge(py, &members, idx.as_ref(), e_attrs, false)
+        self.try_add_one_edge(py, &members, idx.as_ref(), e_attrs, false, false)
     }
 
     /// `DH.add_edges_from(ebunch_to_add, **attr)` — Formats 1,2,3,4,5 (dihypergraph.py:587-786).
@@ -256,7 +257,7 @@ impl PyDiHypergraph {
 
         if let Ok(dict) = ebunch_to_add.cast::<PyDict>() {
             for (idx, members) in dict.iter() {
-                self.try_add_one_edge(py, &members, Some(&idx), base_attr.clone(), true)?;
+                self.try_add_one_edge(py, &members, Some(&idx), base_attr.clone(), true, true)?;
             }
             return Ok(());
         }
@@ -350,7 +351,7 @@ impl PyDiHypergraph {
             for (k, v) in extra_attrs {
                 merged.insert(k, v);
             }
-            self.try_add_one_edge(py, &members, idx.as_ref(), merged, true)?;
+            self.try_add_one_edge(py, &members, idx.as_ref(), merged, true, false)?;
 
             match iter.next() {
                 Some(r) => current = r?,
@@ -959,13 +960,20 @@ impl PyDiHypergraph {
     fn ingest(&mut self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
         if let Ok(list) = data.cast::<PyList>() {
             for edge in list.iter() {
-                self.try_add_one_edge(py, &edge, None, serde_json::Map::new(), false)?;
+                self.try_add_one_edge(py, &edge, None, serde_json::Map::new(), false, false)?;
             }
             return Ok(());
         }
         if let Ok(dict) = data.cast::<PyDict>() {
             for (idx, members) in dict.iter() {
-                self.try_add_one_edge(py, &members, Some(&idx), serde_json::Map::new(), false)?;
+                self.try_add_one_edge(
+                    py,
+                    &members,
+                    Some(&idx),
+                    serde_json::Map::new(),
+                    false,
+                    false,
+                )?;
             }
             return Ok(());
         }
@@ -985,23 +993,36 @@ impl PyDiHypergraph {
         idx: Option<&Bound<'_, PyAny>>,
         attrs: serde_json::Map<String, Value>,
         warn_with_period: bool,
+        from_dict: bool,
     ) -> PyResult<()> {
-        // `members` must be a subscriptable (tail, head) pair — list or tuple, indexed `[0]`/`[1]`
-        // (XGI: `isinstance(members, (tuple, list))`, dihypergraph.py:553). A bare `set` of two
-        // items (`test_add_edge_rejects_set`) has no `__getitem__` and must raise, so this can't
-        // be "iterate and take the first two items".
-        let tail_iterable = members
-            .get_item(0)
-            .map_err(|_| xgi_error("Directed edge must be a list or tuple!"))?;
-        let head_iterable = members
-            .get_item(1)
-            .map_err(|_| xgi_error("Directed edge must be a list or tuple!"))?;
+        // XGI 1.1: `add_edge` and the dict form of `add_edges_from` check `isinstance(members, (tuple,
+        // list))` and raise a plain `TypeError` (the length is not checked: a short list is an
+        // `IndexError` from `members[1]`). The other forms of `add_edges_from` index `members` inside a
+        // `try` and turn a `TypeError` into `ValueError("Invalid ebunch format")`. The check runs here,
+        // before any extraction can fail, so the text is always XGI's.
+        let from_bunch = warn_with_period;
+        if (!from_bunch || from_dict)
+            && !(members.is_instance_of::<PyList>() || members.is_instance_of::<PyTuple>())
+        {
+            return Err(PyTypeError::new_err(
+                "Directed edge must be a list or tuple!",
+            ));
+        }
+        let invalid_bunch = |e: PyErr| -> PyErr {
+            if from_bunch && e.is_instance_of::<PyTypeError>(py) {
+                PyValueError::new_err("Invalid ebunch format")
+            } else {
+                e
+            }
+        };
+        let tail_iterable = members.get_item(0).map_err(invalid_bunch)?;
+        let head_iterable = members.get_item(1).map_err(invalid_bunch)?;
         let mut tail_objs: Vec<Bound<PyAny>> = Vec::new();
-        for m in tail_iterable.try_iter()? {
+        for m in tail_iterable.try_iter().map_err(invalid_bunch)? {
             tail_objs.push(m?);
         }
         let mut head_objs: Vec<Bound<PyAny>> = Vec::new();
-        for m in head_iterable.try_iter()? {
+        for m in head_iterable.try_iter().map_err(invalid_bunch)? {
             head_objs.push(m?);
         }
 
@@ -1239,7 +1260,7 @@ fn reconstruct_dihypergraph(py: Python<'_>, state: Bound<'_, PyDict>) -> PyResul
             m.insert(k.str()?.to_string(), py_any_to_json(&v)?);
         }
         let pair = PyTuple::new(py, [tail, head])?;
-        dh.try_add_one_edge(py, pair.as_any(), Some(&idx), m, false)?;
+        dh.try_add_one_edge(py, pair.as_any(), Some(&idx), m, false, false)?;
     }
     let net: Bound<PyDict> = state
         .get_item("net_attr")?

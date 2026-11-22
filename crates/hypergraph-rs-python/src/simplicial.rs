@@ -11,6 +11,7 @@
 //! covers both the requested top simplex id (already interned before the call) and every
 //! auto-assigned face id the core created underneath it.
 
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PySet, PyTuple};
 use serde_json::Value;
@@ -645,7 +646,16 @@ impl PySimplicialComplex {
                     member_objs.push(m?);
                 }
             }
-            Err(_) => return Err(xgi_error("Invalid ebunch format")),
+            // XGI 1.1: `add_simplex` cannot cast the members to a frozenset (TypeError);
+            // `add_simplices_from` finds them not iterable (ValueError). Both before any change.
+            Err(_) if warn_with_period => {
+                return Err(PyValueError::new_err("Invalid ebunch format"))
+            }
+            Err(_) => {
+                return Err(PyTypeError::new_err(
+                    "The simplex cannot be cast to a frozenset.",
+                ))
+            }
         }
         let mut core_members = Vec::new();
         for m in &member_objs {
@@ -787,7 +797,9 @@ impl PySimplicialComplex {
         if (fmt == Fmt::One && first.cast::<pyo3::types::PyString>().is_ok())
             || (fmt != Fmt::One && elem_is_str)
         {
-            return Err(xgi_error("Members cannot be specified as a string"));
+            return Err(PyTypeError::new_err(
+                "Members cannot be specified as a string",
+            ));
         }
 
         let mut current = first;

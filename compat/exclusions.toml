@@ -538,34 +538,6 @@ class = "deferred-symbol"
 reason = "deferred: edge_positions_from_barycenters (drawing/layout, no Phase-5 analogue, Task 13 note)."
 
 [[test_exclusion]]
-path = "core/test_dihypergraph.py"
-test = "test_add_edge_rejects_set"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T11"
-reason = "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError."
-
-[[test_exclusion]]
-path = "core/test_dihypergraph.py"
-test = "test_add_node_to_edge"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T11"
-reason = "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError."
-
-[[test_exclusion]]
-path = "core/test_dihypergraph.py"
-test = "test_remove_node_from_edge"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T11"
-reason = "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError."
-
-[[test_exclusion]]
-path = "core/test_simplicialcomplex.py"
-test = "test_add_simplices_from_wrong_format"
-class = "binding-gap"
-owner = "xgi-1-1-raise:T11"
-reason = "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError."
-
-[[test_exclusion]]
 path = "core/test_hypergraph.py"
 test = "test_add_nodes_from"
 class = "binding-gap"

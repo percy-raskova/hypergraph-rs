@@ -842,34 +842,6 @@
       },
       {
         "class": "binding-gap",
-        "owner": "xgi-1-1-raise:T11",
-        "path": "core/test_dihypergraph.py",
-        "reason": "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError.",
-        "test": "test_add_edge_rejects_set"
-      },
-      {
-        "class": "binding-gap",
-        "owner": "xgi-1-1-raise:T11",
-        "path": "core/test_dihypergraph.py",
-        "reason": "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError.",
-        "test": "test_add_node_to_edge"
-      },
-      {
-        "class": "binding-gap",
-        "owner": "xgi-1-1-raise:T11",
-        "path": "core/test_dihypergraph.py",
-        "reason": "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError.",
-        "test": "test_remove_node_from_edge"
-      },
-      {
-        "class": "binding-gap",
-        "owner": "xgi-1-1-raise:T11",
-        "path": "core/test_simplicialcomplex.py",
-        "reason": "XGI 1.1 raises TypeError or ValueError here; the binding raises XGIError.",
-        "test": "test_add_simplices_from_wrong_format"
-      },
-      {
-        "class": "binding-gap",
         "owner": "xgi-1-1-raise:T12",
         "path": "core/test_hypergraph.py",
         "reason": "XGI 1.1 add_nodes_from takes a dict and reads a 2-tuple as (node, attributes); the binding does not.",
