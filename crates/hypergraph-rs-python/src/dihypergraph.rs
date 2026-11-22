@@ -607,6 +607,22 @@ impl PyDiHypergraph {
         }
     }
 
+    /// `DH.pos(n=None)`: the `"pos"` attribute of every node as a dict, or of node `n` alone
+    /// (`None` for a node without one; `IDNotFound` for a missing node).
+    #[pyo3(signature = (n=None))]
+    fn pos(&self, py: Python<'_>, n: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+        let d = self.pos_dict(py)?;
+        match n {
+            None => Ok(d.into_any().unbind()),
+            Some(n) => {
+                let repr = n.repr()?.to_string();
+                d.get_item(n)?
+                    .map(|v| v.unbind())
+                    .ok_or_else(|| id_not_found(&repr))
+            }
+        }
+    }
+
     /// `DH.set_node_attributes(values, name=None)`.
     #[pyo3(signature = (values, name=None))]
     fn set_node_attributes(
@@ -881,6 +897,23 @@ impl PyDiHypergraph {
 }
 
 impl PyDiHypergraph {
+    /// `{node: attrs["pos"] or None}` for every node, in node order.
+    fn pos_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let d = PyDict::new(py);
+        for nid in self.inner.node_ids() {
+            let v = self
+                .inner
+                .node_attrs(&nid)
+                .and_then(|a| a.get("pos"))
+                .cloned()
+                .unwrap_or(Value::Null);
+            if let Some(obj) = self.node_ids.get_obj(py, &nid) {
+                d.set_item(obj, json_to_py(py, &v)?)?;
+            }
+        }
+        Ok(d)
+    }
+
     fn frozen_check(&self) -> PyResult<()> {
         if self.inner.is_frozen() {
             Err(xgi_error("Frozen higher-order network can't be modified"))
@@ -1477,6 +1510,25 @@ impl PyDiNodeView {
             .collect();
         drop(dh);
         self.sub(py, ids)
+    }
+
+    /// `DH.nodes.pos`: the node attribute `"pos"` (`None` for a node without one).
+    #[getter]
+    fn pos(&self, py: Python<'_>) -> PyResult<DiNodeAttrStat> {
+        let dh = self.dh.borrow(py);
+        let mut items = Vec::new();
+        for nid in self.effective_ids(&dh) {
+            let v = dh
+                .inner
+                .node_attrs(&nid)
+                .and_then(|a| a.get("pos"))
+                .cloned()
+                .unwrap_or(Value::Null);
+            if let Some(obj) = dh.node_ids.get_obj(py, &nid) {
+                items.push((obj.unbind(), json_to_py(py, &v)?.unbind()));
+            }
+        }
+        Ok(DiNodeAttrStat { items })
     }
 
     #[getter]
@@ -2335,6 +2387,42 @@ impl DiStat {
     }
 }
 
+/// The values of one node attribute over a directed node view (`DH.nodes.pos`): like `DiStat`,
+/// but the values are the attribute's own Python objects, not numbers.
+#[pyclass(name = "DiNodeAttrStat", module = "hypergraph_rs")]
+pub struct DiNodeAttrStat {
+    items: Vec<(Py<PyAny>, Py<PyAny>)>,
+}
+
+#[pymethods]
+impl DiNodeAttrStat {
+    fn asdict(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+        let d = PyDict::new(py);
+        for (k, v) in &self.items {
+            d.set_item(k.clone_ref(py), v.clone_ref(py))?;
+        }
+        Ok(d.unbind())
+    }
+
+    fn aslist(&self, py: Python<'_>) -> PyResult<Py<PyList>> {
+        let list = PyList::empty(py);
+        for (_, v) in &self.items {
+            list.append(v.clone_ref(py))?;
+        }
+        Ok(list.unbind())
+    }
+
+    fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        let repr = key.repr().map(|r| r.to_string()).unwrap_or_default();
+        for (k, v) in &self.items {
+            if k.bind(py).eq(key).unwrap_or(false) {
+                return Ok(v.clone_ref(py));
+            }
+        }
+        Err(id_not_found(&repr))
+    }
+}
+
 /// `f64` -> Python `int` when integral, else `float` (mirrors `stats::PyNodeStat`'s degree
 /// numeric coercion — `H.degree()` values are ints unless `weight=` introduces a fraction).
 fn numeric(py: Python<'_>, v: f64) -> PyResult<Py<PyAny>> {
@@ -2350,6 +2438,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyDiNodeView>()?;
     m.add_class::<PyDiEdgeView>()?;
     m.add_class::<DiStat>()?;
+    m.add_class::<DiNodeAttrStat>()?;
     let func = pyo3::wrap_pyfunction!(reconstruct_dihypergraph, m)?;
     func.setattr("__module__", "hypergraph_rs")?;
     m.add_function(func)?;

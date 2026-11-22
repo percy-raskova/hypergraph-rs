@@ -199,12 +199,12 @@ fn test_complement_disjoint_edge_sets() {
     assert!(hc.num_edges() > 0);
 }
 
-use hypergraph_rs::generators::ring_lattice;
+use hypergraph_rs::generators::{ring_lattice, ring_lattice_edges};
 
 #[test]
 fn test_ring_lattice_node_count_and_uniformity() {
     // n=10, d=3, k=4, l=1
-    let h = ring_lattice(10, 3, 4, 1).unwrap();
+    let h = ring_lattice(10, 3, 4, 1, false).unwrap();
     assert_eq!(h.num_nodes(), 10);
     // each of n nodes contributes k/2 edges -> 10 * 2 = 20 edges
     assert_eq!(h.num_edges(), 20);
@@ -218,10 +218,25 @@ fn test_ring_lattice_node_count_and_uniformity() {
 #[test]
 fn test_ring_lattice_is_deterministic() {
     // ring_lattice has no randomness; two builds are structurally identical
-    let a = ring_lattice(8, 2, 4, 0).unwrap();
-    let b = ring_lattice(8, 2, 4, 0).unwrap();
+    let a = ring_lattice(8, 2, 4, 0, false).unwrap();
+    let b = ring_lattice(8, 2, 4, 0, false).unwrap();
     assert_eq!(a.num_nodes(), b.num_nodes());
     assert_eq!(a.num_edges(), b.num_edges());
+}
+
+#[test]
+fn ring_lattice_edges_match_the_lattice_and_positions_are_on_the_unit_circle() {
+    let h = ring_lattice(20, 3, 4, 2, true).unwrap();
+    let edges = ring_lattice_edges(20, 3, 4, 2);
+    assert_eq!(edges[0], vec![0, 3, 4]);
+    assert_eq!(edges.len(), h.num_edges());
+    for (e, members) in edges.iter().enumerate() {
+        let mut want: Vec<String> = members.iter().map(|m| m.to_string()).collect();
+        want.dedup();
+        assert_eq!(h.members(&e.to_string()).unwrap(), want);
+    }
+    let p = &h.node_attrs("5").unwrap()["pos"];
+    assert!((p[0].as_f64().unwrap() - (std::f64::consts::PI / 2.0).cos()).abs() < 1e-12);
 }
 
 use hypergraph_rs::generators::{star_clique, sunflower};

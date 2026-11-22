@@ -204,7 +204,7 @@ pub fn watts_strogatz_hypergraph(
     seed: Option<u64>,
 ) -> Result<Hypergraph, GeneratorError> {
     let mut rng = seeded_rng(seed);
-    let mut h = ring_lattice(n, d, k, l)?;
+    let mut h = ring_lattice(n, d, k, l, false)?;
 
     let mut to_remove: Vec<String> = Vec::new();
     let mut to_add: Vec<Vec<String>> = Vec::new();

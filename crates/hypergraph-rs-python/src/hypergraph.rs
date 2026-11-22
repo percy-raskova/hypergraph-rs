@@ -770,6 +770,33 @@ impl PyHypergraph {
         }
     }
 
+    /// `H.pos(n=None)`: the `"pos"` attribute of every node as a dict, or of node `n` alone
+    /// (`None` for a node without one; `IDNotFound` for a missing node). Works like `degree`.
+    #[pyo3(signature = (n=None))]
+    fn pos(&self, py: Python<'_>, n: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+        let d = PyDict::new(py);
+        for nid in self.inner.node_ids() {
+            let v = self
+                .inner
+                .node_attrs(&nid)
+                .and_then(|a| a.get("pos"))
+                .cloned()
+                .unwrap_or(Value::Null);
+            if let Some(obj) = self.node_ids.get_obj(py, &nid) {
+                d.set_item(obj, crate::pyid::json_to_py(py, &v)?)?;
+            }
+        }
+        match n {
+            None => Ok(d.into_any().unbind()),
+            Some(n) => {
+                let repr = n.repr()?.to_string();
+                d.get_item(n)?
+                    .map(|v| v.unbind())
+                    .ok_or_else(|| id_not_found(&repr))
+            }
+        }
+    }
+
     /// `H.size(degree=None)` — XGI parity: `Hypergraph.__getattr__` dispatch to the `size`
     /// edgestat (`stats/edgestats.py:143-176`). `degree`, if given, counts only member nodes
     /// whose own (order-agnostic) node degree equals it.

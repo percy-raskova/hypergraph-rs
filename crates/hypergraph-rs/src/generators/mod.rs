@@ -15,7 +15,7 @@ pub mod uniform;
 pub use classic::{
     complement, complete_hypergraph, empty_hypergraph, trivial_hypergraph, GeneratorError,
 };
-pub use lattice::ring_lattice;
+pub use lattice::{ring_lattice, ring_lattice_edges};
 pub use random::{
     chung_lu_hypergraph, fast_random_hypergraph, random_hypergraph, watts_strogatz_hypergraph,
 };

@@ -402,6 +402,16 @@ impl PyNodeView {
         crate::stats::PyNodeStat::attr(py, self.hg.clone_ref(py), ids, String::new())
     }
 
+    /// `H.nodes.pos` — the node attribute `"pos"` as a `Stat` (`None` for a node without one).
+    /// XGI parity: `stats/nodestats.py::pos`.
+    #[getter]
+    fn pos(&self, py: Python<'_>) -> crate::stats::PyNodeStat {
+        let hg = self.hg.borrow(py);
+        let ids = self.effective_ids(&hg);
+        drop(hg);
+        crate::stats::PyNodeStat::attr(py, self.hg.clone_ref(py), ids, "pos".to_string())
+    }
+
     /// `H.nodes.average_neighbor_degree` (bare/called) — XGI parity:
     /// `stats/nodestats.py::average_neighbor_degree`.
     #[getter]

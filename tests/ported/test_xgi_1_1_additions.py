@@ -122,3 +122,20 @@ def test_duplicate_groups_on_a_simplicial_complex_nodes():
     groups = S.nodes.duplicate_groups()
     assert isinstance(groups, list)
     assert all(isinstance(g, type(S.nodes)) for g in groups)
+
+
+def test_ring_lattice_positions_and_pos_stat():
+    H = xgi.ring_lattice(8, 3, 2, 0, with_positions=True)
+    pos = H.nodes.pos.asdict()
+    assert set(pos) == set(range(8))
+    assert pos[2] == pytest.approx((0.0, 1.0), abs=1e-12)
+    assert xgi.ring_lattice(5, 2, 2, 0).nodes.pos.asdict() == {i: None for i in range(5)}
+    assert H.pos()[2] == pos[2]
+    assert "pos" in dir(H.nodes)  # upstream test_pos_stat checks this but stays a strict xfail (D23)
+    D = xgi.DiHypergraph([([1], [2])])
+    D.set_node_attributes({1: [0, 0]}, name="pos")
+    assert D.nodes.pos.asdict() == {1: [0, 0], 2: None} and "pos" in dir(D.nodes)
+
+
+def test_ring_lattice_edges_by_path():
+    assert xgi.generators.lattice._ring_lattice_edges(20, 3, 4, 2)[0] == [0, 3, 4]

@@ -1,5 +1,6 @@
 """Generators (mirrors xgi/generators/__init__.py)."""
 from .._deferred import make_deferred
+from . import lattice
 
 _BOUND = ['empty_hypergraph', 'trivial_hypergraph', 'complete_hypergraph', 'star_clique', 'sunflower', 'complement', 'ring_lattice', 'watts_strogatz_hypergraph', 'random_hypergraph', 'fast_random_hypergraph', 'chung_lu_hypergraph', 'random_simplicial_complex', 'uniform_hypergraph_configuration_model', 'uniform_erdos_renyi_hypergraph']
 for _n in _BOUND:

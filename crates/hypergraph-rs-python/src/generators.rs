@@ -86,13 +86,21 @@ fn complement(py: Python<'_>, h: &PyHypergraph) -> PyResult<PyHypergraph> {
     })
 }
 
-/// `xgi.ring_lattice(n, d, k, l)`. XGI parity (`generators/lattice.py:15-54`): `k < 0` raises
+/// `xgi.ring_lattice(n, d, k, l, with_positions=False)`. XGI parity (`generators/lattice.py:15-54`): `k < 0` raises
 /// `ValueError`; `k < 2` warns "This creates a completely disconnected hypergraph!" (and the
 /// core's `k / 2 == 0` loop naturally produces zero edges); XGI additionally warns for odd `k`
 /// (not evenly splittable into left/right neighbors) — reproduced here since the core has no
 /// warnings concept.
 #[pyfunction]
-fn ring_lattice(py: Python<'_>, n: usize, d: usize, k: i64, l: usize) -> PyResult<PyHypergraph> {
+#[pyo3(signature = (n, d, k, l, with_positions=false))]
+fn ring_lattice(
+    py: Python<'_>,
+    n: usize,
+    d: usize,
+    k: i64,
+    l: usize,
+    with_positions: bool,
+) -> PyResult<PyHypergraph> {
     if k < 0 {
         return Err(PyValueError::new_err("Invalid k value!"));
     }
@@ -106,8 +114,19 @@ fn ring_lattice(py: Python<'_>, n: usize, d: usize, k: i64, l: usize) -> PyResul
         py.import("warnings")?
             .call_method1("warn", ("k should be a multiple of 2.",))?;
     }
-    let core = gen::ring_lattice(n, d, k, l).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let core = gen::ring_lattice(n, d, k, l, with_positions)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     PyHypergraph::from_core_with_int_ids(py, core)
+}
+
+/// `xgi.generators.lattice._ring_lattice_edges(n, d, k, l)`: the lattice's edges as lists of
+/// node numbers, in edge-id order.
+#[pyfunction]
+fn _ring_lattice_edges(n: usize, d: usize, k: usize, l: usize) -> PyResult<Vec<Vec<usize>>> {
+    if n == 0 {
+        return Err(PyValueError::new_err("n must be > 0"));
+    }
+    Ok(gen::ring_lattice_edges(n, d, k, l))
 }
 
 /// `xgi.star_clique(n_star, n_clique, d_max)`. XGI parity (`generators/simple.py:50-57`):
@@ -358,6 +377,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(complete_hypergraph, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(complement, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(ring_lattice, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(_ring_lattice_edges, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(star_clique, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(sunflower, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(fast_random_hypergraph, m)?)?;
