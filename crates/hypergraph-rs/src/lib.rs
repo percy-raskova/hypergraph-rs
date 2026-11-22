@@ -107,6 +107,8 @@ pub mod algorithms;
 pub mod core;
 #[cfg(feature = "generators")]
 pub mod generators;
+#[cfg(feature = "geometry")]
+pub mod geometry;
 #[cfg(feature = "layout")]
 pub mod layout;
 pub mod linalg;
