@@ -66,3 +66,35 @@ def test_sources_targets_warn_and_delegate(diedgelist2):
     assert rec[0].filename == __file__
     with pytest.warns(DeprecationWarning, match="DiEdgeView.targets is deprecated"):
         assert D.edges.targets(dtype=list) == D.edges.head(dtype=list)
+
+
+def test_add_weighted_edges_from_sets_weights():
+    H = xgi.Hypergraph()
+    H.add_weighted_edges_from([(0, 1, 0.3), (0, 2, 0.8)], color="red")
+    assert H.edges.members(dtype=list) == [{0, 1}, {0, 2}]
+    assert H.edges.attrs("weight").aslist() == [0.3, 0.8]
+    assert H.edges.attrs("color").aslist() == ["red", "red"]
+    H.add_weighted_edges_from([(3, 4, 2.0)], weight="w")
+    assert H.edges.attrs("w").aslist()[-1] == 2.0
+
+
+def test_add_weighted_adds_reject_empty_input():
+    with pytest.raises(ValueError, match="Empty or invalid edges specified."):
+        xgi.Hypergraph().add_weighted_edges_from([()])
+    with pytest.raises(ValueError, match="Empty or invalid simplices specified."):
+        xgi.SimplicialComplex().add_weighted_simplices_from([()])
+
+
+def test_add_weighted_simplices_from_sets_weights():
+    S = xgi.SimplicialComplex()
+    S.add_weighted_simplices_from([(0, 1, 0.3), (0, 2, 0.8)])
+    assert [S.edges[e]["weight"] for e in S.edges] == [0.3, 0.8]  # SC edge views have no attrs stat
+    with pytest.raises(NotImplementedError):
+        S.add_weighted_simplices_from([(1, 2, 3, 0.5)], max_order=1)
+
+
+def test_weighted_adds_refuse_a_frozen_graph():
+    H = xgi.Hypergraph([[1, 2]])
+    H.freeze()
+    with pytest.raises(xgi.exception.XGIError):
+        H.add_weighted_edges_from([(1, 3, 0.5)])

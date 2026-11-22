@@ -367,6 +367,37 @@ impl PySimplicialComplex {
         self.add_simplex_impl(py, &members, idx.as_ref(), attr.as_ref())
     }
 
+    /// `S.add_weighted_simplices_from(ebunch_to_add, max_order=None, weight="weight", **attr)`:
+    /// every simplex is `(*members, weight_value)`; goes through `add_simplices_from`. `max_order`
+    /// is not supported by `add_simplices_from` here, so anything but `None` is refused.
+    #[pyo3(signature = (ebunch_to_add, max_order=None, weight=None, **attr))]
+    fn add_weighted_simplices_from(
+        slf: &Bound<'_, Self>,
+        ebunch_to_add: Bound<'_, PyAny>,
+        max_order: Option<Bound<'_, PyAny>>,
+        weight: Option<Bound<'_, PyAny>>,
+        attr: Option<Bound<'_, PyDict>>,
+    ) -> PyResult<()> {
+        let py = slf.py();
+        if max_order.is_some_and(|m| !m.is_none()) {
+            return Err(pyo3::exceptions::PyNotImplementedError::new_err(
+                "max_order is not supported yet",
+            ));
+        }
+        let weight = match weight {
+            Some(w) => w,
+            None => pyo3::types::PyString::new(py, "weight").into_any(),
+        };
+        let bunch = crate::hypergraph::weighted_bunch(
+            py,
+            &ebunch_to_add,
+            &weight,
+            "Empty or invalid simplices specified.",
+        )?;
+        slf.call_method("add_simplices_from", (bunch,), attr.as_ref())?;
+        Ok(())
+    }
+
     /// `S.add_simplices_from(ebunch, **attr)` — Formats 1-5, mirroring
     /// `PyHypergraph::add_edges_from`'s format-detection exactly (a simplex's `members` are a flat
     /// node set, same shape as an undirected edge's).

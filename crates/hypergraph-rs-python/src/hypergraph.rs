@@ -297,6 +297,31 @@ impl PyHypergraph {
         self.try_add_one_edge(py, &members, idx.as_ref(), e_attrs, false, true)
     }
 
+    /// `H.add_weighted_edges_from(ebunch_to_add, weight="weight", **attr)`: every `edge` is
+    /// `(*members, weight_value)`; goes through `add_edges_from` with `{weight: value}` as the edge's
+    /// attributes.
+    #[pyo3(signature = (ebunch_to_add, weight=None, **attr))]
+    fn add_weighted_edges_from(
+        slf: &Bound<'_, Self>,
+        ebunch_to_add: Bound<'_, PyAny>,
+        weight: Option<Bound<'_, PyAny>>,
+        attr: Option<Bound<'_, PyDict>>,
+    ) -> PyResult<()> {
+        let py = slf.py();
+        let weight = match weight {
+            Some(w) => w,
+            None => pyo3::types::PyString::new(py, "weight").into_any(),
+        };
+        let bunch = weighted_bunch(
+            py,
+            &ebunch_to_add,
+            &weight,
+            "Empty or invalid edges specified.",
+        )?;
+        slf.call_method("add_edges_from", (bunch,), attr.as_ref())?;
+        Ok(())
+    }
+
     /// `H.add_edges_from(ebunch_to_add, **attr)` — Formats 1-5 (hypergraph.py:633-819).
     #[pyo3(signature = (ebunch_to_add, **attr))]
     fn add_edges_from(
@@ -1755,4 +1780,34 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     func.setattr("__module__", "hypergraph_rs")?;
     m.add_function(func)?;
     Ok(())
+}
+
+/// Splits each `edge` of a weighted bunch into `(edge[:-1], {weight: edge[-1]})`, as XGI's
+/// `add_weighted_edges_from` does. An `IndexError` or `KeyError` becomes `ValueError(message)`.
+pub(crate) fn weighted_bunch<'py>(
+    py: Python<'py>,
+    ebunch: &Bound<'py, PyAny>,
+    weight: &Bound<'py, PyAny>,
+    message: &str,
+) -> PyResult<Bound<'py, pyo3::types::PyList>> {
+    let invalid = |e: PyErr| -> PyErr {
+        if e.is_instance_of::<pyo3::exceptions::PyIndexError>(py)
+            || e.is_instance_of::<pyo3::exceptions::PyKeyError>(py)
+        {
+            pyo3::exceptions::PyValueError::new_err(message.to_owned())
+        } else {
+            e
+        }
+    };
+    let out = pyo3::types::PyList::empty(py);
+    let head = pyo3::types::PySlice::new(py, 0, -1, 1);
+    for edge in ebunch.try_iter()? {
+        let edge = edge?;
+        let value = edge.get_item(-1).map_err(invalid)?;
+        let members = edge.get_item(&head).map_err(invalid)?;
+        let attrs = PyDict::new(py);
+        attrs.set_item(weight, value)?;
+        out.append((members, attrs))?;
+    }
+    Ok(out)
 }
