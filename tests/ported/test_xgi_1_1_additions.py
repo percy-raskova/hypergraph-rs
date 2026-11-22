@@ -647,3 +647,48 @@ def test_cleanup_positional_empties():
     # isolates, singletons, empties, multiedges, connected, relabel, in_place
     K = H.cleanup(False, False, True, False, False, False, False)
     assert len(K.edges.empty()) == 1
+
+
+HG_NAMES = [
+    "filterby",
+    "filterby_attr",
+    "neighbors",
+    "memberships",
+    "isolates",
+    "singletons",
+    "empty",
+    "maximal",
+    "members",
+    "lookup",
+    "duplicates",
+]
+DI_NAMES = [
+    "filterby",
+    "filterby_attr",
+    "neighbors",
+    "memberships",
+    "dimemberships",
+    "isolates",
+    "members",
+    "dimembers",
+    "head",
+    "tail",
+    "lookup",
+    "duplicates",
+]
+
+
+@pytest.mark.parametrize(
+    "H,names",
+    [
+        (xgi.Hypergraph([[1, 2, 3]]), HG_NAMES),
+        (xgi.SimplicialComplex([[1, 2, 3]]), HG_NAMES),
+        (xgi.DiHypergraph([([1, 2], [3])]), DI_NAMES),
+    ],
+)
+def test_network_objects_expose_no_view_methods(H, names):
+    for name in names:
+        with pytest.raises(AttributeError):
+            getattr(H, name)
+    if not isinstance(H, xgi.SimplicialComplex):  # the complex binds no stat methods at all (standing gap)
+        assert H.degree() is not None

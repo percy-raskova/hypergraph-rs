@@ -708,40 +708,6 @@ impl PyHypergraph {
         Ok(())
     }
 
-    /// `H.nodes.memberships(n)` — the edge ids `n` belongs to, translated back to Python ids.
-    fn memberships(&self, py: Python<'_>, n: &Bound<'_, PyAny>) -> PyResult<Py<PyList>> {
-        let repr = n.repr().map(|r| r.to_string()).unwrap_or_default();
-        let core = self
-            .node_ids
-            .get_key(n)?
-            .ok_or_else(|| id_not_found(&repr))?;
-        let ids = self.inner.memberships(&core).unwrap_or_default();
-        let list = PyList::empty(py);
-        for eid in ids {
-            if let Some(obj) = self.edge_ids.get_obj(py, &eid) {
-                list.append(obj)?;
-            }
-        }
-        Ok(list.unbind())
-    }
-
-    /// `H.edges.members(e)` — the node ids belonging to edge `e`, translated back to Python ids.
-    fn members(&self, py: Python<'_>, e: &Bound<'_, PyAny>) -> PyResult<Py<PyList>> {
-        let repr = e.repr().map(|r| r.to_string()).unwrap_or_default();
-        let core = self
-            .edge_ids
-            .get_key(e)?
-            .ok_or_else(|| id_not_found(&repr))?;
-        let ids = self.inner.members(&core).unwrap_or_default();
-        let list = PyList::empty(py);
-        for nid in ids {
-            if let Some(obj) = self.node_ids.get_obj(py, &nid) {
-                list.append(obj)?;
-            }
-        }
-        Ok(list.unbind())
-    }
-
     /// `H.degree(node=None, order=None)` — XGI parity: `Hypergraph.__getattr__`'s
     /// `H.degree(...)` proxy (`func(node=None, *args, **kwargs)`, hypergraph.py:246-267): the full
     /// dict when `node` is omitted, a single scalar (raising `KeyError` for a missing node)
