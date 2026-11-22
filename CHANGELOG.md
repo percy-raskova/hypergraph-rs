@@ -16,15 +16,16 @@ All notable changes to this project are written here. The format follows
   a member that leaves and comes back starts from it again. XGI has no value on a membership,
   so the XGI-compatible formats, the Python package and the WASM bindings do not carry it.
 - Runnable examples: `quickstart` and `membership_data`.
-- A `geometry` feature, on by default, with the module `geometry`: the outline of a weighted set of
-  points or of a hyperedge (`weighted_outline`, `edge_outline`, with `OutlineParams`, `WeightedOutline`, `EdgeOutline`, `Point`,
-  `Rect` and `ClosedPath`, and the constants `DEFAULT_LEVEL_FRACTION`, `DEFAULT_MAX_GRID_NODES` and
-  `DEFAULT_MAX_NEIGHBOURS`; shaped as `Outline::Ring`,
+- A `geometry` feature, on by default, with the module `geometry`, whose shared aliases are `Point`,
+  `Rect` and `ClosedPath`: the outline of a weighted set of points or of a hyperedge
+  (`weighted_outline`, `edge_outline`, with `OutlineParams`, `WeightedOutline`, `EdgeOutline`, and
+  the constants `DEFAULT_LEVEL_FRACTION` and `DEFAULT_MAX_GRID_NODES`; shaped as `Outline::Ring`,
   `Outline::Capsule` or `Outline::Membrane`), iso-lines of a scalar grid (`ScalarGrid`, `iso_lines`,
   `signed_area`, `contains`), placement at a weighted mix of fixed points (`barycentre`,
   `corner_mix`, `anchored_placement`, with `Positions` and `Placement`), and spreading of
-  overlapping points in fixed steps (`spread`, `SpreadParams`, `SpreadReport`). Errors are
-  `GeometryError`. Every result is the same bits on every machine.
+  overlapping points in fixed steps (`spread`, `SpreadParams`, `SpreadReport`, and the constant
+  `DEFAULT_MAX_NEIGHBOURS`). Errors are `GeometryError`. Every result is the same bits on every
+  machine.
 - A crate-level guide in the API docs, a README, a contributing guide, and this changelog.
 - Package metadata (keywords, categories, readme, documentation) and the license text in the
   packed crate, so the crate can be packed with `cargo package`.
