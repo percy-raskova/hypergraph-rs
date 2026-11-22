@@ -553,17 +553,18 @@ impl PySimplicialComplex {
     /// XGI parity: `convert.to_simplicial_complex`). numpy/pandas inputs are a documented
     /// exclusion (matches `PyHypergraph::ingest`'s deviation).
     fn ingest(&mut self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
+        // XGI 1.1 `to_simplicial_complex`: a list is handed whole to `add_simplices_from` (format detection
+        // included); a dict is handed over as the pairs `(members, uid)`, the pair form of the list path
+        // (`from_simplex_dict`), not the dict form.
         if let Ok(list) = data.cast::<PyList>() {
-            for simplex in list.iter() {
-                self.add_simplex_impl(py, &simplex, None, None)?;
-            }
-            return Ok(());
+            return self.add_simplices_impl(py, list.as_any(), None, true);
         }
         if let Ok(dict) = data.cast::<PyDict>() {
+            let pairs = PyList::empty(py);
             for (idx, members) in dict.iter() {
-                self.add_simplex_impl(py, &members, Some(&idx), None)?;
+                pairs.append(PyTuple::new(py, [members, idx])?)?;
             }
-            return Ok(());
+            return self.add_simplices_impl(py, pairs.as_any(), None, true);
         }
         if let Ok(other) = data.extract::<PyRef<PySimplicialComplex>>() {
             self.inner = other.inner.copy();
@@ -582,7 +583,14 @@ impl PySimplicialComplex {
                     .filter_map(|nid| hg.node_ids.get_obj(py, nid))
                     .collect();
                 let members_list = PyList::new(py, &member_objs)?;
-                self.add_simplex_impl(py, members_list.as_any(), None, None)?;
+                self.add_simplex_impl_attrs(
+                    py,
+                    members_list.as_any(),
+                    None,
+                    serde_json::Map::new(),
+                    true,
+                    false,
+                )?;
             }
             self.net_attr = hg.net_attr.clone();
             return Ok(());
@@ -605,7 +613,7 @@ impl PySimplicialComplex {
                 e_attrs.insert(k.str()?.to_string(), py_any_to_json(&v)?);
             }
         }
-        self.add_simplex_impl_attrs2(py, members, idx, e_attrs, false, true)
+        self.add_simplex_impl_attrs2(py, members, idx, e_attrs, false, true, true)
     }
 
     /// `add_simplices_from`'s per-item entry point: `attr` is already a merged JSON map (base
@@ -618,10 +626,15 @@ impl PySimplicialComplex {
         idx: Option<&Bound<'_, PyAny>>,
         attr: serde_json::Map<String, Value>,
         with_faces: bool,
+        none_check: bool,
     ) -> PyResult<()> {
-        self.add_simplex_impl_attrs2(py, members, idx, attr, true, with_faces)
+        self.add_simplex_impl_attrs2(py, members, idx, attr, true, with_faces, none_check)
     }
 
+    /// `none_check` is true for the two XGI paths that go through `_add_simplex` (`add_simplex` and the dict
+    /// form of `add_simplices_from`): they refuse `None` as a new node. The list forms add nodes inline
+    /// and accept it.
+    #[allow(clippy::too_many_arguments)]
     fn add_simplex_impl_attrs2(
         &mut self,
         py: Python<'_>,
@@ -630,6 +643,7 @@ impl PySimplicialComplex {
         e_attrs: serde_json::Map<String, Value>,
         warn_with_period: bool,
         with_faces: bool,
+        none_check: bool,
     ) -> PyResult<()> {
         self.frozen_check()?;
         let mut member_objs: Vec<Bound<PyAny>> = Vec::new();
@@ -650,39 +664,40 @@ impl PySimplicialComplex {
                 ))
             }
         }
+        if let Some(o) = idx {
+            if self.edge_ids.get_key(o)?.is_some() {
+                // XGI parity: duplicate simplex uid -> warn + no-op
+                // (simplicialcomplex.py:314: "uid {idx} already exists, cannot add simplex {members}").
+                let set = PySet::new(py, &member_objs)?;
+                let dot = if warn_with_period { "." } else { "" };
+                let msg = format!(
+                    "uid {} already exists, cannot add simplex {}{dot}",
+                    o.str()?,
+                    set.repr()?
+                );
+                let warnings = py.import("warnings")?;
+                warnings.call_method1(
+                    "warn",
+                    (msg, py.get_type::<pyo3::exceptions::PyUserWarning>()),
+                )?;
+                return Ok(());
+            }
+        }
+
+        // XGI's `_add_simplex` raises when None is a member and not yet a node, after the duplicate
+        // checks. XGI leaves an edge id with an empty set behind; here nothing is added.
+        if none_check
+            && member_objs.iter().any(|m| m.is_none())
+            && self.node_ids.get_key(&py.None().into_bound(py))?.is_none()
+        {
+            return Err(PyValueError::new_err("None cannot be a node"));
+        }
         let mut core_members = Vec::new();
         for m in &member_objs {
             core_members.push(self.node_ids.intern(m)?);
         }
-
         let requested_core = match idx {
-            Some(o) => {
-                if self.edge_ids.get_key(o)?.is_some() {
-                    // XGI parity: duplicate simplex uid -> warn + no-op
-                    // (simplicialcomplex.py:314: "uid {idx} already exists, cannot add simplex {members}").
-                    let set = PySet::new(py, &member_objs)?;
-                    let msg = if warn_with_period {
-                        format!(
-                            "uid {} already exists, cannot add simplex {}.",
-                            o.str()?,
-                            set.repr()?
-                        )
-                    } else {
-                        format!(
-                            "uid {} already exists, cannot add simplex {}",
-                            o.str()?,
-                            set.repr()?
-                        )
-                    };
-                    let warnings = py.import("warnings")?;
-                    warnings.call_method1(
-                        "warn",
-                        (msg, py.get_type::<pyo3::exceptions::PyUserWarning>()),
-                    )?;
-                    return Ok(());
-                }
-                Some(self.edge_ids.intern(o)?)
-            }
+            Some(o) => Some(self.edge_ids.intern(o)?),
             None => None,
         };
 
@@ -718,12 +733,24 @@ impl PySimplicialComplex {
 
         if let Ok(dict) = ebunch_to_add.cast::<PyDict>() {
             for (idx, members) in dict.iter() {
+                // XGI first evaluates `not members or self.has_simplex(members)`, and `has_simplex` is
+                // `frozenset(members) in ...`: members that are not iterable, or hold an unhashable
+                // element, raise CPython's own TypeError before the duplicate-id check.
+                if !members.is_truthy()? {
+                    continue;
+                }
+                py.import("builtins")?
+                    .getattr("frozenset")?
+                    .call1((&members,))?;
+                // XGI's dict form calls `_add_simplex(frozenset(members), idx)` with no keyword attributes:
+                // `add_simplices_from({'a': [1, 2]}, color='red')` sets no colour on 'a'.
                 self.add_simplex_impl_attrs(
                     py,
                     &members,
                     Some(&idx),
-                    base_attr.clone(),
+                    serde_json::Map::new(),
                     with_faces,
+                    true,
                 )?;
             }
             return Ok(());
@@ -835,7 +862,7 @@ impl PySimplicialComplex {
             for (k, v) in extra_attrs {
                 merged.insert(k, v);
             }
-            self.add_simplex_impl_attrs(py, &members, idx.as_ref(), merged, with_faces)?;
+            self.add_simplex_impl_attrs(py, &members, idx.as_ref(), merged, with_faces, false)?;
 
             match iter.next() {
                 Some(r) => current = r?,

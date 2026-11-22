@@ -949,7 +949,7 @@ impl PyEdgeView {
         Ok(self.sub(py, ids))
     }
 
-    /// `H.edges.members(e=None, dtype=dict)` (views.py:706-745).
+    /// `H.edges.members(e=None, dtype=dict)` (XGI 1.1 `views.py:799`).
     #[pyo3(signature = (e=None, dtype=None))]
     pub(crate) fn members(
         &self,

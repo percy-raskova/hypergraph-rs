@@ -467,18 +467,16 @@ _NODE_CLASSES = [xgi.Hypergraph, xgi.DiHypergraph, xgi.SimplicialComplex]
 
 
 def _node_attrs(H):
-    """Node attributes as {node: dict}; a SimplicialComplex has no Python read path for them yet."""
+    """Node attributes as {node: dict}; a SimplicialComplex reads them from its pickle state."""
     if isinstance(H, xgi.Hypergraph):
         return H.nodes.attrs.asdict()
     if isinstance(H, xgi.DiHypergraph):
         return {n: H.nodes[n] for n in H.nodes}
-    return None
+    return dict(H.__reduce__()[1][0]["nodes"])
 
 
 def _check_attrs(H, expected):
-    got = _node_attrs(H)
-    if got is not None:
-        assert got == expected
+    assert _node_attrs(H) == expected
 
 
 @pytest.mark.parametrize("cls", _NODE_CLASSES)
@@ -507,3 +505,118 @@ def test_add_nodes_from_updates_an_existing_node(cls):
     H.add_nodes_from([(1, {"a": 1, "b": 2})])
     H.add_nodes_from([(1, {"b": 3})], c=4)
     _check_attrs(H, {1: {"a": 1, "b": 3, "c": 4}})
+
+
+# --- the reviews' loose ends on tasks 8 to 12 -------------------------------------------------------------
+
+
+def test_simplicial_constructor_goes_through_add_simplices_from():
+    # a non-iterable element is a ValueError, as in add_simplices_from (it was a TypeError)
+    with pytest.raises(ValueError, match="Invalid ebunch format"):
+        xgi.SimplicialComplex([5])
+    # a list of pairs is ONE simplex {1, 2} with the id 'a' (XGI: from_hyperedge_list -> add_simplices_from)
+    S = xgi.SimplicialComplex([([1, 2], "a")])
+    assert S.edges.members(dtype=dict) == {"a": frozenset({1, 2})}
+    # triples are (members, id, attrs)
+    S = xgi.SimplicialComplex([([1, 2], "a", {"color": "red"})])
+    assert S.edges.members(dtype=dict) == {"a": frozenset({1, 2})}
+    assert S.edges["a"] == {"color": "red"}
+    # a dict is handed over as the pairs (members, uid)
+    S = xgi.SimplicialComplex({"x": [1, 2, 3]})
+    assert S.edges.members(dtype=dict)["x"] == frozenset({1, 2, 3})
+    assert len(S.edges) == 4
+    # a duplicate id warns WITH the full stop that add_simplices_from writes
+    with pytest.warns(UserWarning, match=r"uid a already exists, cannot add simplex \{3, 4\}\.$"):
+        xgi.SimplicialComplex([([1, 2], "a"), ([3, 4], "a")])
+
+
+def test_simplicial_constructor_from_a_plain_list_builds_what_it_built():
+    data = [[1, 2, 3], [3, 4], [4, 5, 6]]
+    S = xgi.SimplicialComplex(data)
+    T = xgi.SimplicialComplex()
+    for members in data:
+        T.add_simplex(members)
+    assert S.edges.members(dtype=dict) == T.edges.members(dtype=dict)
+    assert S.edges.members(dtype=dict)[0] == frozenset({1, 2, 3})
+    assert S.edges.members(dtype=dict)[4] == frozenset({3, 4})
+
+
+def test_di_add_edge_duplicate_id_warns_before_tail_and_head_are_read():
+    # XGI: the type test and members[0], members[1] first, then the duplicate id warns and returns,
+    # and only then are the tail and the head iterated.
+    D = xgi.DiHypergraph()
+    D.add_edge(([1], [2]), idx="a")
+    with pytest.warns(UserWarning, match="uid a already exists, cannot add edge"):
+        D.add_edge((5, [2]), idx="a")
+    assert list(D.edges) == ["a"]
+    assert list(D.nodes) == [1, 2]
+    assert D.edges.dimembers("a") == ({1}, {2})
+    # the type test and the indices still come first
+    with pytest.raises(TypeError, match="Directed edge must be a list or tuple!"):
+        D.add_edge({1, 2}, idx="a")
+    with pytest.raises(IndexError):
+        D.add_edge([[1]], idx="a")
+
+
+def test_di_add_edges_from_dict_duplicate_id_warns_before_the_type_check():
+    D = xgi.DiHypergraph()
+    D.add_edge(([1], [2]), idx="a")
+    with pytest.warns(UserWarning, match=r"uid a already exists, cannot add edge .*\.$"):
+        D.add_edges_from({"a": {1, 2}})  # not a list or tuple, but the duplicate id comes first
+    with pytest.warns(UserWarning, match="uid a already exists"):
+        D.add_edges_from({"a": (5, [2])})
+    assert list(D.edges) == ["a"]
+    assert list(D.nodes) == [1, 2]
+    # the list forms warn first, too: members are indexed only for a new id
+    with pytest.warns(UserWarning, match="uid a already exists"):
+        D.add_edges_from([(5, "a")])
+    assert list(D.edges) == ["a"]
+
+
+def test_add_simplices_from_dict_form_raises_cpythons_type_error_before_the_duplicate_check():
+    S = xgi.SimplicialComplex()
+    S.add_simplex([1, 2], idx="a")
+    # XGI evaluates `not members or self.has_simplex(members)` first: frozenset(5) is a TypeError
+    with pytest.raises(TypeError) as info:
+        S.add_simplices_from({"a": 5})
+    assert not isinstance(info.value, xgi.exception.XGIError)
+    with pytest.raises(TypeError):
+        S.add_simplices_from({"b": [[1], 2]})  # an unhashable element
+    # falsy members are skipped silently
+    S.add_simplices_from({"c": []})
+    assert list(S.edges) == ["a"]
+    # in the list forms iter(members) is tested first: ValueError("Invalid ebunch format")
+    with pytest.raises(ValueError, match="Invalid ebunch format"):
+        S.add_simplices_from([[1, 2], 5])  # {1, 2} is present and skipped; 5 is not iterable
+    with pytest.raises(ValueError, match="Invalid ebunch format"):
+        S.add_simplices_from([5])
+
+
+def test_add_simplices_from_dict_form_sets_no_keyword_attributes():
+    # XGI (simplicialcomplex.py, add_simplices_from, format 5): `self._add_simplex(frozenset(members), idx)`
+    # is called WITHOUT **attr, so the keyword attributes reach no simplex of the dict form.
+    S = xgi.SimplicialComplex()
+    S.add_simplices_from({"a": [1, 2]}, color="red")
+    assert S.edges["a"] == {}
+    # the list forms do set them
+    S.add_simplices_from([([3, 4], "b")], color="red")
+    assert S.edges["b"] == {"color": "red"}
+
+
+def test_none_cannot_be_a_new_node_of_add_simplex_or_the_dict_form():
+    S = xgi.SimplicialComplex()
+    with pytest.raises(ValueError, match="None cannot be a node"):
+        S.add_simplex([None, 1])
+    assert list(S.nodes) == [] and list(S.edges) == [] and S._edge_uid == 0
+    with pytest.raises(ValueError, match="None cannot be a node"):
+        S.add_simplex([None, 1], idx="a")
+    assert list(S.nodes) == [] and list(S.edges) == [] and S._edge_uid == 0
+    with pytest.raises(ValueError, match="None cannot be a node"):
+        S.add_simplices_from({"a": [None, 1]})
+    assert list(S.nodes) == [] and list(S.edges) == [] and S._edge_uid == 0
+    # the list forms add their nodes inline and accept None
+    S.add_simplices_from([[None, 1]])
+    assert None in S.nodes
+    # None is a node now: add_simplex raises nothing
+    S.add_simplex([None, 2])
+    assert 2 in S.nodes

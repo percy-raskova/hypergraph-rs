@@ -57,7 +57,7 @@ fn from_hyperedge_list(py: Python<'_>, d: Bound<'_, PyAny>) -> PyResult<PyHyperg
     })
 }
 
-/// `xgi.to_hyperedge_list(H)` — a `list` of `set`s (XGI parity: `H.edges.members()`).
+/// `xgi.to_hyperedge_list(H)` — a `list` of `set`s (XGI 1.x parity: `H.edges.members(dtype=list)`).
 #[pyfunction]
 fn to_hyperedge_list(py: Python<'_>, h: PyRef<'_, PyHypergraph>) -> PyResult<Py<PyList>> {
     let out = PyList::empty(py);

@@ -227,140 +227,140 @@ reason = "XGI's IDView is a dict-like view with this method; the library's view 
 subject = "Hypergraph.edges.order"
 name = "argmax"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "argmin"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "args"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "argsort"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "ashist"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "aspandas"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "func"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "items"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "kwargs"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "mean"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "median"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "mode"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "moment"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "name"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "net"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "std"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "sum"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "unique"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "var"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]
 subject = "Hypergraph.edges.order"
 name = "view"
 class = "deferred-symbol"
-reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist and asnumpy only."
+reason = "XGI's NodeStat/EdgeStat carries these reductions and the user-defined-statistics machinery (func, args, kwargs, name, view, net); the library's stat object offers asdict, aslist, asnumpy, max and min."
 owner = "later:stat-functions"
 
 [[gap]]

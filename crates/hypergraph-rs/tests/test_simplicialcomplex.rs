@@ -58,6 +58,25 @@ fn test_add_simplex_duplicate_idx_adds_no_faces() {
 }
 
 #[test]
+fn test_add_simplex_present_simplex_adds_no_faces_to_an_unclosed_complex() {
+    // XGI's `add_simplex` returns at `has_simplex(members)` before it adds any subface, so a complex
+    // left unclosed by `add_simplex_without_faces` stays unclosed when the same simplex is added again.
+    let mut s: SimplicialComplex = SimplicialComplex::new();
+    s.add_simplex_without_faces(
+        vec!["1".into(), "2".into(), "3".into()],
+        Some("s1".into()),
+        v(),
+    )
+    .unwrap();
+    assert_eq!(s.num_edges(), 1);
+    let edges_before = s.edge_ids();
+    s.add_simplex(vec!["3".into(), "2".into(), "1".into()], None, v())
+        .unwrap();
+    assert_eq!(s.num_edges(), 1);
+    assert_eq!(s.edge_ids(), edges_before);
+}
+
+#[test]
 fn test_add_simplex_empty_simplex_is_created() {
     // D1: XGI's docstring claims empty simplices cannot be added, but the
     // runtime CREATES one. A second empty add is a silent no-op (D8: main

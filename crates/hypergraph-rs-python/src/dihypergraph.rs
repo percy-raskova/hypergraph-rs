@@ -236,7 +236,7 @@ impl PyDiHypergraph {
                 e_attrs.insert(k.str()?.to_string(), py_any_to_json(&v)?);
             }
         }
-        self.try_add_one_edge(py, &members, idx.as_ref(), e_attrs, false, false)
+        self.try_add_one_edge(py, &members, idx.as_ref(), e_attrs, EdgeCaller::Single)
     }
 
     /// `DH.add_edges_from(ebunch_to_add, **attr)` — Formats 1,2,3,4,5 (dihypergraph.py:587-786).
@@ -257,7 +257,13 @@ impl PyDiHypergraph {
 
         if let Ok(dict) = ebunch_to_add.cast::<PyDict>() {
             for (idx, members) in dict.iter() {
-                self.try_add_one_edge(py, &members, Some(&idx), base_attr.clone(), true, true)?;
+                self.try_add_one_edge(
+                    py,
+                    &members,
+                    Some(&idx),
+                    base_attr.clone(),
+                    EdgeCaller::BunchDict,
+                )?;
             }
             return Ok(());
         }
@@ -351,7 +357,7 @@ impl PyDiHypergraph {
             for (k, v) in extra_attrs {
                 merged.insert(k, v);
             }
-            self.try_add_one_edge(py, &members, idx.as_ref(), merged, true, false)?;
+            self.try_add_one_edge(py, &members, idx.as_ref(), merged, EdgeCaller::BunchList)?;
 
             match iter.next() {
                 Some(r) => current = r?,
@@ -880,6 +886,24 @@ impl PyDiHypergraph {
     }
 }
 
+/// Which XGI method a directed edge is added for: the order of its checks and its warning text follow it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EdgeCaller {
+    /// `add_edge` and the constructor.
+    Single,
+    /// The dict form of `add_edges_from`.
+    BunchDict,
+    /// The list forms of `add_edges_from`.
+    BunchList,
+}
+
+impl EdgeCaller {
+    /// `add_edges_from` writes the full stop that `add_edge` leaves out.
+    fn warns_with_period(self) -> bool {
+        self != Self::Single
+    }
+}
+
 impl PyDiHypergraph {
     /// `{node: attrs["pos"] or None}` for every node, in node order.
     fn pos_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
@@ -953,7 +977,7 @@ impl PyDiHypergraph {
     fn ingest(&mut self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<()> {
         if let Ok(list) = data.cast::<PyList>() {
             for edge in list.iter() {
-                self.try_add_one_edge(py, &edge, None, serde_json::Map::new(), false, false)?;
+                self.try_add_one_edge(py, &edge, None, serde_json::Map::new(), EdgeCaller::Single)?;
             }
             return Ok(());
         }
@@ -964,8 +988,7 @@ impl PyDiHypergraph {
                     &members,
                     Some(&idx),
                     serde_json::Map::new(),
-                    false,
-                    false,
+                    EdgeCaller::Single,
                 )?;
             }
             return Ok(());
@@ -979,22 +1002,42 @@ impl PyDiHypergraph {
         Err(xgi_error("could not interpret data as a dihypergraph"))
     }
 
+    /// Adds one directed edge, with the order of checks of the XGI 1.1 method that `caller` stands for.
     fn try_add_one_edge(
         &mut self,
         py: Python<'_>,
         members: &Bound<'_, PyAny>,
         idx: Option<&Bound<'_, PyAny>>,
         attrs: serde_json::Map<String, Value>,
-        warn_with_period: bool,
-        from_dict: bool,
+        caller: EdgeCaller,
     ) -> PyResult<()> {
-        // XGI 1.1: `add_edge` and the dict form of `add_edges_from` check `isinstance(members, (tuple,
-        // list))` and raise a plain `TypeError` (the length is not checked: a short list is an
-        // `IndexError` from `members[1]`). The other forms of `add_edges_from` index `members` inside a
-        // `try` and turn a `TypeError` into `ValueError("Invalid ebunch format")`. The check runs here,
-        // before any extraction can fail, so the text is always XGI's.
-        let from_bunch = warn_with_period;
-        if (!from_bunch || from_dict)
+        let warn_dup = |this: &Self, idx: &Bound<'_, PyAny>| -> PyResult<bool> {
+            if this.edge_ids.get_key(idx)?.is_none() {
+                return Ok(false);
+            }
+            // XGI writes the members as given, not as a set (`dihypergraph.py` `warn(f"uid {idx} ...")`).
+            let msg = format!(
+                "uid {} already exists, cannot add edge {}{}",
+                idx.str()?,
+                members.str()?,
+                if caller.warns_with_period() { "." } else { "" }
+            );
+            warn_user(py, &msg)?;
+            Ok(true)
+        };
+        // XGI 1.1: the dict form of `add_edges_from` warns about a duplicate id first, then checks
+        // `isinstance(members, (tuple, list))`; `add_edge` checks the type and reads `members[0]` and
+        // `members[1]` first (a short list is an `IndexError`), then warns, and only then iterates the
+        // tail and the head. The other forms of `add_edges_from` warn first and index `members` inside a
+        // `try` that turns a `TypeError` into `ValueError("Invalid ebunch format")`.
+        if caller == EdgeCaller::BunchDict || caller == EdgeCaller::BunchList {
+            if let Some(idx) = idx {
+                if warn_dup(self, idx)? {
+                    return Ok(());
+                }
+            }
+        }
+        if caller != EdgeCaller::BunchList
             && !(members.is_instance_of::<PyList>() || members.is_instance_of::<PyTuple>())
         {
             return Err(PyTypeError::new_err(
@@ -1002,7 +1045,7 @@ impl PyDiHypergraph {
             ));
         }
         let invalid_bunch = |e: PyErr| -> PyErr {
-            if from_bunch && e.is_instance_of::<PyTypeError>(py) {
+            if caller != EdgeCaller::Single && e.is_instance_of::<PyTypeError>(py) {
                 PyValueError::new_err("Invalid ebunch format")
             } else {
                 e
@@ -1010,6 +1053,13 @@ impl PyDiHypergraph {
         };
         let tail_iterable = members.get_item(0).map_err(invalid_bunch)?;
         let head_iterable = members.get_item(1).map_err(invalid_bunch)?;
+        if caller == EdgeCaller::Single {
+            if let Some(idx) = idx {
+                if warn_dup(self, idx)? {
+                    return Ok(());
+                }
+            }
+        }
         let mut tail_objs: Vec<Bound<PyAny>> = Vec::new();
         for m in tail_iterable.try_iter().map_err(invalid_bunch)? {
             tail_objs.push(m?);
@@ -1017,30 +1067,6 @@ impl PyDiHypergraph {
         let mut head_objs: Vec<Bound<PyAny>> = Vec::new();
         for m in head_iterable.try_iter().map_err(invalid_bunch)? {
             head_objs.push(m?);
-        }
-
-        if let Some(idx) = idx {
-            if self.edge_ids.get_key(idx)?.is_some() {
-                let members_set = PySet::empty(py)?;
-                for o in tail_objs.iter().chain(head_objs.iter()) {
-                    members_set.add(o)?;
-                }
-                let msg = if warn_with_period {
-                    format!(
-                        "uid {} already exists, cannot add edge {}.",
-                        idx.str()?,
-                        members_set.repr()?
-                    )
-                } else {
-                    format!(
-                        "uid {} already exists, cannot add edge {}",
-                        idx.str()?,
-                        members_set.repr()?
-                    )
-                };
-                warn_user(py, &msg)?;
-                return Ok(());
-            }
         }
 
         let mut tail = Vec::new();
@@ -1253,7 +1279,7 @@ fn reconstruct_dihypergraph(py: Python<'_>, state: Bound<'_, PyDict>) -> PyResul
             m.insert(k.str()?.to_string(), py_any_to_json(&v)?);
         }
         let pair = PyTuple::new(py, [tail, head])?;
-        dh.try_add_one_edge(py, pair.as_any(), Some(&idx), m, false, false)?;
+        dh.try_add_one_edge(py, pair.as_any(), Some(&idx), m, EdgeCaller::Single)?;
     }
     let net: Bound<PyDict> = state
         .get_item("net_attr")?
