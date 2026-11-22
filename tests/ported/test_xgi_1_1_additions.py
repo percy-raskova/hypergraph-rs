@@ -61,7 +61,8 @@ def test_di_memberships_dtype(diedgelist2):
 
 def test_sources_targets_warn_and_delegate(diedgelist2):
     D = xgi.DiHypergraph(diedgelist2)
-    with pytest.warns(DeprecationWarning, match="DiEdgeView.sources is deprecated"):
+    with pytest.warns(DeprecationWarning, match="DiEdgeView.sources is deprecated") as rec:
         assert D.edges.sources(0) == D.edges.tail(0)
+    assert rec[0].filename == __file__
     with pytest.warns(DeprecationWarning, match="DiEdgeView.targets is deprecated"):
         assert D.edges.targets(dtype=list) == D.edges.head(dtype=list)

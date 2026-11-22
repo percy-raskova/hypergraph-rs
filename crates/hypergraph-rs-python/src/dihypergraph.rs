@@ -1609,7 +1609,8 @@ impl PyDiNodeView {
 // ---------------------------------------------------------------------------------------------
 
 /// `warnings.warn("DiEdgeView.<old> is deprecated ... Use DiEdgeView.<new> instead.",
-/// DeprecationWarning, stacklevel=2)`: the warning points at the caller of the alias.
+/// DeprecationWarning, stacklevel=2)`: the warning points at the caller of the alias. Called
+/// from Rust there is no Python frame of its own, so level 1 is already the Python caller.
 fn warn_deprecated(py: Python<'_>, old: &str, new: &str) -> PyResult<()> {
     let msg = format!(
         "DiEdgeView.{old} is deprecated and will be removed in a future release. \
@@ -1619,7 +1620,7 @@ fn warn_deprecated(py: Python<'_>, old: &str, new: &str) -> PyResult<()> {
         py,
         &py.get_type::<pyo3::exceptions::PyDeprecationWarning>(),
         &std::ffi::CString::new(msg).expect("no NUL in the message"),
-        2,
+        1,
     )
 }
 

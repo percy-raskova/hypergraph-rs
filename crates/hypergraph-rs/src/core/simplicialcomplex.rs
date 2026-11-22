@@ -158,11 +158,13 @@ impl<N, E, M> SimplicialComplex<N, E, M> {
         }
         let mut complex = Self::new();
         complex.add_nodes_from(nodes);
+        let mut added: std::collections::HashSet<Vec<String>> = std::collections::HashSet::new();
         for (id, members, attrs) in simplices {
             let set = as_sorted_set(&members);
-            if complex.has_simplex(&set) || complex.inner.has_edge(&id) {
+            if added.contains(&set) || complex.inner.has_edge(&id) {
                 continue;
             }
+            added.insert(set.clone());
             complex
                 .inner
                 .add_edge(set, Some(id), attrs)
