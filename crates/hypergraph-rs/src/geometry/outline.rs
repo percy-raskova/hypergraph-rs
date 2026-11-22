@@ -6,7 +6,8 @@
 //! raises to a hill as wide as `reach`, scaled by its number relative to the largest.
 
 use super::contour::{inside_cell, iso_lines, ClosedPath, ScalarGrid};
-use super::{GeometryError, Point};
+use super::{GeometryError, Point, Positions};
+use crate::core::hypergraph::Hypergraph;
 
 /// The default fraction of a member's level that the line of a membrane is drawn at.
 pub const DEFAULT_LEVEL_FRACTION: f64 = 0.5;
@@ -366,4 +367,73 @@ pub fn weighted_outline(
         held_weight,
         total_weight: total,
     }))
+}
+
+/// The outline of one hyperedge, and the members it was drawn from.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EdgeOutline {
+    /// The hyperedge's id.
+    pub edge: String,
+    /// The members with a number above zero, in the order `members_with_data` lists them.
+    /// `outline.held` indexes into this list.
+    pub members: Vec<String>,
+    /// The outline of those members.
+    pub outline: WeightedOutline,
+}
+
+/// The outline of the hyperedge `edge_id`, from the numbers on its memberships and the positions of its members.
+///
+/// Members are read with `members_with_data`, in that order. `weight` reads the number from a membership's value.
+/// A member whose number is zero is skipped before its position is looked up, so it needs none. Otherwise the rules
+/// of [`weighted_outline`] apply. `Ok(None)` when no member has a number above zero.
+///
+/// # Errors
+///
+/// [`GeometryError::UnknownEdge`] when the hypergraph has no such hyperedge;
+/// [`GeometryError::BadWeight`] for a number that is negative or not finite (`item` is the node id);
+/// [`GeometryError::NoPosition`] for a member above zero with no entry in `positions`;
+/// [`GeometryError::NonFinitePosition`] for a member above zero whose position is not finite (`item` is the node
+/// id); and any error of [`weighted_outline`] about `params`.
+pub fn edge_outline<N, E, M>(
+    h: &Hypergraph<N, E, M>,
+    edge_id: &str,
+    positions: &Positions,
+    weight: impl Fn(&M) -> f64,
+    params: &OutlineParams,
+) -> Result<Option<EdgeOutline>, GeometryError> {
+    let Some(listing) = h.members_with_data(edge_id) else {
+        return Err(GeometryError::UnknownEdge(edge_id.to_string()));
+    };
+    let mut members = Vec::new();
+    let mut points: Vec<(Point, f64)> = Vec::new();
+    for (node, data) in listing {
+        let w = weight(data);
+        if !(w.is_finite() && w >= 0.0) {
+            return Err(GeometryError::BadWeight {
+                item: node,
+                value: w,
+            });
+        }
+        if w == 0.0 {
+            continue;
+        }
+        let Some(at) = positions.get(&node) else {
+            return Err(GeometryError::NoPosition {
+                edge: edge_id.to_string(),
+                node,
+            });
+        };
+        if !(at.0.is_finite() && at.1.is_finite()) {
+            return Err(GeometryError::NonFinitePosition { item: node });
+        }
+        members.push(node);
+        points.push((at, w));
+    }
+    Ok(
+        weighted_outline(&points, params)?.map(|outline| EdgeOutline {
+            edge: edge_id.to_string(),
+            members,
+            outline,
+        }),
+    )
 }

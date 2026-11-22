@@ -1,9 +1,10 @@
 #![cfg(feature = "geometry")]
 
 use hypergraph_rs::geometry::{
-    contains, signed_area, weighted_outline, GeometryError, Outline, OutlineParams,
-    WeightedOutline, DEFAULT_LEVEL_FRACTION, DEFAULT_MAX_GRID_NODES,
+    contains, edge_outline, signed_area, weighted_outline, GeometryError, Outline, OutlineParams,
+    Positions, WeightedOutline, DEFAULT_LEVEL_FRACTION, DEFAULT_MAX_GRID_NODES,
 };
+use hypergraph_rs::Hypergraph;
 
 type Point = (f64, f64);
 
@@ -376,4 +377,133 @@ fn the_same_input_gives_the_same_bits_twice() {
     let b = outline_of(&members, 0.9);
     assert_eq!(bits(&a), bits(&b));
     assert_eq!(a, b);
+}
+
+type H = Hypergraph<(), (), f64>;
+
+fn link(h: &mut H, edge: &str, node: &str, w: f64) {
+    h.add_node_to_edge_with_data(edge, node, w).unwrap();
+}
+
+fn at(list: &[(&str, Point)]) -> Positions {
+    list.iter().map(|(id, p)| ((*id).to_string(), *p)).collect()
+}
+
+#[test]
+fn an_edge_outline_reads_the_numbers_on_its_memberships() {
+    let mut h = H::new();
+    link(&mut h, "club", "a", 2.0);
+    link(&mut h, "club", "b", 1.0);
+    link(&mut h, "club", "z", 0.0);
+    let positions = at(&[("a", (0.0, 0.0)), ("b", (5.0, 0.0))]);
+    let out = edge_outline(
+        &h,
+        "club",
+        &positions,
+        |w| *w,
+        &OutlineParams::new(1.0, 0.125, 0.9),
+    )
+    .expect("valid")
+    .expect("some member above zero");
+    assert_eq!(out.edge, "club");
+    assert_eq!(out.members, ["a", "b"]);
+    assert_eq!(
+        out.outline.outline,
+        Outline::Capsule {
+            a: (0.0, 0.0),
+            radius_a: 1.0,
+            b: (5.0, 0.0),
+            radius_b: 0.75
+        }
+    );
+}
+
+#[test]
+fn a_weighted_member_without_a_position_is_refused() {
+    let mut h = H::new();
+    link(&mut h, "club", "a", 1.0);
+    link(&mut h, "club", "b", 1.0);
+    let positions = at(&[("a", (0.0, 0.0))]);
+    let err = edge_outline(
+        &h,
+        "club",
+        &positions,
+        |w| *w,
+        &OutlineParams::new(1.0, 0.125, 0.9),
+    )
+    .unwrap_err();
+    assert_eq!(
+        err,
+        GeometryError::NoPosition {
+            edge: "club".into(),
+            node: "b".into()
+        }
+    );
+}
+
+#[test]
+fn an_unknown_edge_is_refused() {
+    let h = H::new();
+    let err = edge_outline(
+        &h,
+        "nope",
+        &Positions::new(),
+        |w| *w,
+        &OutlineParams::new(1.0, 0.125, 0.9),
+    )
+    .unwrap_err();
+    assert_eq!(err, GeometryError::UnknownEdge("nope".into()));
+}
+
+#[test]
+fn an_edge_of_zeros_has_no_outline() {
+    let mut h = H::new();
+    link(&mut h, "club", "a", 0.0);
+    link(&mut h, "club", "b", 0.0);
+    let r = edge_outline(
+        &h,
+        "club",
+        &Positions::new(),
+        |w| *w,
+        &OutlineParams::new(1.0, 0.125, 0.9),
+    );
+    assert_eq!(r, Ok(None));
+}
+
+#[test]
+fn an_edge_outline_names_the_node_of_a_bad_number() {
+    let mut h = H::new();
+    link(&mut h, "club", "a", -1.0);
+    let positions = at(&[("a", (0.0, 0.0))]);
+    let p = OutlineParams::new(1.0, 0.125, 0.9);
+    assert!(matches!(
+        edge_outline(&h, "club", &positions, |w| *w, &p),
+        Err(GeometryError::BadWeight { item, .. }) if item == "a"
+    ));
+    let mut h = H::new();
+    link(&mut h, "club", "a", 1.0);
+    let positions = at(&[("a", (f64::NAN, 0.0))]);
+    assert_eq!(
+        edge_outline(&h, "club", &positions, |w| *w, &p),
+        Err(GeometryError::NonFinitePosition { item: "a".into() })
+    );
+}
+
+#[test]
+fn a_zero_member_at_nan_is_not_an_error_and_held_indexes_members() {
+    let mut h = H::new();
+    link(&mut h, "club", "z", 0.0);
+    link(&mut h, "club", "a", 1.0);
+    let positions = at(&[("z", (f64::NAN, f64::NAN)), ("a", (1.0, 1.0))]);
+    let out = edge_outline(
+        &h,
+        "club",
+        &positions,
+        |w| *w,
+        &OutlineParams::new(1.0, 0.125, 0.9),
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(out.members, ["a"]);
+    assert_eq!(out.outline.held, [0]);
 }
