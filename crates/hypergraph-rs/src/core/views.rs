@@ -5,6 +5,24 @@
 //! sub-view over the same hypergraph. XGI parity: `H.nodes` / `H.edges`.
 
 use super::hypergraph::Hypergraph;
+use std::collections::{BTreeSet, HashMap};
+
+/// Group `(id, key)` pairs by key; keep groups of two or more, in order of first occurrence.
+fn group_by_key(items: impl Iterator<Item = (String, BTreeSet<String>)>) -> Vec<Vec<String>> {
+    let mut index: HashMap<BTreeSet<String>, usize> = HashMap::new();
+    let mut groups: Vec<Vec<String>> = Vec::new();
+    for (id, key) in items {
+        match index.get(&key) {
+            Some(&i) => groups[i].push(id),
+            None => {
+                index.insert(key, groups.len());
+                groups.push(vec![id]);
+            }
+        }
+    }
+    groups.retain(|g| g.len() > 1);
+    groups
+}
 
 /// Comparison mode for `filterby_*`. XGI parity: the `mode` argument of
 /// `IDView.filterby` (views.py:197-287). `between` is a dedicated method.
@@ -83,6 +101,21 @@ impl<'a, N, E, M> NodeView<'a, N, E, M> {
     /// `H.nodes.memberships(n)` (views.py:604-630).
     pub fn memberships(&self, node_id: &str) -> Option<Vec<String>> {
         self.graph.memberships(node_id)
+    }
+
+    /// Node ids with the same edge-membership set, grouped. Only groups of two or more; groups in
+    /// order of first occurrence in this view; ids in a group in insertion order. XGI parity:
+    /// `H.nodes.duplicate_groups()`.
+    pub fn duplicate_groups(&self) -> Vec<Vec<String>> {
+        group_by_key(self.ids.iter().map(|n| {
+            let key: BTreeSet<String> = self
+                .graph
+                .memberships(n)
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            (n.clone(), key)
+        }))
     }
 
     /// Sub-view of degree-0 nodes. XGI parity: `H.nodes.isolates()`.
@@ -250,6 +283,21 @@ impl<'a, N, E, M> EdgeView<'a, N, E, M> {
             graph: self.graph,
             ids,
         }
+    }
+
+    /// Edge ids with the same member set, grouped. Only groups of two or more; groups in order of
+    /// first occurrence in this view; ids in a group in insertion order. XGI parity:
+    /// `H.edges.duplicate_groups()`.
+    pub fn duplicate_groups(&self) -> Vec<Vec<String>> {
+        group_by_key(self.ids.iter().map(|e| {
+            let key: BTreeSet<String> = self
+                .graph
+                .members(e)
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            (e.clone(), key)
+        }))
     }
 
     /// Sub-view of edges that duplicate an earlier one (same member-set).

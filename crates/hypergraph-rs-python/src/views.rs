@@ -538,6 +538,13 @@ impl PyNodeView {
         self.sub(py, ids)
     }
 
+    /// `H.nodes.duplicate_groups()`: groups of nodes with the same edge memberships. Like XGI,
+    /// groups the whole network whatever this view filters, one view per group.
+    fn duplicate_groups(&self, py: Python<'_>) -> Vec<PyNodeView> {
+        let groups = self.hg.borrow(py).inner.nodes().duplicate_groups();
+        groups.into_iter().map(|g| self.sub(py, g)).collect()
+    }
+
     /// Sub-view of nodes that duplicate an earlier one (same edge-membership set). XGI parity:
     /// `H.nodes.duplicates()` (views.py:409-465, mirrored for nodes).
     fn duplicates(&self, py: Python<'_>) -> PyNodeView {
@@ -1125,6 +1132,13 @@ impl PyEdgeView {
         }
         drop(hg);
         Ok(self.sub(py, ids))
+    }
+
+    /// `H.edges.duplicate_groups()`: groups of edges with the same members. Like XGI, groups the
+    /// whole network whatever this view filters, one view per group.
+    fn duplicate_groups(&self, py: Python<'_>) -> Vec<PyEdgeView> {
+        let groups = self.hg.borrow(py).inner.edges().duplicate_groups();
+        groups.into_iter().map(|g| self.sub(py, g)).collect()
     }
 
     /// Sub-view of edges that duplicate an earlier one (same member-set). XGI parity:

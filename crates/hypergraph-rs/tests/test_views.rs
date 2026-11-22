@@ -184,3 +184,46 @@ fn test_edgeview_maximal_nonstrict() {
     // {1,2} is a strict subset of {1,2,3} -> not maximal
     assert_eq!(ids, vec!["0".to_string(), "2".to_string()]);
 }
+
+#[test]
+fn duplicate_groups_in_first_occurrence_order() {
+    let mut h: Hypergraph = Hypergraph::new();
+    for (id, m) in [
+        ("e0", vec!["a", "b"]),
+        ("e1", vec!["c", "d"]),
+        ("e2", vec!["b", "a"]),
+        ("e3", vec!["d", "c"]),
+        ("e4", vec!["x"]),
+    ] {
+        h.add_edge(
+            m.into_iter().map(String::from).collect(),
+            Some(id.into()),
+            v(),
+        )
+        .unwrap();
+    }
+    assert_eq!(
+        h.edges().duplicate_groups(),
+        vec![vec!["e0", "e2"], vec!["e1", "e3"]]
+    );
+    assert!(
+        Hypergraph::<serde_json::Value, serde_json::Value, serde_json::Value>::new()
+            .edges()
+            .duplicate_groups()
+            .is_empty()
+    );
+}
+
+#[test]
+fn duplicate_groups_of_nodes_use_membership_sets() {
+    let mut h: Hypergraph = Hypergraph::new();
+    h.add_edge(vec!["a".into(), "b".into()], Some("e0".into()), v())
+        .unwrap();
+    h.add_edge(
+        vec!["a".into(), "b".into(), "c".into()],
+        Some("e1".into()),
+        v(),
+    )
+    .unwrap();
+    assert_eq!(h.nodes().duplicate_groups(), vec![vec!["a", "b"]]);
+}

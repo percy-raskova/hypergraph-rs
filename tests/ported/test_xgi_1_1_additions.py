@@ -100,3 +100,25 @@ def test_weighted_adds_refuse_a_frozen_graph():
     H.freeze()
     with pytest.raises(xgi.exception.XGIError):
         H.add_weighted_edges_from([(1, 3, 0.5)])
+
+
+def test_duplicate_groups_edges_and_nodes(edgelist1):
+    H = xgi.Hypergraph([[0, 1], [2, 3], [1, 0], [3, 2], [4, 5]])
+    assert [list(g) for g in H.edges.duplicate_groups()] == [[0, 2], [1, 3]]
+    assert all(isinstance(g, type(H.edges)) for g in H.edges.duplicate_groups())
+    assert xgi.Hypergraph([[0, 1], [1, 2]]).edges.duplicate_groups() == []
+    assert {2, 3, 8} <= {i for g in xgi.Hypergraph(edgelist1).nodes.duplicate_groups() for i in g}
+    S = xgi.SimplicialComplex([[1, 2, 3]])
+    assert S.edges.duplicate_groups() == []
+
+
+def test_duplicate_groups_of_a_filtered_view_cover_the_network():
+    F = xgi.Hypergraph([[0, 1], [1, 0], [4, 5, 6], [6, 5, 4]])
+    assert [list(g) for g in F.edges.filterby("size", 2).duplicate_groups()] == [[0, 1], [2, 3]]
+
+
+def test_duplicate_groups_on_a_simplicial_complex_nodes():
+    S = xgi.SimplicialComplex([[1, 2, 3]])
+    groups = S.nodes.duplicate_groups()
+    assert isinstance(groups, list)
+    assert all(isinstance(g, type(S.nodes)) for g in groups)

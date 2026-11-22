@@ -603,7 +603,7 @@ impl PySimplicialComplex {
     /// `S.nodes` — the `NodeView` proxy (mirrors Task 5's `PyNodeView`, scoped to this complex).
     #[getter]
     fn nodes(slf: Py<Self>) -> PySCNodeView {
-        PySCNodeView { sc: slf }
+        PySCNodeView { sc: slf, ids: None }
     }
 
     /// `S.edges` — the `EdgeView` proxy (mirrors Task 5's `PyEdgeView`, scoped to this complex).
@@ -801,19 +801,47 @@ impl PySimplicialComplex {
 #[pyclass(name = "SCNodeView", module = "hypergraph_rs")]
 pub struct PySCNodeView {
     pub sc: Py<PySimplicialComplex>,
+    /// `None` = every node; `Some` = a group returned by `duplicate_groups`.
+    pub ids: Option<Vec<String>>,
+}
+
+impl PySCNodeView {
+    fn effective_ids(&self, sc: &PySimplicialComplex) -> Vec<String> {
+        self.ids.clone().unwrap_or_else(|| sc.inner.node_ids())
+    }
+}
+
+/// Group ids by key; keep groups of two or more, in order of first occurrence.
+fn group_ids_by_key(
+    items: impl Iterator<Item = (String, std::collections::BTreeSet<String>)>,
+) -> Vec<Vec<String>> {
+    let mut index: std::collections::HashMap<std::collections::BTreeSet<String>, usize> =
+        std::collections::HashMap::new();
+    let mut groups: Vec<Vec<String>> = Vec::new();
+    for (id, key) in items {
+        match index.get(&key) {
+            Some(&i) => groups[i].push(id),
+            None => {
+                index.insert(key, groups.len());
+                groups.push(vec![id]);
+            }
+        }
+    }
+    groups.retain(|g| g.len() > 1);
+    groups
 }
 
 #[pymethods]
 impl PySCNodeView {
     fn __len__(&self, py: Python<'_>) -> usize {
-        self.sc.borrow(py).inner.num_nodes()
+        let sc = self.sc.borrow(py);
+        self.effective_ids(&sc).len()
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<pyo3::types::PyIterator>> {
         let sc = self.sc.borrow(py);
-        let items: Vec<Py<PyAny>> = sc
-            .inner
-            .node_ids()
+        let items: Vec<Py<PyAny>> = self
+            .effective_ids(&sc)
             .iter()
             .filter_map(|c| sc.node_ids.get_obj(py, c).map(|o| o.unbind()))
             .collect();
@@ -822,7 +850,41 @@ impl PySCNodeView {
     }
 
     fn __contains__(&self, py: Python<'_>, n: &Bound<'_, PyAny>) -> bool {
-        matches!(self.sc.borrow(py).node_ids.get_key(n), Ok(Some(_)))
+        let sc = self.sc.borrow(py);
+        match sc.node_ids.get_key(n) {
+            Ok(Some(k)) => self.effective_ids(&sc).contains(&k),
+            _ => false,
+        }
+    }
+
+    /// `S.nodes.duplicate_groups()`: groups of nodes with the same edge memberships.
+    fn duplicate_groups(&self, py: Python<'_>) -> Vec<PySCNodeView> {
+        let sc = self.sc.borrow(py);
+        let edges: Vec<(String, Vec<String>)> = sc
+            .inner
+            .edge_ids()
+            .into_iter()
+            .map(|e| {
+                let m = sc.inner.members(&e).unwrap_or_default();
+                (e, m)
+            })
+            .collect();
+        let groups = group_ids_by_key(sc.inner.node_ids().into_iter().map(|n| {
+            let key = edges
+                .iter()
+                .filter(|(_, m)| m.contains(&n))
+                .map(|(e, _)| e.clone())
+                .collect();
+            (n, key)
+        }));
+        drop(sc);
+        groups
+            .into_iter()
+            .map(|g| PySCNodeView {
+                sc: self.sc.clone_ref(py),
+                ids: Some(g),
+            })
+            .collect()
     }
 
     /// Sub-view of nodes that duplicate an earlier one (same edge-membership set).
@@ -975,6 +1037,29 @@ impl PySCEdgeView {
                 }
             }
         }
+    }
+
+    /// `S.edges.duplicate_groups()`: groups of simplices with the same members (always empty for
+    /// a valid complex). Groups the whole complex whatever this view filters.
+    fn duplicate_groups(&self, py: Python<'_>) -> Vec<PySCEdgeView> {
+        let sc = self.sc.borrow(py);
+        let groups = group_ids_by_key(sc.inner.edge_ids().into_iter().map(|e| {
+            let key = sc
+                .inner
+                .members(&e)
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            (e, key)
+        }));
+        drop(sc);
+        groups
+            .into_iter()
+            .map(|g| PySCEdgeView {
+                sc: self.sc.clone_ref(py),
+                ids: Some(g),
+            })
+            .collect()
     }
 
     /// Sub-view of edges that duplicate an earlier one (same member-set).
