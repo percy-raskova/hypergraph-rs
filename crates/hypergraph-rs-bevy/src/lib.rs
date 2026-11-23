@@ -9,13 +9,14 @@
 //!
 //! This crate holds the palette, the styles, the config, the error type and
 //! the pure line functions (paths, hatching, dashes and ribbons) and the glyph
-//! meshes.
+//! meshes, and the ground in its two forms.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 mod config;
 mod error;
 mod glyph;
+mod ground;
 mod lines;
 mod palette;
 mod style;
@@ -23,6 +24,7 @@ mod style;
 pub use config::{FieldConfig, Motion};
 pub use error::FieldError;
 pub use glyph::glyph_mesh;
+pub use ground::{Ground, GroundForm, GroundTopology, RegionShape};
 pub use lines::{dashed, hatch_segments, outline_paths, plan_to_scene, ribbon_mesh};
 pub use palette::Palette;
 pub use style::{
