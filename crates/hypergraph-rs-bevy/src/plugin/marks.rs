@@ -15,8 +15,8 @@ use crate::style::{FieldStyles, Glyph};
 const PATH_STEPS: u32 = 8;
 /// A path line's width as a share of its stream's mark size.
 const PATH_WIDTH: f32 = 0.25;
-/// The side of its straight line every mark and path bows to.
-const SIDE: f32 = 1.0;
+/// The side a reduced-motion path line bows to (marks alternate by `k`).
+const PATH_SIDE: f32 = 1.0;
 
 /// What a mark needs to move, fixed when it is spawned.
 #[derive(Component, Clone, Copy, Debug)]
@@ -32,6 +32,8 @@ pub(crate) struct MarkRun {
     /// How long it travels, in seconds.
     tau: f32,
     bow: f32,
+    /// `+1` for even `k`, `-1` for odd, so two marks of one path do not share a line.
+    side: f32,
     /// Whether it is turned along its motion.
     streak: bool,
 }
@@ -114,6 +116,7 @@ pub(super) fn spawn_marks(
                             start,
                             tau,
                             bow: config.bow,
+                            side: if k % 2 == 0 { 1.0 } else { -1.0 },
                             streak: glyph == Glyph::Streak,
                         },
                         Mesh3d(mesh.clone()),
@@ -138,7 +141,7 @@ pub(super) fn spawn_marks(
                         (0..=PATH_STEPS)
                             .map(|i| {
                                 let u = i as f32 / PATH_STEPS as f32;
-                                mark_position(flow.from, flow.to, u, config.bow, SIDE)
+                                mark_position(flow.from, flow.to, u, config.bow, PATH_SIDE)
                             })
                             .collect()
                     })
@@ -201,7 +204,7 @@ pub(super) fn animate_marks(
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
         }
-        let at = |u: f32| mark_position(run.from, run.to, u, run.bow, SIDE);
+        let at = |u: f32| mark_position(run.from, run.to, u, run.bow, run.side);
         let position = at(s / run.tau);
         if run.streak {
             let behind = at(((s - run.tau / 50.0) / run.tau).max(0.0));

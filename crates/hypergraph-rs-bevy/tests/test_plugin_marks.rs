@@ -10,7 +10,7 @@ use hypergraph_rs::geometry::{Outline, Point};
 use hypergraph_rs_bevy::{
     glyph_mesh, BeatClock, FieldConfig, FieldFrame, FieldStyles, Flow, FlowReport, Glyph, Ground,
     GroundForm, LineStyle, MarkOf, Motion, Palette, ParticleFrame, ParticleStyle, PathLines, Phase,
-    RegionReading, RegionShape, SetFrame, SetStyle, ShowPeriod, StreamStyle,
+    RegionReading, RegionShape, ReplayPeriod, SetFrame, SetStyle, ShowPeriod, StreamStyle,
 };
 use std::num::NonZeroU64;
 
@@ -200,13 +200,33 @@ fn the_report_matches_the_marks() {
     let report = app.world().resource::<FlowReport>().clone();
     assert_eq!(report.period, Some(7));
     let all = marks(&mut app);
-    for r in &report.streams {
-        if r.hollow {
-            continue;
-        }
-        let n = all.iter().filter(|(s, _, _)| *s == r.stream).count();
-        assert_eq!(n as u32, r.marks, "stream {}", r.stream);
+    let streams: std::collections::BTreeSet<u16> =
+        report.streams.iter().map(|r| r.stream).collect();
+    for stream in streams {
+        let total: u32 = report
+            .streams
+            .iter()
+            .filter(|r| r.stream == stream)
+            .map(|r| r.marks)
+            .sum();
+        let n = all.iter().filter(|(s, _, _)| *s == stream).count();
+        assert_eq!(n as u32, total, "stream {stream}");
     }
+}
+
+#[test]
+fn a_replay_rewrites_the_report_for_the_changed_styles() {
+    let mut app = app_with(Motion::Full, styles());
+    send(&mut app, frame(7, vec![flow(0, 6, false)]));
+    assert_eq!(app.world().resource::<FlowReport>().streams[0].marks, 6);
+    app.world_mut().resource_mut::<FieldStyles>().streams[0].max_marks = 2;
+    app.world_mut().write_message(ReplayPeriod);
+    app.update();
+    let report = app.world().resource::<FlowReport>().clone();
+    assert_eq!(report.period, Some(7));
+    assert_eq!(report.streams[0].marks, 2);
+    let n = marks(&mut app).iter().filter(|(s, _, _)| *s == 0).count();
+    assert_eq!(n, 2);
 }
 
 #[test]
@@ -242,6 +262,7 @@ fn a_visible_mark_is_on_its_path() {
     let mut app = app_with(Motion::Full, styles());
     let t0 = send(&mut app, frame(1, vec![flow(0, 6, false)]));
     let mut visible = 0;
+    let (mut above, mut below) = (false, false);
     let mut at = t0;
     while at < t0 + secs(1.2) {
         at += Duration::from_millis(10);
@@ -250,11 +271,14 @@ fn a_visible_mark_is_on_its_path() {
             if s == 0 && shown {
                 visible += 1;
                 assert!(p.z.abs() <= 0.8 + 1e-4, "{p:?}");
+                above |= p.z > 1e-4;
+                below |= p.z < -1e-4;
                 assert!((0.0..=10.0).contains(&p.x), "{p:?}");
             }
         }
     }
     assert!(visible > 0);
+    assert!(above && below, "marks must alternate sides");
 }
 
 #[test]

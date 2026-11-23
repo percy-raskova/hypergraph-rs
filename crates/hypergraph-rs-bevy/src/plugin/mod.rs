@@ -81,7 +81,8 @@ pub struct MarkOf {
     pub k: u32,
 }
 
-/// The lines drawn for a stream's paths.
+/// The lines drawn for a stream's paths. A stream with no drawn flows still gets
+/// one, with an empty mesh.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PathLines {
     /// The stream.
@@ -382,7 +383,11 @@ fn install_frame(
         }
     } else if replay && picture.accepted {
         picture.motion = config.motion;
-        if let Ok((drawn, _)) = select_flows(&picture.current.frame.flows, &styles.streams) {
+        if let Ok((drawn, mut flow_report)) =
+            select_flows(&picture.current.frame.flows, &styles.streams)
+        {
+            flow_report.period = Some(picture.current.frame.period);
+            *report = flow_report;
             for entity in &old_marks {
                 commands.entity(entity).despawn();
             }
