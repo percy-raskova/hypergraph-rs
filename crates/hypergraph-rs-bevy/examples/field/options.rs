@@ -7,6 +7,8 @@ pub struct Options {
     pub height: u32,
     pub measure_seconds: Option<f64>,
     pub fullscreen: bool,
+    /// The large world, for the measured run; without it the small one.
+    pub large: bool,
 }
 
 impl Default for Options {
@@ -16,11 +18,12 @@ impl Default for Options {
             height: 768,
             measure_seconds: None,
             fullscreen: false,
+            large: false,
         }
     }
 }
 
-const USAGE: &str = "use --size WxH, --measure-seconds N or --fullscreen";
+const USAGE: &str = "use --size WxH, --measure-seconds N, --fullscreen or --large";
 
 /// Reads the arguments after the program's name.
 pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Options, String> {
@@ -39,6 +42,7 @@ pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Options, String>
                 options.measure_seconds = Some(value.parse().map_err(|_| "seconds")?);
             }
             "--fullscreen" => options.fullscreen = true,
+            "--large" => options.large = true,
             other => return Err(format!("unknown argument {other}; {USAGE}")),
         }
     }

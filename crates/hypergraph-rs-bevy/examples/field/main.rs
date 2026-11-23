@@ -1,5 +1,11 @@
-//! Draws an invented world of 3,168 regions, 25,000 particles, six sets and
-//! three streams of marks, behind `FieldPlugin`.
+//! Draws an invented world behind `FieldPlugin`: regions under soft hills,
+//! particles seated on them, sets as hatched outlines and three streams of
+//! marks, one a beat. The world is small enough to read: 1,728 regions, 240
+//! particles (nine of them posts, one a place) and five sets. With `--large`
+//! it is the measured world of 3,168 regions, 25,000 particles and six sets.
+//!
+//! The view is from one side and above, with no perspective, so sizes compare
+//! across the whole field.
 //!
 //! Keys: `Space` replays the period, `N` shows the next one, `F` switches the
 //! ground's form, `R` switches reduced motion. With `--measure-seconds N` a
@@ -14,6 +20,7 @@ mod world;
 use std::sync::Arc;
 use std::time::Duration;
 
+use bevy::camera::ScalingMode;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::prelude::*;
 use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
@@ -22,9 +29,12 @@ use hypergraph_rs_bevy::{
     GroundForm, Motion, Phase, ReplayPeriod, ShowPeriod,
 };
 use options::Options;
+use world::Size;
 
-/// Where the camera looks: the grid's centre in the scene.
-const GRID_CENTRE: Vec3 = Vec3::new(36.0, 0.0, -22.0);
+/// The colour behind everything.
+const BACKGROUND: Color = Color::srgb(0.071, 0.016, 0.024);
+/// The share of the view's width that the grid takes.
+const GRID_SHARE: f32 = 0.9;
 
 fn options() -> Options {
     options::parse(std::env::args().skip(1)).unwrap_or_else(|message| panic!("{message}"))
@@ -33,6 +43,7 @@ fn options() -> Options {
 /// The state of the example's own systems.
 #[derive(Resource)]
 struct Run {
+    size: Size,
     period: u64,
     measure_until: Option<Duration>,
     rested_since: Option<Duration>,
@@ -43,7 +54,12 @@ struct Run {
 
 fn main() {
     let options = options();
-    let (config, styles, palette) = world::styles();
+    let size = if options.large {
+        Size::Large
+    } else {
+        Size::Small
+    };
+    let (config, styles, palette) = world::styles(size);
     let plugin = FieldPlugin::new(config, styles, palette).expect("the example's styles are valid");
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -61,7 +77,14 @@ fn main() {
             ..default()
         }))
         .add_plugins(plugin)
+        .insert_resource(ClearColor(BACKGROUND))
+        // Enough light from everywhere that no slope of the ground goes black.
+        .insert_resource(GlobalAmbientLight {
+            brightness: 450.0,
+            ..default()
+        })
         .insert_resource(Run {
+            size,
             period: 0,
             measure_until: options.measure_seconds.map(Duration::from_secs_f64),
             rested_since: None,
@@ -80,29 +103,47 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, run: Res<Run>) {
+    let shape = run.size.shape();
+    let (wide, deep) = (shape.columns as f32, shape.rows as f32);
+    let middle = Vec3::new(wide / 2.0, 0.0, -deep / 2.0);
     commands.spawn(Ground {
-        shapes: Arc::from(world::regions()),
+        shapes: Arc::from(world::regions(run.size)),
         form: GroundForm::Surface,
     });
+    // How far above the ground the view stands, in radians: 38 degrees over
+    // the small world, 52 over the large one, which is wider than it is deep.
+    let angle: f32 = match run.size {
+        Size::Small => 0.663,
+        Size::Large => 0.91,
+    };
+    let back = Vec3::new(0.0, angle.sin(), angle.cos());
     commands.spawn((
         Camera3d::default(),
-        Tonemapping::AcesFitted,
+        Projection::Orthographic(OrthographicProjection {
+            scaling_mode: ScalingMode::FixedHorizontal {
+                viewport_width: wide / GRID_SHARE,
+            },
+            ..OrthographicProjection::default_3d()
+        }),
+        // The palette's colours reach the screen as they are.
+        Tonemapping::None,
         Msaa::Sample4,
-        Transform::from_xyz(36.0, 50.0, 12.0).looking_at(GRID_CENTRE, Vec3::Y),
+        Transform::from_translation(middle + back * 2.0 * wide).looking_at(middle, Vec3::Y),
     ));
+    // One light from the near left, so a slope shows which way it faces.
     commands.spawn((
         DirectionalLight {
-            illuminance: 12_000.0,
+            illuminance: 2_300.0,
             ..default()
         },
-        Transform::from_xyz(20.0, 40.0, 10.0).looking_at(GRID_CENTRE, Vec3::Y),
+        Transform::from_xyz(-0.5, 1.0, 0.6).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
 fn show(run: &mut Run, shows: &mut MessageWriter<ShowPeriod>) {
     run.period += 1;
-    shows.write(ShowPeriod(Box::new(world::frame(run.period))));
+    shows.write(ShowPeriod(Box::new(world::frame(run.size, run.period))));
 }
 
 fn keys(
@@ -198,8 +239,11 @@ fn sample(
             .map(|s| s.marks)
             .sum()
     };
+    let shape = run.size.shape();
     println!(
-        "field size={w}x{h} regions=3168 particles=25000 marks_per_beat={},{},{} slowest_p95_ms={:.3}",
+        "field size={w}x{h} regions={} particles={} marks_per_beat={},{},{} slowest_p95_ms={:.3}",
+        shape.columns * shape.rows,
+        shape.particles,
         marks(0),
         marks(1),
         marks(2),
