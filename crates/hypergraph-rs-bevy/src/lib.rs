@@ -12,7 +12,8 @@
 //! meshes, the ground in its two forms, the choice of which flows are drawn,
 //! the clock and curves that move marks through a beat, and the frame a caller
 //! hands over once per period, with sets read from a hypergraph, and the
-//! plugin that plays each period in beats: the ground and the particles.
+//! plugin that plays each period in beats: the ground, the particles, the sets
+//! and the marks (or, with reduced motion, still lines of their paths).
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 

@@ -7,6 +7,7 @@
 //! `.after(FieldSystems::Animate)`.
 
 mod ground;
+mod marks;
 mod particles;
 mod sets;
 
@@ -155,6 +156,7 @@ impl Plugin for FieldPlugin {
                     ground::animate_ground,
                     particles::animate_particles,
                     sets::animate_sets,
+                    marks::animate_marks,
                 )
                     .chain()
                     .in_set(FieldSystems::Animate),
@@ -317,10 +319,11 @@ fn check_regions(frame: &FieldFrame, grounds: &Query<&Ground>) -> Result<(), Fie
 }
 
 /// Reads [`ShowPeriod`] and [`ReplayPeriod`], refuses or accepts, starts the
-/// clock and writes the [`FlowReport`].
+/// clock, writes the [`FlowReport`] and spawns the period's marks.
 #[allow(
     clippy::too_many_arguments,
-    reason = "a Bevy system names every resource it reads"
+    clippy::type_complexity,
+    reason = "a Bevy system names every resource and query it reads"
 )]
 fn install_frame(
     mut shows: MessageReader<ShowPeriod>,
@@ -331,6 +334,10 @@ fn install_frame(
     config: Res<FieldConfig>,
     time: Res<Time>,
     grounds: Query<&Ground>,
+    assets: Res<FieldAssets>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    old_marks: Query<Entity, Or<(With<MarkOf>, With<PathLines>)>>,
+    mut commands: Commands,
     mut picture: ResMut<Picture>,
     mut clock: ResMut<BeatClock>,
     mut report: ResMut<FlowReport>,
@@ -347,13 +354,25 @@ fn install_frame(
             Err(error) => {
                 refused.write(FrameRefused { period, error });
             }
-            Ok((_, mut flow_report)) => {
+            Ok((drawn, mut flow_report)) => {
                 flow_report.period = Some(period);
                 *report = flow_report;
                 let settled = std::mem::take(&mut picture.current);
                 for change in diff_sets(&settled.frame.sets, &frame.sets) {
                     changed.write(SetChanged(change));
                 }
+                for entity in &old_marks {
+                    commands.entity(entity).despawn();
+                }
+                marks::spawn_marks(
+                    &mut commands,
+                    &mut meshes,
+                    &assets,
+                    &styles,
+                    &config,
+                    &frame.flows,
+                    &drawn,
+                );
                 picture.previous = settled;
                 picture.current = Indexed::new(frame);
                 picture.accepted = true;
@@ -363,6 +382,20 @@ fn install_frame(
         }
     } else if replay && picture.accepted {
         picture.motion = config.motion;
+        if let Ok((drawn, _)) = select_flows(&picture.current.frame.flows, &styles.streams) {
+            for entity in &old_marks {
+                commands.entity(entity).despawn();
+            }
+            marks::spawn_marks(
+                &mut commands,
+                &mut meshes,
+                &assets,
+                &styles,
+                &config,
+                &picture.current.frame.flows,
+                &drawn,
+            );
+        }
         clock.start(time.elapsed(), picture.current.frame.period);
     }
 }
