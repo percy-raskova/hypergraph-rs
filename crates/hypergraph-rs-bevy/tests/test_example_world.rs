@@ -51,3 +51,25 @@ fn the_example_plays_three_periods_without_a_window() {
 fn the_example_world_is_the_same_twice() {
     assert_eq!(world::frame(2), world::frame(2));
 }
+
+#[path = "../examples/field/options.rs"]
+mod options;
+
+fn args(list: &[&str]) -> Vec<String> {
+    list.iter().map(|s| (*s).to_owned()).collect()
+}
+
+#[test]
+fn the_command_line_reads_fullscreen_and_still_reads_size() {
+    let plain = options::parse(args(&["--size", "1920x1080"])).unwrap();
+    assert!(!plain.fullscreen);
+    let full = options::parse(args(&["--fullscreen", "--size", "1920x1080"])).unwrap();
+    assert!(full.fullscreen);
+    assert_eq!((full.width, full.height), (1920, 1080));
+}
+
+#[test]
+fn the_command_line_refuses_an_unknown_argument() {
+    let error = options::parse(args(&["--windowed"])).unwrap_err();
+    assert!(error.contains("unknown argument --windowed"), "{error}");
+}

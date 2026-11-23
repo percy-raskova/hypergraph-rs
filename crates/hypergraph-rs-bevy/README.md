@@ -25,7 +25,8 @@ cargo run -p hypergraph-rs-bevy --release --example field -- --size 1366x768
 Keys: `Space` plays the period again, `N` shows the next period, `F` switches the ground between a bending surface and
 blocks, `R` switches reduced motion. With `--measure-seconds N` a new period is shown half a second after each rest,
 the frame times are printed in windows of 300 frames after two seconds of settling (`frame_window index=.. median_ms=..
-p95_ms=..`), and the program prints one `field size=.. slowest_p95_ms=..` line and exits after N seconds. The example
+p95_ms=..`), and the program prints one `field size=.. slowest_p95_ms=..` line and exits after N seconds. With `--fullscreen` the window is borderless and covers its whole monitor, and `--size` is still read; the summary line
+prints the window's size as it is, so it shows whether that equals what was asked. The example
 turns on `x11` and not `wayland`, so on a Wayland desktop it runs under XWayland.
 
 The measured frame times are added with the trial.

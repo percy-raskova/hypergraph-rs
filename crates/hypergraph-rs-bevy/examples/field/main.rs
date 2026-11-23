@@ -4,8 +4,11 @@
 //! Keys: `Space` replays the period, `N` shows the next one, `F` switches the
 //! ground's form, `R` switches reduced motion. With `--measure-seconds N` a
 //! new period is shown 0.5 s after each rest, frame times are printed in
-//! windows, and the program exits after N seconds.
+//! windows, and the program exits after N seconds. With `--fullscreen` the
+//! window is borderless and covers its whole monitor (`--size` is still read;
+//! the summary line prints the window's size as it is).
 
+mod options;
 mod world;
 
 use std::sync::Arc;
@@ -13,44 +16,18 @@ use std::time::Duration;
 
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::prelude::*;
-use bevy::window::{PresentMode, PrimaryWindow};
+use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 use hypergraph_rs_bevy::{
     BeatClock, FieldConfig, FieldPlugin, FieldSystems, FlowReport, FrameWindows, Ground,
     GroundForm, Motion, Phase, ReplayPeriod, ShowPeriod,
 };
+use options::Options;
 
 /// Where the camera looks: the grid's centre in the scene.
 const GRID_CENTRE: Vec3 = Vec3::new(36.0, 0.0, -22.0);
 
-struct Options {
-    width: u32,
-    height: u32,
-    measure_seconds: Option<f64>,
-}
-
 fn options() -> Options {
-    let mut options = Options {
-        width: 1366,
-        height: 768,
-        measure_seconds: None,
-    };
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--size" => {
-                let value = args.next().expect("--size needs WxH");
-                let (w, h) = value.split_once('x').expect("--size is WxH, as 1366x768");
-                options.width = w.parse().expect("a width in pixels");
-                options.height = h.parse().expect("a height in pixels");
-            }
-            "--measure-seconds" => {
-                let value = args.next().expect("--measure-seconds needs a number");
-                options.measure_seconds = Some(value.parse().expect("seconds"));
-            }
-            other => panic!("unknown argument {other}; use --size WxH or --measure-seconds N"),
-        }
-    }
-    options
+    options::parse(std::env::args().skip(1)).unwrap_or_else(|message| panic!("{message}"))
 }
 
 /// The state of the example's own systems.
@@ -61,6 +38,7 @@ struct Run {
     rested_since: Option<Duration>,
     windows: FrameWindows,
     last_report: FlowReport,
+    reported: bool,
 }
 
 fn main() {
@@ -73,6 +51,11 @@ fn main() {
                 title: "hypergraph-rs-bevy field".into(),
                 resolution: (options.width, options.height).into(),
                 present_mode: PresentMode::AutoNoVsync,
+                mode: if options.fullscreen {
+                    WindowMode::BorderlessFullscreen(MonitorSelection::Current)
+                } else {
+                    WindowMode::Windowed
+                },
                 ..default()
             }),
             ..default()
@@ -84,6 +67,7 @@ fn main() {
             rested_since: None,
             windows: FrameWindows::new(300, Duration::from_secs(2)),
             last_report: FlowReport::default(),
+            reported: false,
         })
         .add_systems(Startup, setup)
         .add_systems(
@@ -121,10 +105,6 @@ fn show(run: &mut Run, shows: &mut MessageWriter<ShowPeriod>) {
     shows.write(ShowPeriod(Box::new(world::frame(run.period))));
 }
 
-#[allow(
-    clippy::too_many_arguments,
-    reason = "a Bevy system takes what it reads and writes as parameters"
-)]
 fn keys(
     input: Res<ButtonInput<KeyCode>>,
     mut run: ResMut<Run>,
@@ -203,9 +183,10 @@ fn sample(
             stats.p95.as_secs_f64() * 1000.0
         );
     }
-    if real.elapsed() < until {
+    if run.reported || real.elapsed() < until {
         return;
     }
+    run.reported = true;
     let (w, h) = window
         .single()
         .map_or((0, 0), |w| (w.physical_width(), w.physical_height()));
