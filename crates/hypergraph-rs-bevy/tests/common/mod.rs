@@ -6,8 +6,8 @@ use bevy::mesh::VertexAttributeValues;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use hypergraph_rs_bevy::{
-    FieldConfig, FieldPlugin, FieldStyles, FieldSystems, FrameRefused, GroundPart, MarkOf, Palette,
-    ParticleId, PathLines, SetChanged, SetId,
+    FieldConfig, FieldPlugin, FieldStyles, FieldSystems, FrameRefused, GroundPart, MarkBatch,
+    MarkOf, Palette, ParticleId, PathLines, SetChanged, SetId,
 };
 
 /// What the plugin said, collected after it ran.
@@ -74,6 +74,22 @@ fn push_mesh(out: &mut Vec<u8>, mesh: &Mesh) {
             v.iter().for_each(|x| push_f32(out, *x));
         }
     }
+    for (attribute, values) in mesh.attributes() {
+        if !attribute.name.starts_with("Mark_") {
+            continue;
+        }
+        match values {
+            VertexAttributeValues::Float32x3(v) => {
+                v.iter()
+                    .for_each(|c| c.iter().for_each(|x| push_f32(out, *x)));
+            }
+            VertexAttributeValues::Float32x4(v) => {
+                v.iter()
+                    .for_each(|c| c.iter().for_each(|x| push_f32(out, *x)));
+            }
+            _ => {}
+        }
+    }
 }
 
 /// A byte record of every entity the plugin makes, sorted by its key, with
@@ -89,13 +105,14 @@ pub fn snapshot(app: &mut App) -> Vec<u8> {
         Option<&MarkOf>,
         Option<&PathLines>,
         Option<&GroundPart>,
+        Option<&MarkBatch>,
     )>();
     let found: Vec<_> = state
         .iter(world)
-        .filter(|(_, p, s, m, l, g)| {
-            p.is_some() || s.is_some() || m.is_some() || l.is_some() || g.is_some()
+        .filter(|(_, p, s, m, l, g, b)| {
+            p.is_some() || s.is_some() || m.is_some() || l.is_some() || g.is_some() || b.is_some()
         })
-        .map(|(e, p, s, m, l, g)| {
+        .map(|(e, p, s, m, l, g, b)| {
             (
                 e,
                 p.cloned(),
@@ -103,10 +120,11 @@ pub fn snapshot(app: &mut App) -> Vec<u8> {
                 m.copied(),
                 l.copied(),
                 g.copied(),
+                b.copied(),
             )
         })
         .collect();
-    for (entity, p, s, m, l, g) in found {
+    for (entity, p, s, m, l, g, b) in found {
         let mut key = Vec::new();
         if let Some(p) = p {
             key.push(0);
@@ -132,6 +150,10 @@ pub fn snapshot(app: &mut App) -> Vec<u8> {
                 GroundPart::Body => 0,
                 GroundPart::Outline => 1,
             });
+        }
+        if let Some(b) = b {
+            key.push(5);
+            key.extend_from_slice(&b.stream.to_le_bytes());
         }
         let mut body = Vec::new();
         let mut family = vec![entity];

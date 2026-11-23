@@ -29,3 +29,11 @@ p95_ms=..`), and the program prints one `field size=.. slowest_p95_ms=..` line a
 turns on `x11` and not `wayland`, so on a Wayland desktop it runs under XWayland.
 
 The measured frame times are added with the trial.
+
+## How marks are drawn
+
+With full motion, the marks of one stream are one mesh on one entity (`MarkBatch`), not one entity a mark. Every
+vertex carries its mark's path and start time, and one small vertex shader (`src/plugin/marks.wesl`, embedded in the
+crate; Bevy 0.20 reads shaders in the WESL dialect of WGSL) finds where each mark is from a clock the plugin writes
+once a frame. A mark outside its travel window is moved out of view. The shader needs no Bevy feature beyond
+`bevy_pbr`. `mark_batch_mesh` builds the mesh. With reduced motion nothing changes: one still line of paths per stream.

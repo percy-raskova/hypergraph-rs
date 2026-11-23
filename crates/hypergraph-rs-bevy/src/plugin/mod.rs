@@ -7,6 +7,7 @@
 //! `.after(FieldSystems::Animate)`.
 
 mod ground;
+mod mark_material;
 mod marks;
 mod particles;
 mod sets;
@@ -23,6 +24,10 @@ use crate::ground::Ground;
 use crate::motion::{BeatClock, Phase};
 use crate::palette::Palette;
 use crate::style::{FieldStyles, Glyph};
+use mark_material::MarkMaterial;
+use marks::MarkStores;
+
+pub use mark_material::mark_batch_mesh;
 
 /// The two sets of systems, both in `Update`, in this order.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -71,6 +76,9 @@ pub struct SetId(pub String);
 
 /// Which mark this is: its stream, its flow's index in the frame, and its
 /// number within the flow.
+///
+/// Marks moved by the shader are not entities and carry no `MarkOf`; see
+/// [`MarkBatch`].
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MarkOf {
     /// The stream.
@@ -79,6 +87,15 @@ pub struct MarkOf {
     pub flow: usize,
     /// The mark's number within its flow.
     pub k: u32,
+}
+
+/// The one entity that holds all of a stream's marks, moved by a clock in a
+/// shader. It lives from the frame's acceptance until the beats rest, and
+/// is shown only in its stream's beat. A stream with no marks has none.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MarkBatch {
+    /// The stream.
+    pub stream: u16,
 }
 
 /// The lines drawn for a stream's paths. A stream with no drawn flows still gets
@@ -129,7 +146,9 @@ impl FieldPlugin {
 
 impl Plugin for FieldPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(self.config.clone())
+        mark_material::embed_shader(app);
+        app.add_plugins(MaterialPlugin::<MarkMaterial>::default())
+            .insert_resource(self.config.clone())
             .insert_resource(self.styles.clone())
             .insert_resource(self.palette.clone())
             .insert_resource(BeatClock::default())
@@ -337,7 +356,8 @@ fn install_frame(
     grounds: Query<&Ground>,
     assets: Res<FieldAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    old_marks: Query<Entity, Or<(With<MarkOf>, With<PathLines>)>>,
+    mut mark_materials: ResMut<Assets<MarkMaterial>>,
+    old_marks: Query<Entity, Or<(With<MarkBatch>, With<PathLines>)>>,
     mut commands: Commands,
     mut picture: ResMut<Picture>,
     mut clock: ResMut<BeatClock>,
@@ -367,7 +387,10 @@ fn install_frame(
                 }
                 marks::spawn_marks(
                     &mut commands,
-                    &mut meshes,
+                    &mut MarkStores {
+                        meshes: &mut meshes,
+                        materials: &mut mark_materials,
+                    },
                     &assets,
                     &styles,
                     &config,
@@ -393,7 +416,10 @@ fn install_frame(
             }
             marks::spawn_marks(
                 &mut commands,
-                &mut meshes,
+                &mut MarkStores {
+                    meshes: &mut meshes,
+                    materials: &mut mark_materials,
+                },
                 &assets,
                 &styles,
                 &config,

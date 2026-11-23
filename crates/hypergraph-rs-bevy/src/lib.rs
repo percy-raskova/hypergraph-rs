@@ -13,8 +13,9 @@
 //! the clock and curves that move marks through a beat, and the frame a caller
 //! hands over once per period, with sets read from a hypergraph, and the
 //! plugin that plays each period in beats: the ground, the particles, the sets
-//! and the marks (or, with reduced motion, still lines of their paths), and a
-//! sampler of frame intervals for measuring.
+//! and the marks (one mesh a stream, moved by a clock in a shader; or, with
+//! reduced motion, still lines of their paths), and a sampler of frame
+//! intervals for measuring.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
@@ -44,8 +45,8 @@ pub use lines::{dashed, hatch_segments, outline_paths, plan_to_scene, ribbon_mes
 pub use motion::{eased, mark_position, mark_start, smoothstep, BeatClock, Phase};
 pub use palette::Palette;
 pub use plugin::{
-    FieldPlugin, FieldSystems, FrameRefused, GroundPart, MarkOf, ParticleId, PathLines,
-    ReplayPeriod, SetChanged, SetId, ShowPeriod,
+    mark_batch_mesh, FieldPlugin, FieldSystems, FrameRefused, GroundPart, MarkBatch, MarkOf,
+    ParticleId, PathLines, ReplayPeriod, SetChanged, SetId, ShowPeriod,
 };
 pub use style::{
     FieldStyles, Glyph, Hatch, HatchDirection, LineStyle, ParticleStyle, SetStyle, StreamStyle,

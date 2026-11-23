@@ -1,15 +1,19 @@
-//! Marks: one entity per mark, moving along its flow's path during its
-//! stream's beat; or, with reduced motion, one still line of paths per stream.
+//! Marks: one batch entity per stream, its marks moved by a clock in a
+//! shader during the stream's beat; or, with reduced motion, one still line of
+//! paths per stream.
 
 use bevy::asset::RenderAssetUsages;
+use bevy::camera::visibility::NoFrustumCulling;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 
-use super::{phase_now, FieldAssets, MarkOf, PathLines};
+use super::mark_material::{mark_batch_mesh, MarkMaterial, MarkParams};
+use super::{phase_now, FieldAssets, MarkBatch, PathLines};
 use crate::config::{FieldConfig, Motion};
 use crate::flows::{DrawnFlow, Flow};
-use crate::motion::{mark_position, mark_start, BeatClock, Phase};
-use crate::style::{FieldStyles, Glyph};
+use crate::motion::{mark_position, BeatClock, Phase};
+use crate::palette::Palette;
+use crate::style::FieldStyles;
 
 /// How many pieces a path line is cut into, so `u = 0, 1/8, ..., 1`.
 const PATH_STEPS: u32 = 8;
@@ -18,24 +22,15 @@ const PATH_WIDTH: f32 = 0.25;
 /// The side a reduced-motion path line bows to (marks alternate by `k`).
 const PATH_SIDE: f32 = 1.0;
 
-/// What a mark needs to move, fixed when it is spawned.
+/// What a stream's batch needs to be shown in its beat, fixed when spawned.
 #[derive(Component, Clone, Copy, Debug)]
-pub(crate) struct MarkRun {
-    from: Vec3,
-    to: Vec3,
-    /// The beat in which it moves.
+pub(crate) struct BatchRun {
+    /// The beat in which its marks move.
     beat: usize,
     /// The length of that beat, in seconds.
     beat_secs: f32,
-    /// When it starts inside the beat, in seconds.
-    start: f32,
-    /// How long it travels, in seconds.
-    tau: f32,
-    bow: f32,
-    /// `+1` for even `k`, `-1` for odd, so two marks of one path do not share a line.
-    side: f32,
-    /// Whether it is turned along its motion.
-    streak: bool,
+    /// The stream's swatch.
+    swatch: u16,
 }
 
 /// One flat quad per pair of samples, offset across the segment in `xz`, each
@@ -74,11 +69,17 @@ fn path_ribbon(paths: &[Vec<Vec3>], width: f32) -> Mesh {
     mesh
 }
 
-/// Spawns the period's marks (full motion) or path lines (reduced), all
+/// The asset stores a frame's marks are added to.
+pub(super) struct MarkStores<'a> {
+    pub meshes: &'a mut Assets<Mesh>,
+    pub materials: &'a mut Assets<MarkMaterial>,
+}
+
+/// Spawns the period's mark batches (full motion) or path lines (reduced), all
 /// hidden. The caller has already despawned the last period's.
 pub(super) fn spawn_marks(
     commands: &mut Commands,
-    meshes: &mut Assets<Mesh>,
+    stores: &mut MarkStores<'_>,
     assets: &FieldAssets,
     styles: &FieldStyles,
     config: &FieldConfig,
@@ -87,44 +88,39 @@ pub(super) fn spawn_marks(
 ) {
     match config.motion {
         Motion::Full => {
-            for d in drawn {
-                let style = &styles.streams[usize::from(d.stream)];
-                let glyph = if d.hollow { style.hollow } else { style.full };
-                let (Some(mesh), Some(material)) = (
-                    assets.glyphs.get(&glyph),
-                    assets.swatches.get(usize::from(style.swatch)),
-                ) else {
+            for (s, style) in styles.streams.iter().enumerate() {
+                let stream = s as u16;
+                if !drawn.iter().any(|d| d.stream == stream && d.marks > 0) {
                     continue;
-                };
-                let flow = &flows[d.flow];
-                let beat = config.beats[style.beat];
-                let tau = config.mark_travel * beat.as_secs_f32();
-                for k in 0..d.marks {
-                    let start =
-                        mark_start(d.flow, k, d.marks, beat, config.mark_travel).as_secs_f32();
-                    commands.spawn((
-                        MarkOf {
-                            stream: d.stream,
-                            flow: d.flow,
-                            k,
-                        },
-                        MarkRun {
-                            from: flow.from,
-                            to: flow.to,
-                            beat: style.beat,
-                            beat_secs: beat.as_secs_f32(),
-                            start,
-                            tau,
-                            bow: config.bow,
-                            side: if k % 2 == 0 { 1.0 } else { -1.0 },
-                            streak: glyph == Glyph::Streak,
-                        },
-                        Mesh3d(mesh.clone()),
-                        MeshMaterial3d(material.clone()),
-                        Transform::from_translation(flow.from).with_scale(Vec3::splat(style.size)),
-                        Visibility::Hidden,
-                    ));
                 }
+                let beat = config.beats[style.beat];
+                let beat_secs = beat.as_secs_f32();
+                let params = MarkParams {
+                    clock: 0.0,
+                    bow: config.bow,
+                    travel: config.mark_travel * beat_secs,
+                    unused: 0.0,
+                    colour: Vec4::ZERO,
+                };
+                commands.spawn((
+                    MarkBatch { stream },
+                    BatchRun {
+                        beat: style.beat,
+                        beat_secs,
+                        swatch: style.swatch,
+                    },
+                    Mesh3d(stores.meshes.add(mark_batch_mesh(
+                        flows,
+                        drawn,
+                        &styles.streams,
+                        config,
+                        stream,
+                    ))),
+                    MeshMaterial3d(stores.materials.add(MarkMaterial { params })),
+                    Transform::IDENTITY,
+                    NoFrustumCulling,
+                    Visibility::Hidden,
+                ));
             }
         }
         Motion::Reduced => {
@@ -148,7 +144,11 @@ pub(super) fn spawn_marks(
                     .collect();
                 commands.spawn((
                     PathLines { stream },
-                    Mesh3d(meshes.add(path_ribbon(&paths, style.size * PATH_WIDTH))),
+                    Mesh3d(
+                        stores
+                            .meshes
+                            .add(path_ribbon(&paths, style.size * PATH_WIDTH)),
+                    ),
                     MeshMaterial3d(material.clone()),
                     Visibility::Hidden,
                 ));
@@ -163,8 +163,9 @@ fn set_visibility(visibility: &mut Visibility, to: Visibility) {
     }
 }
 
-/// Moves marks through their stream's beat, shows path lines in theirs, and
-/// despawns both when the clock comes to rest. Nothing while resting.
+/// Shows each batch in its stream's beat and writes its clock, shows path
+/// lines in theirs, and despawns both when the clock comes to rest. Nothing
+/// while resting.
 #[allow(
     clippy::too_many_arguments,
     reason = "a Bevy system names every resource it reads"
@@ -173,10 +174,20 @@ pub(super) fn animate_marks(
     mut commands: Commands,
     config: Res<FieldConfig>,
     styles: Res<FieldStyles>,
+    palette: Res<Palette>,
     clock: Res<BeatClock>,
     time: Res<Time>,
-    mut marks: Query<(Entity, &MarkRun, &mut Transform, &mut Visibility), Without<PathLines>>,
-    mut lines: Query<(Entity, &PathLines, &mut Visibility), Without<MarkRun>>,
+    mut materials: ResMut<Assets<MarkMaterial>>,
+    mut batches: Query<
+        (
+            Entity,
+            &BatchRun,
+            &MeshMaterial3d<MarkMaterial>,
+            &mut Visibility,
+        ),
+        Without<PathLines>,
+    >,
+    mut lines: Query<(Entity, &PathLines, &mut Visibility), Without<BatchRun>>,
     mut rested: Local<bool>,
 ) {
     let phase = phase_now(&clock, &time, &config);
@@ -186,7 +197,7 @@ pub(super) fn animate_marks(
     }
     *rested = resting;
     let Phase::Beat { index, fraction } = phase else {
-        for (entity, ..) in &marks {
+        for (entity, ..) in &batches {
             commands.entity(entity).despawn();
         }
         for (entity, ..) in &lines {
@@ -194,27 +205,16 @@ pub(super) fn animate_marks(
         }
         return;
     };
-    for (_, run, mut transform, mut visibility) in &mut marks {
+    for (_, run, material, mut visibility) in &mut batches {
         if run.beat != index {
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
         }
-        let s = fraction * run.beat_secs - run.start;
-        if !(s >= 0.0 && s < run.tau) {
-            set_visibility(&mut visibility, Visibility::Hidden);
-            continue;
-        }
-        let at = |u: f32| mark_position(run.from, run.to, u, run.bow, run.side);
-        let position = at(s / run.tau);
-        if run.streak {
-            let behind = at(((s - run.tau / 50.0) / run.tau).max(0.0));
-            let (dx, dz) = (position.x - behind.x, position.z - behind.z);
-            if dx != 0.0 || dz != 0.0 {
-                transform.rotation = Quat::from_rotation_y((-dz).atan2(dx));
+        if let Some(mut m) = materials.get_mut(&material.0) {
+            m.params.clock = fraction * run.beat_secs;
+            if let Some(colour) = palette.swatch(run.swatch) {
+                m.params.colour = LinearRgba::from(colour).to_vec4();
             }
-        }
-        if transform.translation != position {
-            transform.translation = position;
         }
         set_visibility(&mut visibility, Visibility::Visible);
     }
