@@ -11,7 +11,8 @@
 //! the pure line functions (paths, hatching, dashes and ribbons) and the glyph
 //! meshes, the ground in its two forms, the choice of which flows are drawn,
 //! the clock and curves that move marks through a beat, and the frame a caller
-//! hands over once per period, with sets read from a hypergraph.
+//! hands over once per period, with sets read from a hypergraph, and the
+//! plugin that plays each period in beats: the ground and the particles.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
@@ -24,6 +25,7 @@ mod ground;
 mod lines;
 mod motion;
 mod palette;
+mod plugin;
 mod style;
 
 pub use config::{FieldConfig, Motion};
@@ -37,6 +39,10 @@ pub use ground::{Ground, GroundForm, GroundTopology, RegionShape};
 pub use lines::{dashed, hatch_segments, outline_paths, plan_to_scene, ribbon_mesh};
 pub use motion::{eased, mark_position, mark_start, smoothstep, BeatClock, Phase};
 pub use palette::Palette;
+pub use plugin::{
+    FieldPlugin, FieldSystems, FrameRefused, GroundPart, MarkOf, ParticleId, PathLines,
+    ReplayPeriod, SetChanged, SetId, ShowPeriod,
+};
 pub use style::{
     FieldStyles, Glyph, Hatch, HatchDirection, LineStyle, ParticleStyle, SetStyle, StreamStyle,
 };
