@@ -109,7 +109,8 @@ impl GroundTopology {
     ///
     /// [`FieldError::DuplicateId`] for a repeated id,
     /// [`FieldError::NonFinite`] for a coordinate that is `NaN` or infinite,
-    /// and [`FieldError::BadShape`] for a region with no triangles.
+    /// and [`FieldError::BadShape`] for a region with no triangles or a ring of
+    /// fewer than 2 points.
     pub fn new(shapes: &[RegionShape], form: GroundForm) -> Result<Self, FieldError> {
         let mut index = BTreeMap::new();
         for (i, shape) in shapes.iter().enumerate() {
@@ -131,6 +132,12 @@ impl GroundTopology {
                 return Err(FieldError::BadShape {
                     region: shape.id.clone(),
                     problem: "no triangles",
+                });
+            }
+            if shape.rings.iter().any(|ring| ring.len() < 2) {
+                return Err(FieldError::BadShape {
+                    region: shape.id.clone(),
+                    problem: "a ring has fewer than 2 points",
                 });
             }
         }
@@ -184,9 +191,6 @@ impl GroundTopology {
                 let mut edges = Vec::new();
                 for ring in &shape.rings {
                     let n = ring.len();
-                    if n < 2 {
-                        continue;
-                    }
                     for i in 0..n {
                         let (from, to) = (ring[i], ring[(i + 1) % n]);
                         edges.push(Edge {
@@ -387,10 +391,12 @@ impl GroundTopology {
     pub fn outline_mesh(&self, heights: &[f32], lift: f32) -> Mesh {
         self.check(heights, None);
         let mut mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default());
+        let positions = self.outline_positions(heights, lift);
         mesh.insert_attribute(
-            Mesh::ATTRIBUTE_POSITION,
-            self.outline_positions(heights, lift),
+            Mesh::ATTRIBUTE_NORMAL,
+            vec![[0.0, 1.0, 0.0]; positions.len()],
         );
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh
     }
 
@@ -402,9 +408,11 @@ impl GroundTopology {
     /// If `heights` is not [`region_count`](Self::region_count) long.
     pub fn write_outline(&self, mesh: &mut Mesh, heights: &[f32], lift: f32) {
         self.check(heights, None);
+        let positions = self.outline_positions(heights, lift);
         mesh.insert_attribute(
-            Mesh::ATTRIBUTE_POSITION,
-            self.outline_positions(heights, lift),
+            Mesh::ATTRIBUTE_NORMAL,
+            vec![[0.0, 1.0, 0.0]; positions.len()],
         );
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     }
 }

@@ -129,6 +129,9 @@ fn writing_in_place_equals_building_anew() {
         topo.write_outline(&mut o, &[2.0, -1.0], 0.004);
         let fresh = topo.outline_mesh(&[2.0, -1.0], 0.004);
         assert_eq!(bits3(&positions(&o)), bits3(&positions(&fresh)));
+        assert_eq!(bits3(&normals(&o)), bits3(&normals(&fresh)));
+        assert_eq!(normals(&o).len(), positions(&o).len());
+        assert!(normals(&o).iter().all(|n| *n == [0.0, 1.0, 0.0]));
     }
 }
 
@@ -165,6 +168,20 @@ fn bad_shapes_are_refused() {
         FieldError::BadShape {
             region: "a".to_string(),
             problem: "no triangles"
+        }
+    );
+}
+
+#[test]
+fn a_ring_of_one_point_is_refused() {
+    let mut s = square("a", 0.0);
+    s.rings.push(vec![(0.0, 0.0)]);
+    let err = GroundTopology::new(&[s], GroundForm::Blocks).unwrap_err();
+    assert_eq!(
+        err,
+        FieldError::BadShape {
+            region: "a".to_string(),
+            problem: "a ring has fewer than 2 points"
         }
     );
 }
