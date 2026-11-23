@@ -43,6 +43,9 @@ pub enum FieldSystems {
 ///
 /// If several arrive in one update, only the last is taken; the earlier ones
 /// are dropped.
+///
+/// The first frame accepted has no earlier picture to ease from, so it
+/// stands from its first beat; every later frame eases in the ease beat.
 #[derive(Message, Clone, Debug)]
 pub struct ShowPeriod(pub Box<FieldFrame>);
 
@@ -264,7 +267,7 @@ fn refresh_materials(
 }
 
 /// A frame with its regions and particles found by id.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct Indexed {
     pub frame: FieldFrame,
     regions: BTreeMap<String, usize>,
@@ -397,8 +400,14 @@ fn install_frame(
                     &frame.flows,
                     &drawn,
                 );
-                picture.previous = settled;
-                picture.current = Indexed::new(frame);
+                // The first frame has no earlier picture to ease from: it is
+                // its own previous one, so it stands from its first beat.
+                // Particles, sets and the ground all read `previous`, so the
+                // rule lives only here.
+                let first = !picture.accepted;
+                let indexed = Indexed::new(frame);
+                picture.previous = if first { indexed.clone() } else { settled };
+                picture.current = indexed;
                 picture.accepted = true;
                 picture.motion = config.motion;
                 clock.start(time.elapsed(), period);

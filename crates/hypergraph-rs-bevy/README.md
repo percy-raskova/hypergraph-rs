@@ -27,6 +27,9 @@ cargo run -p hypergraph-rs-bevy --release --example field
 With `--large` it draws the measured world instead: 3,168 regions, 25,000 particles, six sets and about 30,000 marks
 a beat. That world is there to load the plugin, not to be read.
 
+The first frame shown has no earlier picture to ease from, so it stands from its first beat; every later frame eases
+in the ease beat.
+
 The view is from one side and above, with no perspective, so sizes compare across the field. The ground's material is
 lit, so the example gives it light from everywhere as well as one direct light; without the first, a slope that faces
 away goes black. The hills are kept low on purpose: a set's outline and a mark's path are flat, so they sit a little
