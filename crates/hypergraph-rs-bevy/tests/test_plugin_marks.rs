@@ -8,9 +8,10 @@ use bevy::prelude::*;
 use common::{advance_to, field_app, snapshot};
 use hypergraph_rs::geometry::{Outline, Point};
 use hypergraph_rs_bevy::{
-    glyph_mesh, BeatClock, FieldConfig, FieldFrame, FieldStyles, Flow, FlowReport, Glyph, Ground,
-    GroundForm, LineStyle, MarkBatch, Motion, Palette, ParticleFrame, ParticleStyle, PathLines,
-    Phase, RegionReading, RegionShape, ReplayPeriod, SetFrame, SetStyle, ShowPeriod, StreamStyle,
+    glyph_mesh, mark_position, BeatClock, FieldConfig, FieldFrame, FieldStyles, Flow, FlowReport,
+    Glyph, Ground, GroundForm, LineStyle, MarkBatch, Motion, Palette, ParticleFrame, ParticleStyle,
+    PathLines, Phase, RegionReading, RegionShape, ReplayPeriod, SetFrame, SetStyle, ShowPeriod,
+    StreamStyle,
 };
 use std::num::NonZeroU64;
 
@@ -299,36 +300,101 @@ fn hollow_flows_get_the_hollow_glyph() {
 #[test]
 fn a_batch_lies_on_its_path() {
     let mut app = app_with(Motion::Full, styles());
-    send(&mut app, frame(1, vec![flow(0, 6, false)]));
-    let world = app.world_mut();
-    let mut q = world.query::<(&MarkBatch, &Mesh3d, &Transform)>();
-    let found: Vec<_> = q.iter(world).map(|(_, h, t)| (h.0.clone(), *t)).collect();
-    assert_eq!(found.len(), 1);
-    assert_eq!(found[0].1, Transform::IDENTITY);
-    let mesh = world.resource::<Assets<Mesh>>().get(&found[0].0).unwrap();
-    let attr = |name: &str| -> Vec<Vec<f32>> {
-        match mesh.attributes().find(|(a, _)| a.name == name) {
-            Some((_, VertexAttributeValues::Float32x3(v))) => {
-                v.iter().map(|c| c.to_vec()).collect()
-            }
-            Some((_, VertexAttributeValues::Float32x4(v))) => {
-                v.iter().map(|c| c.to_vec()).collect()
-            }
-            other => panic!("{name}: {other:?}"),
-        }
+    let t0 = send(&mut app, frame(1, vec![flow(0, 6, false)]));
+    let (mesh_handle, entity) = {
+        let world = app.world_mut();
+        let mut q = world.query::<(Entity, &MarkBatch, &Mesh3d, &Transform)>();
+        let found: Vec<_> = q
+            .iter(world)
+            .map(|(e, _, h, t)| (e, h.0.clone(), *t))
+            .collect();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].2, Transform::IDENTITY);
+        (found[0].1.clone(), found[0].0)
     };
-    assert!(attr("Mark_From").iter().all(|f| f == &[0.0, 0.0, 0.0]));
-    assert!(attr("Mark_To").iter().all(|t| t == &[10.0, 0.0, 0.0]));
-    let timing = attr("Mark_Timing");
+    let (marks_vec, per_mark) = {
+        let world = app.world();
+        let mesh = world.resource::<Assets<Mesh>>().get(&mesh_handle).unwrap();
+        let attr = |name: &str| -> Vec<Vec<f32>> {
+            match mesh.attributes().find(|(a, _)| a.name == name) {
+                Some((_, VertexAttributeValues::Float32x3(v))) => {
+                    v.iter().map(|c| c.to_vec()).collect()
+                }
+                Some((_, VertexAttributeValues::Float32x4(v))) => {
+                    v.iter().map(|c| c.to_vec()).collect()
+                }
+                other => panic!("{name}: {other:?}"),
+            }
+        };
+        assert!(attr("Mark_From").iter().all(|f| f == &[0.0, 0.0, 0.0]));
+        assert!(attr("Mark_To").iter().all(|t| t == &[10.0, 0.0, 0.0]));
+        let timing = attr("Mark_Timing");
+        let per_mark = mesh_positions(&glyph_mesh(Glyph::Disc, 16)).len();
+        assert_eq!(timing.len(), 6 * per_mark, "six marks of one glyph each");
+        let mut marks_vec: Vec<(f32, f32)> = Vec::new();
+        let (mut above, mut below) = (false, false);
+        for group in timing.chunks(per_mark) {
+            assert!(group.iter().all(|t| t == &group[0]), "one mark, one timing");
+            let t = &group[0];
+            // a mark starts in the beat and arrives before it ends
+            assert!((0.0..1.0 - 0.4).contains(&t[0]), "{t:?}");
+            above |= t[1] > 0.0;
+            below |= t[1] < 0.0;
+            assert_eq!(t[2], 0.2);
+            marks_vec.push((t[0], t[1]));
+        }
+        assert!(above && below, "marks must alternate sides");
+        (marks_vec, per_mark)
+    };
+    assert!(per_mark > 0);
+    let (bow, tau) = {
+        let c = app.world().resource::<FieldConfig>();
+        (c.bow, c.mark_travel * c.beats[0].as_secs_f32())
+    };
+    let from = Vec3::ZERO;
+    let to = Vec3::new(10.0, 0.0, 0.0);
+    let mut inside = 0;
     let (mut above, mut below) = (false, false);
-    for t in &timing {
-        // a mark starts in the beat and arrives before it ends
-        assert!((0.0..1.0 - 0.4).contains(&t[0]), "{t:?}");
-        above |= t[1] > 0.0;
-        below |= t[1] < 0.0;
-        assert_eq!(t[2], 0.2);
+    let mut at = t0;
+    while at < t0 + secs(1.2) {
+        at += Duration::from_millis(10);
+        advance_to(&mut app, at);
+        let (index, fraction) = {
+            let w = app.world();
+            let c = w.resource::<FieldConfig>();
+            match w
+                .resource::<BeatClock>()
+                .phase(w.resource::<Time>().elapsed(), &c.beats)
+            {
+                Phase::Beat { index, fraction } => (index, fraction),
+                Phase::Resting => continue,
+            }
+        };
+        let shown = app
+            .world()
+            .get::<Visibility>(entity)
+            .is_some_and(|v| *v == Visibility::Visible);
+        if index != 0 {
+            assert!(!shown, "the batch is shown only in its own beat");
+            continue;
+        }
+        assert!(shown, "the batch is shown in its beat");
+        let t = fraction * 1.0;
+        for &(start, side) in &marks_vec {
+            let age = t - start;
+            if !(0.0..tau).contains(&age) {
+                continue;
+            }
+            inside += 1;
+            let p = mark_position(from, to, age / tau, bow, side);
+            assert!(p.z.abs() <= 0.8 + 1e-4, "{p:?}");
+            assert!((0.0..=10.0).contains(&p.x), "{p:?}");
+            above |= p.z > 1e-4;
+            below |= p.z < -1e-4;
+        }
     }
-    assert!(above && below, "marks must alternate sides");
+    assert!(inside > 0, "some mark must be in flight while shown");
+    assert!(above && below, "marks must fall on both sides of the path");
 }
 
 #[test]

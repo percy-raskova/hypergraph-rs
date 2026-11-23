@@ -109,12 +109,14 @@ fn glyph_data(glyph: Glyph) -> GlyphData {
     let mesh = glyph_mesh(glyph, GLYPH_SEGMENTS);
     let positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
         Some(bevy::mesh::VertexAttributeValues::Float32x3(p)) => p.clone(),
-        _ => Vec::new(),
+        other => panic!("glyph {glyph:?} has no Float32x3 positions: {other:?}"),
     };
     let indices = mesh
         .indices()
-        .map(|i| i.iter().map(|v| v as u32).collect())
-        .unwrap_or_default();
+        .unwrap_or_else(|| panic!("glyph {glyph:?} has no indices"))
+        .iter()
+        .map(|v| v as u32)
+        .collect();
     GlyphData { positions, indices }
 }
 
@@ -155,7 +157,8 @@ pub fn mark_batch_mesh(
             for k in 0..d.marks {
                 let start = mark_start(d.flow, k, d.marks, beat, config.mark_travel).as_secs_f32();
                 let side = if k % 2 == 0 { 1.0 } else { -1.0 };
-                let base = positions.len() as u32;
+                let base =
+                    u32::try_from(positions.len()).expect("a batch holds fewer than 2^32 vertices");
                 for p in &data.positions {
                     positions.push(*p);
                     from.push(flow.from.to_array());
