@@ -13,7 +13,8 @@
 //! the clock and curves that move marks through a beat, and the frame a caller
 //! hands over once per period, with sets read from a hypergraph, and the
 //! plugin that plays each period in beats: the ground, the particles, the sets
-//! and the marks (or, with reduced motion, still lines of their paths).
+//! and the marks (or, with reduced motion, still lines of their paths), and a
+//! sampler of frame intervals for measuring.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
@@ -21,6 +22,7 @@ mod config;
 mod error;
 mod flows;
 mod frame;
+mod frame_windows;
 mod glyph;
 mod ground;
 mod lines;
@@ -35,6 +37,7 @@ pub use flows::{select_flows, DrawnFlow, Flow, FlowReport, StreamReport};
 pub use frame::{
     diff_sets, set_frames, FieldFrame, ParticleFrame, RegionReading, SetChange, SetFrame,
 };
+pub use frame_windows::{FrameWindows, WindowStats};
 pub use glyph::glyph_mesh;
 pub use ground::{Ground, GroundForm, GroundTopology, RegionShape};
 pub use lines::{dashed, hatch_segments, outline_paths, plan_to_scene, ribbon_mesh};
