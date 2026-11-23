@@ -8,6 +8,7 @@
 
 mod ground;
 mod particles;
+mod sets;
 
 use bevy::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -133,6 +134,7 @@ impl Plugin for FieldPlugin {
             .insert_resource(FlowReport::default())
             .init_resource::<Picture>()
             .init_resource::<particles::ParticleEntities>()
+            .init_resource::<sets::SetEntities>()
             .add_message::<ShowPeriod>()
             .add_message::<ReplayPeriod>()
             .add_message::<FrameRefused>()
@@ -149,7 +151,11 @@ impl Plugin for FieldPlugin {
             )
             .add_systems(
                 Update,
-                (ground::animate_ground, particles::animate_particles)
+                (
+                    ground::animate_ground,
+                    particles::animate_particles,
+                    sets::animate_sets,
+                )
                     .chain()
                     .in_set(FieldSystems::Animate),
             );
